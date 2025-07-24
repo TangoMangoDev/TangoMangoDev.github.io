@@ -1,47 +1,35 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Yahoo Fantasy Login</title>
-  </head>
-  <body>
-    <h2>Logging you in with Yahoo...</h2>
+<head><title>Yahoo Fantasy Auth</title></head>
+<body>
+  <h2>Authorizing with Yahoo...</h2>
+  <script>
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
 
-    <script>
-      // Step 1: Yahoo sends the access_token in the URL hash after login
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get("access_token");
-
-      if (accessToken) {
-        document.body.innerHTML = "<p>Access granted. Fetching team data...</p>";
-
-        // Step 2: Send access_token to your backend (Google Apps Script or another endpoint)
-        fetch("https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ access_token: accessToken })
-        })
-        .then(res => res.json())
-        .then(data => {
-          console.log("Success:", data);
-          document.body.innerHTML = `<h3>Team Roster:</h3><ul>${
-            data.playerNames.map(p => `<li>${p}</li>`).join("")
-          }</ul>`;
-        })
-        .catch(err => {
-          console.error("Error fetching roster:", err);
-          document.body.innerHTML = "Error retrieving roster.";
-        });
-
-      } else {
-        const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
-        const redirectUri = "https://tangomangodev.github.io/oauth.html";
-        const scope = "fspt-w";
-        const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&language=en-us&scope=${scope}`;
-        window.location = authUrl;
-      }
-    </script>
-  </body>
+    if (accessToken) {
+      fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXWPkChBl1f0WO5QhMz2oP-pqNEbE4bKlQks5_Q/exec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: accessToken })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const url = `/fantasy/${data.rosterId}.html`;
+        document.body.innerHTML = `<p>Success! <a href="${url}">View your team</a></p>`;
+      })
+      .catch(err => {
+        document.body.innerHTML = "Error syncing data.";
+        console.error(err);
+      });
+    } else {
+      const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
+      const redirectUri = "https://tangomangodev.github.io/oauth.html";
+      const scope = "fspt-r";
+      const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
+      window.location.href = authUrl;
+    }
+  </script>
+</body>
 </html>
