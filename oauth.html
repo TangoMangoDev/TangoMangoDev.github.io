@@ -16,13 +16,15 @@
             "Content-Type": "application/x-www-form-urlencoded"
           }
         })
-.then(async (res) => {
-  const contentType = res.headers.get("Content-Type");
-  const isJson = contentType && contentType.includes("application/json");
+.then(res => res.text())
+.then(raw => {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("Invalid JSON response: " + raw);
+  }
 
-  const data = isJson ? await res.json() : await res.text();
-
-  if (!isJson) throw new Error("Non-JSON response: " + data);
   if (data.success) {
     const url = `/fantasy/${data.rosterId}.html`;
     document.body.innerHTML = `<p>✅ Success! <a href="${url}">View your team</a></p>`;
@@ -30,6 +32,7 @@
     throw new Error(data.error || "Unknown error");
   }
 })
+
 .catch(err => {
   document.body.innerHTML = "<p>❌ Error syncing data: " + err.message + "</p>";
 });
