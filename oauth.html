@@ -6,6 +6,19 @@
     <script>
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      // Utility function to convert raw query string (like "code=abc123&foo=bar") into JS object
+function parseQueryStringToJson(queryString) {
+  queryString = queryString.trim().replace(/^\?/, '');
+  const pairs = queryString.split('&');
+  const result = {};
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (key) {
+      result[decodeURIComponent(key)] = decodeURIComponent(value || '');
+    }
+  }
+  return result;
+}
 
       if (code) {
         // ✅ Send code to Apps Script backend using simple POST to avoid CORS
@@ -45,51 +58,6 @@
         const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
         window.location.href = authUrl;
       }
-
-      // Utility function to convert raw query string (like "code=abc123&foo=bar") into JS object
-function parseQueryStringToJson(queryString) {
-  queryString = queryString.trim().replace(/^\?/, '');
-  const pairs = queryString.split('&');
-  const result = {};
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (key) {
-      result[decodeURIComponent(key)] = decodeURIComponent(value || '');
-    }
-  }
-  return result;
-}
-
-// Your fetch call to Google Apps Script
-fetch("https://script.google.com/macros/s/your-script-id/exec", {
-  method: "POST",
-  body: new URLSearchParams({ code }),  // Sending code as urlencoded form data
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded"
-  }
-})
-.then(res => res.text())  // Get raw response text first
-.then(raw => {
-  let data;
-
-  try {
-    // Try parse as JSON
-    data = JSON.parse(raw);
-  } catch {
-    // If JSON.parse fails, try parse as query string instead
-    data = parseQueryStringToJson(raw);
-  }
-
-  if (data.success) {
-    document.body.innerHTML = `<p>✅ Success! Your roster ID is: ${data.rosterId}</p>`;
-  } else {
-    document.body.innerHTML = `<p>❌ Error syncing data: ${data.error || "Unknown error"}</p>`;
-  }
-})
-.catch(err => {
-  document.body.innerHTML = `<p>❌ Error syncing data: ${err.message}</p>`;
-});
-
     </script>
   </body>
 </html>
