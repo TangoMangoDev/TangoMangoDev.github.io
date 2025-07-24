@@ -40,17 +40,7 @@ fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXW
   })
   .catch(err => {
     document.body.innerHTML = `<p>❌ Error syncing data: ${err.message}</p>`;
-  });
-
-  if (data.success) {
-    document.body.innerHTML = `<p>✅ Success! Your roster ID is: ${data.rosterId}</p>`;
-  } else {
-    document.body.innerHTML = `<p>❌ Error syncing data: ${data.error || "Unknown error"}</p>`;
-  }
-})
-.catch(err => {
-  document.body.innerHTML = `<p>❌ Error syncing data: ${err.message}</p>`;
-});        
+  });      
       } else {
         // No code → redirect to Yahoo OAuth
         const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
