@@ -8,23 +8,28 @@
       const code = params.get("code");
 
       if (code) {
-        // Send the code to Apps Script backend to exchange for token + fetch data
+        // ✅ Send code to Apps Script backend using simple POST to avoid CORS
         fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXWPkChBl1f0WO5QhMz2oP-pqNEbE4bKlQks5_Q/exec", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code })
+          body: new URLSearchParams({ code }),
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          }
         })
         .then(res => res.json())
         .then(data => {
-          const url = `/fantasy/${data.rosterId}.html`;
-          document.body.innerHTML = `<p>Success! <a href="${url}">View your team</a></p>`;
+          if (data.success) {
+            const url = `/fantasy/${data.rosterId}.html`;
+            document.body.innerHTML = `<p>✅ Success! <a href="${url}">View your team</a></p>`;
+          } else {
+            throw new Error(data.error || "Unknown error");
+          }
         })
         .catch(err => {
-          document.body.innerHTML = "Error syncing data.";
-          console.error(err);
+          document.body.innerHTML = "<p>❌ Error syncing data: " + err.message + "</p>";
         });
       } else {
-        // Send to Yahoo Login (NEW: response_type=code)
+        // No code → redirect to Yahoo OAuth
         const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
         const redirectUri = "https://tangomangodev.github.io/oauth.html";
         const scope = "fspt-w";
@@ -35,3 +40,4 @@
     </script>
   </body>
 </html>
+
