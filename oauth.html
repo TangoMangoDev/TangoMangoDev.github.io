@@ -6,51 +6,36 @@
     <script>
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
-      // Utility function to convert raw query string (like "code=abc123&foo=bar") into JS object
-function parseQueryStringToJson(queryString) {
-  queryString = queryString.trim().replace(/^\?/, '');
-  const pairs = queryString.split('&');
-  const result = {};
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (key) {
-      result[decodeURIComponent(key)] = decodeURIComponent(value || '');
-    }
-  }
-  return result;
-}
-      if (code) {
-        // ✅ Send code to Apps Script backend using simple POST to avoid CORS
-        // Your fetch call to Google Apps Script
-fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXWPkChBl1f0WO5QhMz2oP-pqNEbE4bKlQks5_Q/exec?code=" + encodeURIComponent(code))
-  .then(res => res.text())
-  .then(raw => {
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      data = parseQueryStringToJson(raw);
-    }
 
-    if (data.success) {
-      document.body.innerHTML = `<p>✅ Success! Your roster ID is: ${data.rosterId}</p>`;
-    } else {
-      document.body.innerHTML = `<p>❌ Error syncing data: ${data.error || "Unknown error"}</p>`;
-    }
-  })
-  .catch(err => {
-    document.body.innerHTML = `<p>❌ Error syncing data: ${err.message}</p>`;
-  });      
+      if (code) {
+        fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXWPkChBl1f0WO5QhMz2oP-pqNEbE4bKlQks5_Q/exec", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ code }) // ✅ Send JSON payload
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            document.body.innerHTML = `<p>✅ Success! Your roster ID is: ${data.rosterId}</p>`;
+          } else {
+            document.body.innerHTML = `<p>❌ Error: ${data.error || 'Unknown error'}</p>`;
+          }
+        })
+        .catch(err => {
+          document.body.innerHTML = `<p>❌ Network error: ${err.message}</p>`;
+        });
       } else {
-        // No code → redirect to Yahoo OAuth
+        // Redirect to Yahoo OAuth if no code
         const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
         const redirectUri = "https://tangomangodev.github.io/oauth.html";
         const scope = "fspt-w";
-
         const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
         window.location.href = authUrl;
       }
     </script>
   </body>
 </html>
+
 
