@@ -1,42 +1,62 @@
 <!DOCTYPE html>
-<html>
-  <head><title>Yahoo Fantasy Auth</title></head>
-  <body>
-    <h2>Authorizing with Yahoo...</h2>
-    <script>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Yahoo Sign-In Complete</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f6fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+    }
+    .status {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Signing you in with Yahoo…</h1>
+  <div class="status" id="status">Please wait…</div>
+
+  <script>
+    async function completeYahooAuth() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
 
-      if (code) {
-        fetch("https://script.google.com/macros/s/AKfycbxLwnd8hV042RvZK_CBfXRUlxGDfdomXWPkChBl1f0WO5QhMz2oP-pqNEbE4bKlQks5_Q/exec", {
-          redirect: "follow",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ code }) // ✅ Send JSON payload
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            document.body.innerHTML = `<p>✅ Success! Your roster ID is: ${data.rosterId}</p>`;
-          } else {
-            document.body.innerHTML = `<p>❌ Error: ${data.error || 'Unknown error'}</p>`;
-          }
-        })
-        .catch(err => {
-          document.body.innerHTML = `<p>❌ Network error: ${err.message}</p>`;
-        });
-      } else {
-        // Redirect to Yahoo OAuth if no code
-        const clientId = "dj0yJmk9Q3pHdTVWNlhmNERxJmQ9WVdrOVlqZzFWWEZwV0ZnbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTFl";
-        const redirectUri = "https://mangodeploy.com/auth/yahoo/yauth.html";
-        const scope = "fspt-w";
-        const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
-        window.location.href = authUrl;
+      if (!code) {
+        document.getElementById("status").textContent = "Missing Yahoo authorization code.";
+        return;
       }
-    </script>
-  </body>
+
+      try {
+        const callbackUrl = `/auth/yahoo/callback?code=${encodeURIComponent(code)}`;
+        const res = await fetch(callbackUrl, {
+          method: "GET",
+          credentials: "include"
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Callback failed (${res.status}): ${text}`);
+        }
+
+        document.getElementById("status").textContent = "You're signed in. Redirecting…";
+        setTimeout(() => {
+          window.location.href = "https://stateezer.com/dashboard"; // change as needed
+        }, 1500);
+      } catch (err) {
+        document.getElementById("status").textContent = "Authentication failed. " + err.message;
+      }
+    }
+
+    completeYahooAuth();
+  </script>
+</body>
 </html>
-
-
