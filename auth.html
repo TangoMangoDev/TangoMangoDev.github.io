@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ColdBrueML</title>
+  <title>Mango Authentication</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- allow One-Tap popups + restrict connect-src to just what we need -->
   <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
   <meta http-equiv="Content-Security-Policy"
-        content="connect-src 'self' https://accounts.google.com https://secure.stateezer.com;">
+        content="connect-src 'self' https://accounts.google.com https://mangodeploy.com https://stateezer.com;">
 
   <!-- Load the One-Tap library -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -77,7 +77,7 @@
     <!-- future logo goes here -->
     <div class="logo-placeholder"></div>
 
-    <h1 class="app-name">ColdBrueML</h1>
+    <h1 class="app-name">Stateezer</h1>
     <p class="tagline">Sign in with Google or Yahoo. This is the way.</p>
 
     <!-- One-Tap UI placeholders (logic unchanged) -->
@@ -92,7 +92,7 @@
     
     <!-- Yahoo Authentication Button -->
     <div style="margin-top: 1rem;">
-      <button onclick="window.location.href='/secure/auth/yahoo?auth'" 
+      <button onclick="window.location.href='/auth/yauth'" 
               style="padding: 0.75rem 1.5rem; font-size: 1rem; border: none; border-radius: 4px; background: #6001d2; color: #fff; cursor: pointer;">
         Sign in with Yahoo
       </button>
@@ -108,7 +108,7 @@
       const authToken = response.credential;
 
       try {
-        const apiUrl = 'https://stateezer.com/secure/auth/google';
+        const apiUrl = 'https://mangodeploy.com/auth/gauth';
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -125,21 +125,9 @@
 
         const userStatusData = await res.json();
 
-        if (userStatusData.user_status === 'admin') {
-            window.location.href = '/secure/jobs';
-        } else {
-            window.location.href = '/app/dashboard';
-        }
-      } catch (err) {
-        console.error('Authentication error:', err);
-        alert('Sign-in failed; see console.');
-      }
-    }
-
     function initializeGSI() {
       google.accounts.id.prompt();
     }
-
     window.addEventListener('load', initializeGSI);
   </script>
 </body>
