@@ -166,37 +166,45 @@ class FantasyDashboard {
         this.elements.importResultsSection.classList.remove('hidden');
     }
     
-    createImportResultElement(result) {
-        const div = document.createElement('div');
-        div.className = 'imported-league';
-        
-        const teamsHtml = result.teams.map(team => `
-            <div class="team-card ${team.isOwned ? 'owned' : ''}">
-                <div class="team-name">${team.teamName}</div>
-                <div class="team-id">${team.teamId}</div>
-                ${team.isOwned ? '<div class="owned-badge">Your Team</div>' : ''}
+createImportResultElement(result) {
+    const div = document.createElement('div');
+    div.className = 'imported-league';
+    
+    const teamsHtml = result.teams.map(team => `
+        <div class="team-card ${team.isOwned ? 'owned' : ''}">
+            <div class="team-name">${team.teamName}</div>
+            ${team.isOwned ? '<div class="owned-badge">Your Team</div>' : ''}
+        </div>
+    `).join('');
+    
+    const scoringHtml = result.scoringSettings && result.scoringSettings.length > 0 ? `
+        <div class="scoring-summary">
+            <h5>📊 Scoring Settings</h5>
+            <div class="scoring-details">
+                Found ${result.scoringSettings.length} scoring categories configured
+                <br>
+                <small>Sample rules: ${result.scoringSettings.slice(0, 3).map(s => `${s.name}: ${s.points}pts`).join(', ')}${result.scoringSettings.length > 3 ? '...' : ''}</small>
             </div>
-        `).join('');
-        
-        const scoringHtml = result.scoringSettings ? `
-            <div class="scoring-summary">
-                <h5>📊 Scoring Settings</h5>
-                <div class="scoring-details">
-                    Found ${result.scoringSettings.length} scoring categories configured
-                </div>
+        </div>
+    ` : `
+        <div class="scoring-summary">
+            <h5>📊 Scoring Settings</h5>
+            <div class="scoring-details">
+                No scoring data available
             </div>
-        ` : '';
-        
-        div.innerHTML = `
-            <h4>🏈 ${result.leagueName}</h4>
-            <div class="teams-grid">
-                ${teamsHtml}
-            </div>
-            ${scoringHtml}
-        `;
-        
-        return div;
-    }
+        </div>
+    `;
+    
+    div.innerHTML = `
+        <h4>🏈 ${result.leagueName}</h4>
+        <div class="teams-grid">
+            ${teamsHtml}
+        </div>
+        ${scoringHtml}
+    `;
+    
+    return div;
+}
     
     renderLeagues() {
         this.elements.leaguesContainer.innerHTML = '';
