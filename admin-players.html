@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Import NFL Players</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f5f6fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            color: #e74c3c;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .admin-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            margin-right: 1rem;
+        }
+        
+        .btn:hover {
+            background: #c0392b;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .btn-stop {
+            background: #f39c12;
+        }
+        
+        .btn-stop:hover {
+            background: #e67e22;
+        }
+        
+        .progress-section {
+            margin-top: 2rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #27ae60;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .player-card {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .player-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .player-details {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Admin Panel</h1>
+            <span class="admin-badge">ADMIN ACCESS</span>
+            <p>Import NFL Players Database</p>
+        </div>
+        
+        <div class="card">
+            <h2>Import NFL Players</h2>
+            <p>Import players by Overall Rank from Yahoo Fantasy API. Each batch imports 25 players.</p>
+            
+            <div class="form-group">
+                <label for="totalPlayers">Total Number of Players to Import:</label>
+                <input type="number" id="totalPlayers" value="350" min="25" max="1000" step="25">
+                <small>Recommended: 350 players (covers top fantasy relevant players)</small>
+            </div>
+            
+            <button id="startImport" class="btn">🚀 Start Import</button>
+            <button id="stopImport" class="btn btn-stop hidden">⏹️ Stop Import</button>
+            
+            <div id="progressSection" class="progress-section hidden">
+                <div class="progress-text" id="progressText">Preparing import...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="statusMessage"></div>
+            </div>
+            
+            <div id="recentPlayers" class="hidden">
+                <h3>Recently Imported Players</h3>
+                <div id="playersGrid" class="players-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PlayerImporter {
+            constructor() {
+                this.isImporting = false;
+                this.shouldStop = false;
+                this.currentStart = 0;
+                this.totalPlayers = 0;
+                this.importedCount = 0;
+                
+                this.elements = {
+                    totalPlayers: document.getElementById('totalPlayers'),
+                    startImport: document.getElementById('startImport'),
+                    stopImport: document.getElementById('stopImport'),
+                    progressSection: document.getElementById('progressSection'),
+                    progressText: document.getElementById('progressText'),
+                    progressFill: document.getElementById('progressFill'),
+                    statusMessage: document.getElementById('statusMessage'),
+                    recentPlayers: document.getElementById('recentPlayers'),
+                    playersGrid: document.getElementById('playersGrid')
+                };
+                
+                this.bindEvents();
+            }
+            
+            bindEvents() {
+                this.elements.startImport.addEventListener('click', () => this.startImport());
+                this.elements.stopImport.addEventListener('click', () => this.stopImport());
+            }
+            
+            async startImport() {
+                this.totalPlayers = parseInt(this.elements.totalPlayers.value);
+                this.currentStart = 0;
+                this.importedCount = 0;
+                this.isImporting = true;
+                this.shouldStop = false;
+                
+                this.elements.startImport.classList.add('hidden');
+                this.elements.stopImport.classList.remove('hidden');
+                this.elements.progressSection.classList.remove('hidden');
+                this.elements.recentPlayers.classList.remove('hidden');
+                
+                this.showStatus('Starting player import...', 'info');
+                
+                await this.importBatch();
+            }
+            
+            stopImport() {
+                this.shouldStop = true;
+                this.showStatus('Stopping import after current batch...', 'info');
+            }
+            
+            async importBatch() {
+                if (this.shouldStop || this.currentStart >= this.totalPlayers) {
+                    this.finishImport();
+                    return;
+                }
+                
+                const batchSize = 25;
+                const remainingPlayers = this.totalPlayers - this.currentStart;
+                const currentBatchSize = Math.min(batchSize, remainingPlayers);
+                
+                this.updateProgress();
+                
+                try {
+                    const response = await fetch('/data/admin/import', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            start: this.currentStart,
+                            count: currentBatchSize
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.importedCount += data.importedCount;
+                        this.currentStart += data.importedCount;
+                        
+                        this.showStatus(`Imported ${data.importedCount} players (${this.importedCount}/${this.totalPlayers} total)`, 'success');
+                        this.displayRecentPlayers(data.players);
+                        
+                        // Continue with next batch after a short delay
+                        setTimeout(() => {
+                            if (!this.shouldStop) {
+                                this.importBatch();
+                            } else {
+                                this.finishImport();
+                            }
+                        }, 500);
+                    } else {
+                        throw new Error(data.error || 'Import failed');
+                    }
+                    
+                } catch (error) {
+                    console.error('Import error:', error);
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                    this.finishImport();
+                }
+            }
+            
+            updateProgress() {
+                const percentage = (this.currentStart / this.totalPlayers) * 100;
+                this.elements.progressFill.style.width = `${percentage}%`;
+                this.elements.progressText.textContent = 
+                    `Importing players ${this.currentStart + 1}-${Math.min(this.currentStart + 25, this.totalPlayers)} of ${this.totalPlayers}`;
+            }
+            
+            displayRecentPlayers(players) {
+                // Only show the last 20 players to avoid DOM bloat
+                const playersToShow = players.slice(-20);
+                
+                this.elements.playersGrid.innerHTML = playersToShow.map(player => `
+                    <div class="player-card">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-details">
+                            Rank: ${player.rank}<br>
+                            Positions: ${player.positions.join(', ')}<br>
+                            Team: ${player.team || 'N/A'}
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            finishImport() {
+                this.isImporting = false;
+                this.elements.startImport.classList.remove('hidden');
+                this.elements.stopImport.classList.add('hidden');
+                
+                const finalPercentage = (this.importedCount / this.totalPlayers) * 100;
+                this.elements.progressFill.style.width = `${finalPercentage}%`;
+                this.elements.progressText.textContent = `Import Complete: ${this.importedCount}/${this.totalPlayers} players`;
+                
+                this.showStatus(`✅ Import finished! Successfully imported ${this.importedCount} NFL players.`, 'success');
+            }
+            
+            showStatus(message, type) {
+                this.elements.statusMessage.className = `status ${type}`;
+                this.elements.statusMessage.textContent = message;
+            }
+        }
+        
+        // Initialize the importer when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new PlayerImporter();
+        });
+    </script>
+</body>
+</html>
