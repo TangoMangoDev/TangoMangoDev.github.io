@@ -43,10 +43,7 @@
 <script>
 function startGoogleLogin() {
   const clientId = "420228495268-ccml8gtao69sphl9lrratq81ngudjimm.apps.googleusercontent.com";
-  const currentOrigin = window.location.origin;
-  const redirectUri = currentOrigin + "/google/callback.html";
-  const origin = new URLSearchParams(window.location.search).get("origin") || document.referrer || currentOrigin;
-  sessionStorage.setItem("origin", origin);
+  const redirectUri = window.location.origin + "/google/callback.html";
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);
