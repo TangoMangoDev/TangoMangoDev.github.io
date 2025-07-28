@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Yahoo Sign-In Complete</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f6fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+    }
+    .status {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Signing you in with Yahoo…</h1>
+  <div class="status" id="status">Please wait…</div>
+
+<script>
+async function completeYahooAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
+  if (!code) {
+    document.getElementById("status").textContent = "Missing Yahoo authorization code.";
+    return;
+  }
+  
+  const origin = sessionStorage.getItem("origin") || window.location.origin;
+  
+  // DON'T use fetch - just redirect!
+  const callbackUrl = `/cloud/yahoo/callback?code=${encodeURIComponent(code)}&origin=${encodeURIComponent(origin)}`;
+  
+  // Direct browser navigation - no CORS issues
+  window.location.href = callbackUrl;
+}
+  // THIS WAS MISSING - ACTUALLY CALL THE FUNCTION!
+  completeYahooAuth();
+</script>
+
+</body>
+</html>
