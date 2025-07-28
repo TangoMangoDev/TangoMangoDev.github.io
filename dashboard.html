@@ -220,6 +220,89 @@
             margin-bottom: 1rem;
             color: #2c3e50;
         }
+        
+        /* Import Results Styles */
+        .import-results {
+            margin-top: 2rem;
+        }
+        
+        .import-results h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .imported-league {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .imported-league h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .team-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .team-card.owned {
+            border-color: #27ae60;
+            background: #f0f8f4;
+        }
+        
+        .team-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .team-id {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+        
+        .owned-badge {
+            background: #27ae60;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-top: 0.5rem;
+        }
+        
+        .scoring-summary {
+            background: #e8f5e8;
+            border: 1px solid #27ae60;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .scoring-summary h5 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .scoring-details {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
     </style>
 </head>
 <body>
@@ -262,6 +345,12 @@
                 </div>
             </div>
             
+            <!-- Import Results Section -->
+            <div id="import-results-section" class="hidden">
+                <h3>📋 Import Results</h3>
+                <div id="import-results-container" class="import-results"></div>
+            </div>
+            
             <!-- No Leagues Section -->
             <div id="no-leagues" class="no-leagues hidden">
                 <h3>No Fantasy Leagues Found</h3>
@@ -272,281 +361,6 @@
         </div>
     </div>
 
-    <script>
-        class FantasyDashboard {
-            constructor() {
-                this.leagues = [];
-                this.selectedLeagues = new Set();
-                this.isLoading = false;
-                this.isSubmitting = false;
-                
-                this.initializeElements();
-                this.bindEvents();
-                // Don't load leagues automatically - wait for user to click button
-            }
-            
-            initializeElements() {
-                this.elements = {
-                    welcomeSection: document.getElementById('welcome-section'),
-                    importDataBtn: document.getElementById('import-data-btn'),
-                    loading: document.getElementById('loading'),
-                    error: document.getElementById('error'),
-                    success: document.getElementById('success'),
-                    leaguesSection: document.getElementById('leagues-section'),
-                    leaguesContainer: document.getElementById('leagues-container'),
-                    submitSection: document.getElementById('submit-section'),
-                    selectedCount: document.getElementById('selected-count'),
-                    noLeagues: document.getElementById('no-leagues'),
-                    refreshBtn: document.getElementById('refresh-btn'),
-                    submitBtn: document.getElementById('submit-btn'),
-                    retryBtn: document.getElementById('retry-btn')
-                };
-            }
-            
-            bindEvents() {
-                this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
-                this.elements.refreshBtn.addEventListener('click', () => this.loadLeagues());
-                this.elements.submitBtn.addEventListener('click', () => this.submitSelectedLeagues());
-                this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
-            }
-            
-            async loadLeagues() {
-                if (this.isLoading) return;
-                
-                this.isLoading = true;
-                this.showLoading();
-                this.clearMessages();
-                
-                try {
-                    const response = await fetch('/data/fantasy/leagues', {
-                        method: 'GET',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            // Cookie validation failed - will redirect automatically
-                            return;
-                        }
-                        
-                        const errorData = await response.json().catch(() => ({}));
-                        
-                        if (errorData.needsAuth || errorData.needsReauth) {
-                            this.showError('Yahoo authentication required. Please log in again.');
-                            setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
-                            return;
-                        }
-                        
-                        throw new Error(errorData.error || `HTTP ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    this.leagues = data.leagues || [];
-                    
-                    if (this.leagues.length === 0) {
-                        this.showNoLeagues();
-                    } else {
-                        this.renderLeagues();
-                        this.showSuccess(`Found ${this.leagues.length} fantasy league${this.leagues.length === 1 ? '' : 's'}!`);
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading leagues:', error);
-                    this.showError(`Failed to load leagues: ${error.message}`);
-                } finally {
-                    this.isLoading = false;
-                    this.hideLoading();
-                }
-            }
-            
-            async submitSelectedLeagues() {
-                if (this.isSubmitting || this.selectedLeagues.size === 0) return;
-                
-                this.isSubmitting = true;
-                this.elements.submitBtn.disabled = true;
-                this.elements.submitBtn.textContent = '⏳ Submitting...';
-                this.clearMessages();
-                
-                try {
-                    const selectedLeagueIds = Array.from(this.selectedLeagues);
-                    
-                    const response = await fetch('/data/import', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            leagueIds: selectedLeagueIds
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            // Cookie validation failed - will redirect automatically
-                            return;
-                        }
-                        
-                        const errorData = await response.json().catch(() => ({}));
-                        
-                        if (errorData.needsAuth || errorData.needsReauth) {
-                            this.showError('Authentication required. Please log in again.');
-                            setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
-                            return;
-                        }
-                        
-                        throw new Error(errorData.error || `HTTP ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    this.showSuccess(`Successfully imported ${data.importedCount || selectedLeagueIds.length} league${selectedLeagueIds.length === 1 ? '' : 's'} with teams and scoring data!`);
-                    
-                    // Clear selections
-                    this.selectedLeagues.clear();
-                    this.updateSelectedCount();
-                    this.updateLeagueSelections();
-                    
-                } catch (error) {
-                    console.error('Error submitting leagues:', error);
-                    this.showError(`Failed to submit leagues: ${error.message}`);
-                } finally {
-                    this.isSubmitting = false;
-                    this.elements.submitBtn.disabled = false;
-                    this.elements.submitBtn.textContent = '📤 Submit Selected Leagues';
-                }
-            }
-            
-            renderLeagues() {
-                this.elements.leaguesContainer.innerHTML = '';
-                
-                this.leagues.forEach(league => {
-                    const leagueElement = this.createLeagueElement(league);
-                    this.elements.leaguesContainer.appendChild(leagueElement);
-                });
-                
-                this.elements.leaguesSection.classList.remove('hidden');
-                this.updateSelectedCount();
-            }
-            
-            createLeagueElement(league) {
-                const div = document.createElement('div');
-                div.className = 'league-item';
-                div.innerHTML = `
-                    <div class="league-header">
-                        <input type="checkbox" class="league-checkbox" data-league-id="${league.leagueId}">
-                        <div class="league-name">${league.leagueName}</div>
-                    </div>
-                    <div class="league-details">
-                        <div class="league-detail">
-                            <strong>Season</strong>
-                            <span>${league.season}</span>
-                        </div>
-                        <div class="league-detail">
-                            <strong>Teams</strong>
-                            <span>${league.numTeams}</span>
-                        </div>
-                        <div class="league-detail">
-                            <strong>Scoring</strong>
-                            <span>${league.scoringType}</span>
-                        </div>
-                        <div class="league-detail">
-                            <strong>Type</strong>
-                            <span>${league.leagueType}</span>
-                        </div>
-                        <div class="league-detail">
-                            <strong>League ID</strong>
-                            <span>${league.leagueId}</span>
-                        </div>
-                    </div>
-                `;
-                
-                const checkbox = div.querySelector('.league-checkbox');
-                checkbox.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        this.selectedLeagues.add(league.leagueId);
-                        div.classList.add('selected');
-                    } else {
-                        this.selectedLeagues.delete(league.leagueId);
-                        div.classList.remove('selected');
-                    }
-                    this.updateSelectedCount();
-                });
-                
-                return div;
-            }
-            
-            updateSelectedCount() {
-                const count = this.selectedLeagues.size;
-                this.elements.selectedCount.textContent = 
-                    count === 0 ? 'Select leagues to submit' : 
-                    `${count} league${count === 1 ? '' : 's'} selected`;
-                
-                if (count > 0) {
-                    this.elements.submitSection.classList.remove('hidden');
-                } else {
-                    this.elements.submitSection.classList.add('hidden');
-                }
-            }
-            
-            updateLeagueSelections() {
-                const checkboxes = document.querySelectorAll('.league-checkbox');
-                checkboxes.forEach(checkbox => {
-                    const leagueId = checkbox.dataset.leagueId;
-                    checkbox.checked = this.selectedLeagues.has(leagueId);
-                    
-                    const leagueItem = checkbox.closest('.league-item');
-                    if (checkbox.checked) {
-                        leagueItem.classList.add('selected');
-                    } else {
-                        leagueItem.classList.remove('selected');
-                    }
-                });
-            }
-            
-            showLoading() {
-                this.elements.loading.classList.remove('hidden');
-                this.elements.welcomeSection.classList.add('hidden');
-                this.elements.leaguesSection.classList.add('hidden');
-                this.elements.noLeagues.classList.add('hidden');
-            }
-            
-            hideLoading() {
-                this.elements.loading.classList.add('hidden');
-            }
-            
-            showNoLeagues() {
-                this.elements.noLeagues.classList.remove('hidden');
-                this.elements.welcomeSection.classList.add('hidden');
-                this.elements.leaguesSection.classList.add('hidden');
-            }
-            
-            showError(message) {
-                this.elements.error.textContent = message;
-                this.elements.error.className = 'error';
-                this.elements.error.classList.remove('hidden');
-                this.elements.success.classList.add('hidden');
-            }
-            
-            showSuccess(message) {
-                this.elements.success.textContent = message;
-                this.elements.success.className = 'success';
-                this.elements.success.classList.remove('hidden');
-                this.elements.error.classList.add('hidden');
-            }
-            
-            clearMessages() {
-                this.elements.error.classList.add('hidden');
-                this.elements.success.classList.add('hidden');
-            }
-        }
-        
-        // Initialize dashboard when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new FantasyDashboard();
-        });
-    </script>
+    <script src="dashboard.js"></script>
 </body>
 </html>
