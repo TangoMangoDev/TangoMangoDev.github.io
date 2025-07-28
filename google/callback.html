@@ -35,16 +35,11 @@ async function completeGoogleAuth() {
     return;
   }
   
-  const origin = sessionStorage.getItem("origin") || window.location.origin;
-  
-  // DON'T use fetch - just redirect!
-  const callbackUrl = `/cloud/google/callback?code=${encodeURIComponent(code)}&origin=${encodeURIComponent(origin)}`;
-  
-  // Direct browser navigation - no CORS issues
+  // Direct browser navigation to our cloud callback
+  const callbackUrl = `/cloud/google/callback?code=${encodeURIComponent(code)}`;
   window.location.href = callbackUrl;
 }
 
-// Actually call the function!
 completeGoogleAuth();
 </script>
 
