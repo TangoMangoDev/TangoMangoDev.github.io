@@ -114,6 +114,27 @@
             background: #229954;
         }
         
+        .btn-large {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+        }
+        
+        .welcome-section {
+            text-align: center;
+            padding: 3rem 2rem;
+        }
+        
+        .welcome-section h2 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        
+        .welcome-section p {
+            color: #7f8c8d;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        
         .leagues-container {
             margin-top: 2rem;
         }
@@ -209,14 +230,24 @@
         </div>
         
         <div class="card">
-            <div id="loading" class="loading">
+            <!-- Welcome Section - Shows initially -->
+            <div id="welcome-section" class="welcome-section">
+                <h2>Ready to Import Your Leagues?</h2>
+                <p>Click the button below to fetch your Yahoo Fantasy Football leagues and start managing your teams.</p>
+                <button id="import-data-btn" class="btn btn-large">📥 Import Data</button>
+            </div>
+            
+            <!-- Loading Section -->
+            <div id="loading" class="loading hidden">
                 <div class="spinner"></div>
                 <p>Loading your fantasy leagues...</p>
             </div>
             
+            <!-- Messages -->
             <div id="error" class="hidden"></div>
             <div id="success" class="hidden"></div>
             
+            <!-- Leagues Section -->
             <div id="leagues-section" class="hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <h2>Your Fantasy Leagues</h2>
@@ -225,12 +256,13 @@
                 
                 <div id="leagues-container" class="leagues-container"></div>
                 
-                <div id="import-section" class="import-section hidden">
+                <div id="submit-section" class="import-section hidden">
                     <div id="selected-count" class="selected-count"></div>
-                    <button id="import-btn" class="btn btn-success">📥 Import Selected Leagues</button>
+                    <button id="submit-btn" class="btn btn-success btn-large">📤 Submit Selected Leagues</button>
                 </div>
             </div>
             
+            <!-- No Leagues Section -->
             <div id="no-leagues" class="no-leagues hidden">
                 <h3>No Fantasy Leagues Found</h3>
                 <p>It looks like you don't have any Yahoo Fantasy Football leagues for this season.</p>
@@ -246,32 +278,35 @@
                 this.leagues = [];
                 this.selectedLeagues = new Set();
                 this.isLoading = false;
-                this.isImporting = false;
+                this.isSubmitting = false;
                 
                 this.initializeElements();
                 this.bindEvents();
-                this.loadLeagues();
+                // Don't load leagues automatically - wait for user to click button
             }
             
             initializeElements() {
                 this.elements = {
+                    welcomeSection: document.getElementById('welcome-section'),
+                    importDataBtn: document.getElementById('import-data-btn'),
                     loading: document.getElementById('loading'),
                     error: document.getElementById('error'),
                     success: document.getElementById('success'),
                     leaguesSection: document.getElementById('leagues-section'),
                     leaguesContainer: document.getElementById('leagues-container'),
-                    importSection: document.getElementById('import-section'),
+                    submitSection: document.getElementById('submit-section'),
                     selectedCount: document.getElementById('selected-count'),
                     noLeagues: document.getElementById('no-leagues'),
                     refreshBtn: document.getElementById('refresh-btn'),
-                    importBtn: document.getElementById('import-btn'),
+                    submitBtn: document.getElementById('submit-btn'),
                     retryBtn: document.getElementById('retry-btn')
                 };
             }
             
             bindEvents() {
+                this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
                 this.elements.refreshBtn.addEventListener('click', () => this.loadLeagues());
-                this.elements.importBtn.addEventListener('click', () => this.importSelectedLeagues());
+                this.elements.submitBtn.addEventListener('click', () => this.submitSelectedLeagues());
                 this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
             }
             
@@ -292,15 +327,16 @@
                     });
                     
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            // Cookie validation failed - will redirect automatically
+                            return;
+                        }
+                        
                         const errorData = await response.json().catch(() => ({}));
                         
-                        if (response.status === 401) {
-                            if (errorData.needsAuth || errorData.needsReauth) {
-                                this.showError('Yahoo authentication required. Please log in again.');
-                                setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
-                                return;
-                            }
-                            // Cookie validation failed - will redirect automatically
+                        if (errorData.needsAuth || errorData.needsReauth) {
+                            this.showError('Yahoo authentication required. Please log in again.');
+                            setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
                             return;
                         }
                         
@@ -326,12 +362,12 @@
                 }
             }
             
-            async importSelectedLeagues() {
-                if (this.isImporting || this.selectedLeagues.size === 0) return;
+            async submitSelectedLeagues() {
+                if (this.isSubmitting || this.selectedLeagues.size === 0) return;
                 
-                this.isImporting = true;
-                this.elements.importBtn.disabled = true;
-                this.elements.importBtn.textContent = '⏳ Importing...';
+                this.isSubmitting = true;
+                this.elements.submitBtn.disabled = true;
+                this.elements.submitBtn.textContent = '⏳ Submitting...';
                 this.clearMessages();
                 
                 try {
@@ -349,9 +385,14 @@
                     });
                     
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            // Cookie validation failed - will redirect automatically
+                            return;
+                        }
+                        
                         const errorData = await response.json().catch(() => ({}));
                         
-                        if (response.status === 401) {
+                        if (errorData.needsAuth || errorData.needsReauth) {
                             this.showError('Authentication required. Please log in again.');
                             setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
                             return;
@@ -369,12 +410,12 @@
                     this.updateLeagueSelections();
                     
                 } catch (error) {
-                    console.error('Error importing leagues:', error);
-                    this.showError(`Failed to import leagues: ${error.message}`);
+                    console.error('Error submitting leagues:', error);
+                    this.showError(`Failed to submit leagues: ${error.message}`);
                 } finally {
-                    this.isImporting = false;
-                    this.elements.importBtn.disabled = false;
-                    this.elements.importBtn.textContent = '📥 Import Selected Leagues';
+                    this.isSubmitting = false;
+                    this.elements.submitBtn.disabled = false;
+                    this.elements.submitBtn.textContent = '📤 Submit Selected Leagues';
                 }
             }
             
@@ -440,13 +481,13 @@
             updateSelectedCount() {
                 const count = this.selectedLeagues.size;
                 this.elements.selectedCount.textContent = 
-                    count === 0 ? 'Select leagues to import' : 
+                    count === 0 ? 'Select leagues to submit' : 
                     `${count} league${count === 1 ? '' : 's'} selected`;
                 
                 if (count > 0) {
-                    this.elements.importSection.classList.remove('hidden');
+                    this.elements.submitSection.classList.remove('hidden');
                 } else {
-                    this.elements.importSection.classList.add('hidden');
+                    this.elements.submitSection.classList.add('hidden');
                 }
             }
             
@@ -467,6 +508,7 @@
             
             showLoading() {
                 this.elements.loading.classList.remove('hidden');
+                this.elements.welcomeSection.classList.add('hidden');
                 this.elements.leaguesSection.classList.add('hidden');
                 this.elements.noLeagues.classList.add('hidden');
             }
@@ -477,6 +519,7 @@
             
             showNoLeagues() {
                 this.elements.noLeagues.classList.remove('hidden');
+                this.elements.welcomeSection.classList.add('hidden');
                 this.elements.leaguesSection.classList.add('hidden');
             }
             
