@@ -43,11 +43,7 @@
 <script>
 function startYahooLogin() {
   const clientId = "dj0yJmk9SmFLaTUzc283dmlDJmQ9WVdrOWNuSkpRbmxaZG1ZbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTc5";
-  const currentOrigin = window.location.origin;
-  const redirectUri = currentOrigin + "/yahoo/callback.html";
-
-  const origin = new URLSearchParams(window.location.search).get("origin") || document.referrer || currentOrigin;
-  sessionStorage.setItem("origin", origin);
+  const redirectUri = window.location.origin + "/yahoo/callback.html";
 
   const url = new URL("https://api.login.yahoo.com/oauth2/request_auth");
   url.searchParams.set("client_id", clientId);
