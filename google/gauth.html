@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+  <meta http-equiv="Content-Security-Policy" content="connect-src 'self' https://google.com;">
+  <title>Sign in with Google</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f6fa;
+      margin: 0; padding: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .logo {
+      width: 100px; height: 100px;
+      background: #ccc;
+      border-radius: 50%;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      background-color: #6001d2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo"></div>
+  <h1>Sign in with Google</h1>
+  <p>Continue with your Google account.</p>
+  <button onclick="startGoogleLogin()">Sign in with Google</button>
+
+<script>
+function startGoogleLogin() {
+  const clientId = "420228495268-ccml8gtao69sphl9lrratq81ngudjimm.apps.googleusercontent.com";
+  const currentOrigin = window.location.origin;
+  const redirectUri = currentOrigin + "/google/callback.html";
+  const origin = new URLSearchParams(window.location.search).get("origin") || document.referrer || currentOrigin;
+  sessionStorage.setItem("origin", origin);
+
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", "openid email profile");
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+
+  window.location.href = url.toString();
+}
+</script>
+</body>
+</html>
