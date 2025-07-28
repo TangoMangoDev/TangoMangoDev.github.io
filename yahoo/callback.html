@@ -36,7 +36,7 @@ async function completeYahooAuth() {
   }
   
   // Direct browser navigation to our cloud callback
-  const callbackUrl = `/cloud/yahoo/callback?code=${encodeURIComponent(code)}`;
+  const callbackUrl = `/auth/yahoo/callback?code=${encodeURIComponent(code)}`;
   window.location.href = callbackUrl;
 }
 
