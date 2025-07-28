@@ -36,7 +36,7 @@ async function completeGoogleAuth() {
   }
   
   // Direct browser navigation to our cloud callback
-  const callbackUrl = `/cloud/google/callback?code=${encodeURIComponent(code)}`;
+  const callbackUrl = `/auth/google/callback?code=${encodeURIComponent(code)}`;
   window.location.href = callbackUrl;
 }
 
