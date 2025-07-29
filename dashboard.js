@@ -102,7 +102,7 @@ class FantasyDashboard {
         try {
             const selectedLeagueIds = Array.from(this.selectedLeagues);
             
-            const response = await fetch('/data/import', {
+            const response = await fetch('/data/fantasy/teams', {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
