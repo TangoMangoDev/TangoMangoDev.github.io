@@ -56,18 +56,22 @@ class FantasyDashboard {
             
             if (!response.ok) {
                 if (response.status === 401) {
-                    // Cookie validation failed - will redirect automatically
+                    const errorData = await response.json().catch(() => ({}));
+                    
+                    if (errorData.needsAuth || errorData.needsReauth) {
+                        this.showAuthError('Yahoo authentication required. Redirecting to login...');
+                        setTimeout(() => {
+                            window.location.href = errorData.redirectUrl || '/yahoo/yauth.html';
+                        }, 2000);
+                        return;
+                    }
+                    
+                    // Session expired - redirect to login
+                    window.location.href = '/login';
                     return;
                 }
                 
                 const errorData = await response.json().catch(() => ({}));
-                
-                if (errorData.needsAuth || errorData.needsReauth) {
-                    this.showError('Yahoo authentication required. Please log in again.');
-                    setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
-                    return;
-                }
-                
                 throw new Error(errorData.error || `HTTP ${response.status}`);
             }
             
@@ -115,18 +119,22 @@ class FantasyDashboard {
             
             if (!response.ok) {
                 if (response.status === 401) {
-                    // Cookie validation failed - will redirect automatically
+                    const errorData = await response.json().catch(() => ({}));
+                    
+                    if (errorData.needsAuth || errorData.needsReauth) {
+                        this.showAuthError('Yahoo authentication required. Redirecting to login...');
+                        setTimeout(() => {
+                            window.location.href = errorData.redirectUrl || '/yahoo/yauth.html';
+                        }, 2000);
+                        return;
+                    }
+                    
+                    // Session expired - redirect to login
+                    window.location.href = '/login';
                     return;
                 }
                 
                 const errorData = await response.json().catch(() => ({}));
-                
-                if (errorData.needsAuth || errorData.needsReauth) {
-                    this.showError('Authentication required. Please log in again.');
-                    setTimeout(() => window.location.href = '/yahoo/yauth.html', 2000);
-                    return;
-                }
-                
                 throw new Error(errorData.error || `HTTP ${response.status}`);
             }
             
@@ -166,45 +174,45 @@ class FantasyDashboard {
         this.elements.importResultsSection.classList.remove('hidden');
     }
     
-createImportResultElement(result) {
-    const div = document.createElement('div');
-    div.className = 'imported-league';
-    
-    const teamsHtml = result.teams.map(team => `
-        <div class="team-card ${team.isOwned ? 'owned' : ''}">
-            <div class="team-name">${team.teamName}</div>
-            ${team.isOwned ? '<div class="owned-badge">Your Team</div>' : ''}
-        </div>
-    `).join('');
-    
-    const scoringHtml = result.scoringSettings && result.scoringSettings.length > 0 ? `
-        <div class="scoring-summary">
-            <h5>📊 Scoring Settings</h5>
-            <div class="scoring-details">
-                Found ${result.scoringSettings.length} scoring categories configured
-                <br>
-                <small>Sample rules: ${result.scoringSettings.slice(0, 3).map(s => `${s.name}: ${s.points}pts`).join(', ')}${result.scoringSettings.length > 3 ? '...' : ''}</small>
+    createImportResultElement(result) {
+        const div = document.createElement('div');
+        div.className = 'imported-league';
+        
+        const teamsHtml = result.teams.map(team => `
+            <div class="team-card ${team.isOwned ? 'owned' : ''}">
+                <div class="team-name">${team.teamName}</div>
+                ${team.isOwned ? '<div class="owned-badge">Your Team</div>' : ''}
             </div>
-        </div>
-    ` : `
-        <div class="scoring-summary">
-            <h5>📊 Scoring Settings</h5>
-            <div class="scoring-details">
-                No scoring data available
+        `).join('');
+        
+        const scoringHtml = result.scoringSettings && result.scoringSettings.length > 0 ? `
+            <div class="scoring-summary">
+                <h5>📊 Scoring Settings</h5>
+                <div class="scoring-details">
+                    Found ${result.scoringSettings.length} scoring categories configured
+                    <br>
+                    <small>Sample rules: ${result.scoringSettings.slice(0, 3).map(s => `${s.name}: ${s.points}pts`).join(', ')}${result.scoringSettings.length > 3 ? '...' : ''}</small>
+                </div>
             </div>
-        </div>
-    `;
-    
-    div.innerHTML = `
-        <h4>🏈 ${result.leagueName}</h4>
-        <div class="teams-grid">
-            ${teamsHtml}
-        </div>
-        ${scoringHtml}
-    `;
-    
-    return div;
-}
+        ` : `
+            <div class="scoring-summary">
+                <h5>📊 Scoring Settings</h5>
+                <div class="scoring-details">
+                    No scoring data available
+                </div>
+            </div>
+        `;
+        
+        div.innerHTML = `
+            <h4>🏈 ${result.leagueName}</h4>
+            <div class="teams-grid">
+                ${teamsHtml}
+            </div>
+            ${scoringHtml}
+        `;
+        
+        return div;
+    }
     
     renderLeagues() {
         this.elements.leaguesContainer.innerHTML = '';
@@ -326,6 +334,41 @@ createImportResultElement(result) {
         this.elements.success.className = 'success';
         this.elements.success.classList.remove('hidden');
         this.elements.error.classList.add('hidden');
+    }
+    
+    showAuthError(message) {
+        // Create a special auth error notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #d97706;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+        `;
+        notification.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 4px;">🔐 Authentication Required</div>
+            <div>${message}</div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after redirect
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+        
+        // Also show in the regular error area
+        this.showError(message);
     }
     
     clearMessages() {
