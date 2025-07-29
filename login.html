@@ -190,15 +190,14 @@
     letter-spacing: -0.5px;
     line-height: 1;
     display: inline-block;
-    padding-right: 14px;   /* ✅ space between “Yahoo!” and the next text */
+    margin-right: 12px;   /* ✅ adds space AFTER “Yahoo!” */
 }
 
 .yahoo-logo::after {
     content: '!';
     color: #FF0000;
-    position: absolute;
-    right: 0;   /* ✅ aligns with the padded edge, no bleed-over */
-    top: 0;
+    position: relative;  /* stays inline, no absolute positioning issues */
+    margin-left: 1px;    /* tiny space between “Yahoo” and the “!” */
 }
 
 .yahoo-btn:hover .yahoo-logo {
@@ -208,8 +207,6 @@
 .yahoo-btn:hover .yahoo-logo::after {
     color: #FFB3BA;
 }
-
-
         /* Divider */
         .divider {
             display: flex;
