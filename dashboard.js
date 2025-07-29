@@ -22,7 +22,6 @@ class FantasyDashboard {
             submitSection: document.getElementById('submit-section'),
             selectedCount: document.getElementById('selected-count'),
             noLeagues: document.getElementById('no-leagues'),
-            refreshBtn: document.getElementById('refresh-btn'),
             submitBtn: document.getElementById('submit-btn'),
             retryBtn: document.getElementById('retry-btn'),
             importResultsSection: document.getElementById('import-results-section'),
@@ -32,9 +31,9 @@ class FantasyDashboard {
     
     bindEvents() {
         this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
-        this.elements.refreshBtn.addEventListener('click', () => this.loadLeagues());
         this.elements.submitBtn.addEventListener('click', () => this.submitSelectedLeagues());
         this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
+        // Removed the refresh-btn event listener since the button doesn't exist
     }
     
     async loadLeagues() {
