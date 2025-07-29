@@ -170,7 +170,22 @@
             background: #720e9e;
             color: white;
         }
+        .yahoo-logo {
+            font-family: 'YahooSans', sans-serif; /* Custom font if available, otherwise Arial */
+            font-size: 80px; /* Adjust size as needed */
+            font-weight: bold;
+            color: #7B0099; /* Yahoo's signature purple */
+            position: relative;
+            letter-spacing: -2px; /* Adjust letter spacing for visual accuracy */
+        }
 
+        .yahoo-logo::after {
+            content: '!';
+            color: #FF0000; /* Red exclamation mark */
+            position: absolute;
+            right: -25px; /* Adjust position relative to the text */
+            top: 0;
+        }
         /* Button icons */
         .btn-icon {
             width: 24px;
@@ -298,7 +313,7 @@
                     Continue with Google
                 </a>
 
-                <a href="/yahoo/yauth.html" class="auth-btn yahoo-btn" id="yahooBtn">
+                <a href="/yahoo/yauth.html" class="auth-btn yahoo-btn yahoo-logo" id="yahooBtn">
                     <div class="btn-icon">
                         <svg viewBox="0 0 24 24" width="24" height="24">
                             <path fill="currentColor" d="M12.555 21.375l2.317-4.125.667-.5 2.6-.5c.85 0 1.533-.683 1.533-1.533 0-.384-.14-.734-.39-.995L15.6 10.15l3.682-6.567c.25-.446.233-.995-.05-1.425-.282-.43-.767-.683-1.282-.683h-2.6c-.467 0-.883.25-1.1.65L12 6.85 9.75 2.125c-.217-.4-.633-.65-1.1-.65h-2.6c-.515 0-1 .253-1.282.683-.283.43-.3.979-.05 1.425L8.4 10.15 4.718 13.722c-.25.261-.39.611-.39.995 0 .85.683 1.533 1.533 1.533l2.6.5.667.5 2.317 4.125c.25.445.717.625 1.11.625s.86-.18 1.11-.625z"/>
