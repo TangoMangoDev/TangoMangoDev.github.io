@@ -180,32 +180,35 @@
             justify-content: center;
         }
 
-        /* Yahoo logo styling */
-        .yahoo-logo {
-            font-family: 'Inter', Arial, sans-serif;
-            font-size: 16px;
-            font-weight: bold;
-            color: #7B0099;
-            position: relative;
-            letter-spacing: -0.5px;
-            line-height: 1;
-        }
+/* Yahoo logo styling */
+.yahoo-logo {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: #7B0099;
+    position: relative;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    display: inline-block;
+    padding-right: 14px;   /* ✅ space between “Yahoo!” and the next text */
+}
 
-        .yahoo-logo::after {
-            content: '!';
-            color: #FF0000;
-            position: absolute;
-            right: -8px;
-            top: 0;
-        }
+.yahoo-logo::after {
+    content: '!';
+    color: #FF0000;
+    position: absolute;
+    right: 0;   /* ✅ aligns with the padded edge, no bleed-over */
+    top: 0;
+}
 
-        .yahoo-btn:hover .yahoo-logo {
-            color: white;
-        }
+.yahoo-btn:hover .yahoo-logo {
+    color: white;
+}
 
-        .yahoo-btn:hover .yahoo-logo::after {
-            color: #FFB3BA;
-        }
+.yahoo-btn:hover .yahoo-logo::after {
+    color: #FFB3BA;
+}
+
 
         /* Divider */
         .divider {
