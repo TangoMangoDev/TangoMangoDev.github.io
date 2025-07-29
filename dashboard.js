@@ -7,7 +7,6 @@ class FantasyDashboard {
         
         this.initializeElements();
         this.bindEvents();
-        // Don't load leagues automatically - wait for user to click button
     }
     
     initializeElements() {
@@ -30,10 +29,21 @@ class FantasyDashboard {
     }
     
     bindEvents() {
-        this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
-        this.elements.submitBtn.addEventListener('click', () => this.submitSelectedLeagues());
-        this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
-        // Removed the refresh-btn event listener since the button doesn't exist
+        // Bind events that exist at page load
+        if (this.elements.importDataBtn) {
+            this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
+        }
+        if (this.elements.retryBtn) {
+            this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
+        }
+        
+        // Bind submit button event - this is the fix
+        if (this.elements.submitBtn) {
+            this.elements.submitBtn.addEventListener('click', () => {
+                console.log('Submit button clicked!'); // Debug log
+                this.submitSelectedLeagues();
+            });
+        }
     }
     
     async loadLeagues() {
@@ -65,7 +75,6 @@ class FantasyDashboard {
                         return;
                     }
                     
-                    // Session expired - redirect to login
                     window.location.href = '/login';
                     return;
                 }
@@ -94,7 +103,13 @@ class FantasyDashboard {
     }
     
     async submitSelectedLeagues() {
-        if (this.isSubmitting || this.selectedLeagues.size === 0) return;
+        console.log('submitSelectedLeagues called!'); // Debug log
+        console.log('Selected leagues:', Array.from(this.selectedLeagues)); // Debug log
+        
+        if (this.isSubmitting || this.selectedLeagues.size === 0) {
+            console.log('Blocking submission - isSubmitting:', this.isSubmitting, 'selectedLeagues.size:', this.selectedLeagues.size);
+            return;
+        }
         
         this.isSubmitting = true;
         this.elements.submitBtn.disabled = true;
@@ -104,6 +119,7 @@ class FantasyDashboard {
         
         try {
             const selectedLeagueIds = Array.from(this.selectedLeagues);
+            console.log('Submitting leagues:', selectedLeagueIds); // Debug log
             
             const response = await fetch('/data/fantasy/teams', {
                 method: 'POST',
@@ -128,7 +144,6 @@ class FantasyDashboard {
                         return;
                     }
                     
-                    // Session expired - redirect to login
                     window.location.href = '/login';
                     return;
                 }
@@ -140,10 +155,8 @@ class FantasyDashboard {
             const data = await response.json();
             this.showSuccess(`Successfully imported ${data.importedCount || selectedLeagueIds.length} league${selectedLeagueIds.length === 1 ? '' : 's'} with teams and scoring data!`);
             
-            // Display the imported data
             this.displayImportResults(data);
             
-            // Clear selections
             this.selectedLeagues.clear();
             this.updateSelectedCount();
             this.updateLeagueSelections();
@@ -280,6 +293,20 @@ class FantasyDashboard {
         
         if (count > 0) {
             this.elements.submitSection.classList.remove('hidden');
+            
+            // RE-BIND THE SUBMIT BUTTON EVENT EVERY TIME IT'S SHOWN - THIS IS THE FIX
+            const submitBtn = document.getElementById('submit-btn');
+            if (submitBtn) {
+                // Remove any existing listeners
+                submitBtn.replaceWith(submitBtn.cloneNode(true));
+                // Get the new button reference
+                this.elements.submitBtn = document.getElementById('submit-btn');
+                // Add the event listener
+                this.elements.submitBtn.addEventListener('click', () => {
+                    console.log('Submit button clicked via updateSelectedCount!');
+                    this.submitSelectedLeagues();
+                });
+            }
         } else {
             this.elements.submitSection.classList.add('hidden');
         }
@@ -336,7 +363,6 @@ class FantasyDashboard {
     }
     
     showAuthError(message) {
-        // Create a special auth error notification
         const notification = document.createElement('div');
         notification.style.cssText = `
             position: fixed;
@@ -359,14 +385,12 @@ class FantasyDashboard {
         
         document.body.appendChild(notification);
         
-        // Remove notification after redirect
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
             }
         }, 3000);
         
-        // Also show in the regular error area
         this.showError(message);
     }
     
