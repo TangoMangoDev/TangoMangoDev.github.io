@@ -106,7 +106,7 @@
         /* Container */
         .container {
             padding: 16px;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -164,27 +164,44 @@
         .stat-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .stat-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .stat-grid::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        .stat-grid::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 2px;
         }
 
         .stat-item {
             background: #f8f9fa;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             text-align: center;
         }
 
         .stat-value {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             color: #1a1a1a;
             display: block;
         }
 
         .stat-label {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
         /* Comparison View */
@@ -193,15 +210,29 @@
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
         }
 
         .comparison-header {
             margin-bottom: 16px;
         }
 
+        .comparison-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .comparison-table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        .comparison-table thead {
+            position: sticky;
+            top: 140px;
+            background: white;
+            z-index: 10;
         }
 
         .comparison-table th {
@@ -211,16 +242,15 @@
             font-size: 12px;
             font-weight: 600;
             color: #666;
-            position: sticky;
-            top: 140px;
-            background: #f8f9fa;
-            z-index: 10;
+            border-bottom: 2px solid #e0e0e0;
+            white-space: nowrap;
         }
 
         .comparison-table td {
             padding: 12px 8px;
             border-bottom: 1px solid #eee;
             font-size: 14px;
+            white-space: nowrap;
         }
 
         .comparison-table tr:last-child td {
@@ -230,6 +260,17 @@
         .player-name-cell {
             font-weight: 600;
             color: #1a1a1a;
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 5;
+        }
+
+        .comparison-table th:first-child {
+            position: sticky;
+            left: 0;
+            background: #f8f9fa;
+            z-index: 11;
         }
 
         /* Stats View */
@@ -265,10 +306,17 @@
             justify-content: space-between;
             padding: 8px 0;
             border-bottom: 1px solid #f0f2f5;
+            font-size: 13px;
         }
 
         .stat-row:last-child {
             border-bottom: none;
+        }
+
+        .stat-leaders {
+            text-align: right;
+            color: #666;
+            font-size: 12px;
         }
 
         /* Empty State */
@@ -330,6 +378,11 @@
             color: #2e7d32;
         }
 
+        .stat-cell-best {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
         /* Search Bar */
         .search-container {
             margin-bottom: 16px;
@@ -384,8 +437,9 @@
     </div>
 
     <script>
-        // Sample Data
+        // Complete Sample Data with ALL stats for each position
         const samplePlayers = [
+            // Quarterbacks
             {
                 id: 1,
                 name: "Patrick Mahomes",
@@ -432,6 +486,29 @@
             },
             {
                 id: 3,
+                name: "Lamar Jackson",
+                team: "BAL",
+                position: "QB",
+                stats: {
+                    "Pass Att": 410,
+                    "Comp": 265,
+                    "Inc": 145,
+                    "Pass Yds": 3678,
+                    "Pass TD": 24,
+                    "Int": 7,
+                    "Sack": 28,
+                    "Rush Att": 148,
+                    "Rush Yds": 821,
+                    "Rush TD": 5,
+                    "Off Fum Ret TD": 0,
+                    "2-PT": 0,
+                    "Fum": 9,
+                    "Fum Lost": 5
+                }
+            },
+            // Running Backs
+            {
+                id: 4,
                 name: "Christian McCaffrey",
                 team: "SF",
                 position: "RB",
@@ -451,7 +528,7 @@
                 }
             },
             {
-                id: 4,
+                id: 5,
                 name: "Austin Ekeler",
                 team: "LAC",
                 position: "RB",
@@ -462,7 +539,7 @@
                     "Rec": 107,
                     "Rec Yds": 722,
                     "Rec TD": 5,
-                    "Ret Yds": 0,
+                    "Ret Yds": 15,
                     "Ret TD": 0,
                     "Off Fum Ret TD": 0,
                     "2-PT": 0,
@@ -471,7 +548,28 @@
                 }
             },
             {
-                id: 5,
+                id: 6,
+                name: "Nick Chubb",
+                team: "CLE",
+                position: "RB",
+                stats: {
+                    "Rush Att": 302,
+                    "Rush Yds": 1525,
+                    "Rush TD": 12,
+                    "Rec": 36,
+                    "Rec Yds": 239,
+                    "Rec TD": 1,
+                    "Ret Yds": 0,
+                    "Ret TD": 0,
+                    "Off Fum Ret TD": 0,
+                    "2-PT": 0,
+                    "Fum": 1,
+                    "Fum Lost": 0
+                }
+            },
+            // Wide Receivers
+            {
+                id: 7,
                 name: "Tyreek Hill",
                 team: "MIA",
                 position: "WR",
@@ -491,7 +589,7 @@
                 }
             },
             {
-                id: 6,
+                id: 8,
                 name: "CeeDee Lamb",
                 team: "DAL",
                 position: "WR",
@@ -511,7 +609,28 @@
                 }
             },
             {
-                id: 7,
+                id: 9,
+                name: "Davante Adams",
+                team: "LV",
+                position: "WR",
+                stats: {
+                    "Rush Att": 1,
+                    "Rush Yds": 4,
+                    "Rush TD": 0,
+                    "Rec": 103,
+                    "Rec Yds": 1516,
+                    "Rec TD": 14,
+                    "Ret Yds": 0,
+                    "Ret TD": 0,
+                    "Off Fum Ret TD": 0,
+                    "2-PT": 0,
+                    "Fum": 0,
+                    "Fum Lost": 0
+                }
+            },
+            // Tight Ends
+            {
+                id: 10,
                 name: "Travis Kelce",
                 team: "KC",
                 position: "TE",
@@ -531,7 +650,7 @@
                 }
             },
             {
-                id: 8,
+                id: 11,
                 name: "T.J. Hockenson",
                 team: "MIN",
                 position: "TE",
@@ -551,7 +670,28 @@
                 }
             },
             {
-                id: 9,
+                id: 12,
+                name: "Mark Andrews",
+                team: "BAL",
+                position: "TE",
+                stats: {
+                    "Rush Att": 1,
+                    "Rush Yds": 8,
+                    "Rush TD": 0,
+                    "Rec": 73,
+                    "Rec Yds": 847,
+                    "Rec TD": 5,
+                    "Ret Yds": 0,
+                    "Ret TD": 0,
+                    "Off Fum Ret TD": 0,
+                    "2-PT": 1,
+                    "Fum": 1,
+                    "Fum Lost": 1
+                }
+            },
+            // Kickers
+            {
+                id: 13,
                 name: "Justin Tucker",
                 team: "BAL",
                 position: "K",
@@ -561,7 +701,7 @@
                 }
             },
             {
-                id: 10,
+                id: 14,
                 name: "Harrison Butker",
                 team: "KC",
                 position: "K",
@@ -571,7 +711,18 @@
                 }
             },
             {
-                id: 11,
+                id: 15,
+                name: "Evan McPherson",
+                team: "CIN",
+                position: "K",
+                stats: {
+                    "FG": 35,
+                    "FGM": 5
+                }
+            },
+            // Defense/Special Teams
+            {
+                id: 16,
                 name: "49ers Defense",
                 team: "SF",
                 position: "DST",
@@ -580,7 +731,7 @@
                 }
             },
             {
-                id: 12,
+                id: 17,
                 name: "Ravens Defense",
                 team: "BAL",
                 position: "DST",
@@ -589,7 +740,17 @@
                 }
             },
             {
-                id: 13,
+                id: 18,
+                name: "Cowboys Defense",
+                team: "DAL",
+                position: "DST",
+                stats: {
+                    "Pts Allow": 321
+                }
+            },
+            // Defensive Ends
+            {
+                id: 19,
                 name: "T.J. Watt",
                 team: "PIT",
                 position: "DE",
@@ -609,7 +770,28 @@
                 }
             },
             {
-                id: 14,
+                id: 20,
+                name: "Myles Garrett",
+                team: "CLE",
+                position: "DE",
+                stats: {
+                    "Ret Yds": 14,
+                    "Ret TD": 0,
+                    "Tack Solo": 42,
+                    "Tack Ast": 16,
+                    "Pass Def": 3,
+                    "Sack": 16,
+                    "Int": 0,
+                    "Fum Rec": 1,
+                    "Fum Force": 3,
+                    "TD": 1,
+                    "Safe": 0,
+                    "Blk Kick": 0
+                }
+            },
+            // Linebackers
+            {
+                id: 21,
                 name: "Roquan Smith",
                 team: "BAL",
                 position: "LB",
@@ -629,7 +811,28 @@
                 }
             },
             {
-                id: 15,
+                id: 22,
+                name: "Fred Warner",
+                team: "SF",
+                position: "LB",
+                stats: {
+                    "Ret Yds": 0,
+                    "Ret TD": 0,
+                    "Tack Solo": 97,
+                    "Tack Ast": 33,
+                    "Pass Def": 6,
+                    "Sack": 2.5,
+                    "Int": 2,
+                    "Fum Rec": 1,
+                    "Fum Force": 4,
+                    "TD": 0,
+                    "Safe": 0,
+                    "Blk Kick": 1
+                }
+            },
+            // Cornerbacks
+            {
+                id: 23,
                 name: "Sauce Gardner",
                 team: "NYJ",
                 position: "CB",
@@ -647,234 +850,337 @@
                     "Safe": 0,
                     "Blk Kick": 0
                 }
+            },
+            {
+                id: 24,
+                name: "Jalen Ramsey",
+                team: "MIA",
+                position: "CB",
+                stats: {
+                    "Ret Yds": 21,
+                    "Ret TD": 0,
+                    "Tack Solo": 52,
+                    "Tack Ast": 15,
+                    "Pass Def": 14,
+                    "Sack": 0,
+                    "Int": 3,
+                    "Fum Rec": 1,
+                    "Fum Force": 2,
+                    "TD": 1,
+                    "Safe": 0,
+                    "Blk Kick": 0
+                }
+            },
+            // Safeties
+            {
+                id: 25,
+                name: "Antoine Winfield Jr.",
+                team: "TB",
+                position: "S",
+                stats: {
+                    "Ret Yds": 0,
+                    "Ret TD": 0,
+                    "Tack Solo": 78,
+                    "Tack Ast": 25,
+                    "Pass Def": 9,
+                    "Sack": 3,
+                    "Int": 3,
+                    "Fum Rec": 1,
+                    "Fum Force": 2,
+                    "TD": 0,
+                    "Safe": 0,
+                    "Blk Kick": 0
+                }
+            },
+            {
+                id: 26,
+                name: "Minkah Fitzpatrick",
+                team: "PIT",
+                position: "S",
+                stats: {
+                    "Ret Yds": 44,
+                    "Ret TD": 1,
+                    "Tack Solo": 64,
+                    "Tack Ast": 20,
+                    "Pass Def": 11,
+                    "Sack": 0,
+                    "Int": 6,
+                    "Fum Rec": 0,
+                    "Fum Force": 1,
+                    "TD": 1,
+                    "Safe": 0,
+                    "Blk Kick": 0
+                }
+            },
+            // Defensive Tackles
+            {
+                id: 27,
+                name: "Aaron Donald",
+                team: "LAR",
+                position: "DT",
+                stats: {
+                    "Tack Solo": 31,
+                    "Tack Ast": 19,
+                    "Pass Def": 2,
+                    "Sack": 5,
+                    "Int": 0,
+                    "Fum Rec": 0,
+                    "Fum Force": 1,
+                    "TD": 0,
+                    "Safe": 0,
+                    "Blk Kick": 0,
+                    "Ret Yds": 0,
+                    "Ret TD": 0
+                }
+            },
+            {
+                id: 28,
+                name: "Chris Jones",
+                team: "KC",
+                position: "DT",
+                stats: {
+                    "Tack Solo": 35,
+                    "Tack Ast": 26,
+                    "Pass Def": 4,
+                    "Sack": 15.5,
+                    "Int": 0,
+                    "Fum Rec": 1,
+                    "Fum Force": 2,
+                    "TD": 0,
+                    "Safe": 1,
+                    "Blk Kick": 0,
+                    "Ret Yds": 0,
+                    "Ret TD": 0
+                }
             }
         ];
 
-        // Position stat mappings
+        // Complete position stat mappings from the tables
         const positionStats = {
             "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
             "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
             "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-            "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-            "K": ["FG", "FGM"],
-            "DST": ["Pts Allow"],
-            "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-            "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-            "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-            "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-            "DT": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"]
-        };
+           "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
+           "K": ["FG", "FGM"],
+           "DST": ["Pts Allow"],
+           "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+           "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+           "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+           "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+           "DT": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"]
+       };
 
-        // Key stats for card view
-        const keyStats = {
-            "QB": ["Pass Yds", "Pass TD", "Int", "Rush Yds"],
-            "RB": ["Rush Yds", "Rush TD", "Rec", "Rec Yds"],
-            "WR": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
-            "TE": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
-            "K": ["FG", "FGM"],
-            "DST": ["Pts Allow"],
-            "LB": ["Tack Solo", "Sack", "Int", "Fum Force"],
-            "CB": ["Tack Solo", "Pass Def", "Int", "TD"],
-            "S": ["Tack Solo", "Pass Def", "Int", "TD"],
-            "DE": ["Tack Solo", "Sack", "Fum Force", "TD"],
-            "DT": ["Tack Solo", "Sack", "Fum Force", "TD"]
-        };
+       // State
+       let currentPosition = 'ALL';
+       let currentView = 'cards';
+       let searchQuery = '';
 
-        // State
-        let currentPosition = 'ALL';
-        let currentView = 'cards';
-        let searchQuery = '';
+       // Initialize
+       document.addEventListener('DOMContentLoaded', () => {
+           setupEventListeners();
+           render();
+       });
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            setupEventListeners();
-            render();
-        });
+       function setupEventListeners() {
+           // Position filter
+           document.getElementById('positionFilter').addEventListener('click', (e) => {
+               if (e.target.classList.contains('position-btn')) {
+                   document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+                   e.target.classList.add('active');
+                   currentPosition = e.target.dataset.position;
+                   render();
+               }
+           });
 
-        function setupEventListeners() {
-            // Position filter
-            document.getElementById('positionFilter').addEventListener('click', (e) => {
-                if (e.target.classList.contains('position-btn')) {
-                    document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    currentPosition = e.target.dataset.position;
-                    render();
-                }
-            });
+           // View toggle
+           document.querySelectorAll('.view-btn').forEach(btn => {
+               btn.addEventListener('click', (e) => {
+                   document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                   e.target.classList.add('active');
+                   currentView = e.target.dataset.view;
+                   render();
+               });
+           });
 
-            // View toggle
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    currentView = e.target.dataset.view;
-                    render();
-                });
-            });
+           // Search
+           document.getElementById('searchInput').addEventListener('input', (e) => {
+               searchQuery = e.target.value.toLowerCase();
+               render();
+           });
+       }
 
-            // Search
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                searchQuery = e.target.value.toLowerCase();
-                render();
-            });
-        }
+       function getFilteredPlayers() {
+           return samplePlayers.filter(player => {
+               const matchesPosition = currentPosition === 'ALL' || player.position === currentPosition;
+               const matchesSearch = searchQuery === '' || 
+                   player.name.toLowerCase().includes(searchQuery) ||
+                   player.team.toLowerCase().includes(searchQuery);
+               return matchesPosition && matchesSearch;
+           });
+       }
 
-        function getFilteredPlayers() {
-            return samplePlayers.filter(player => {
-                const matchesPosition = currentPosition === 'ALL' || player.position === currentPosition;
-                const matchesSearch = searchQuery === '' || 
-                    player.name.toLowerCase().includes(searchQuery) ||
-                    player.team.toLowerCase().includes(searchQuery);
-                return matchesPosition && matchesSearch;
-            });
-        }
+       function render() {
+           const content = document.getElementById('content');
+           const filteredPlayers = getFilteredPlayers();
 
-        function render() {
-            const content = document.getElementById('content');
-            const filteredPlayers = getFilteredPlayers();
+           if (filteredPlayers.length === 0) {
+               content.innerHTML = `
+                   <div class="empty-state">
+                       <div class="empty-state-icon">🏈</div>
+                       <h3>No players found</h3>
+                       <p>Try adjusting your filters or search terms</p>
+                   </div>
+               `;
+               return;
+           }
 
-            if (filteredPlayers.length === 0) {
-                content.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🏈</div>
-                        <h3>No players found</h3>
-                        <p>Try adjusting your filters or search terms</p>
-                    </div>
-                `;
-                return;
-            }
+           switch (currentView) {
+               case 'cards':
+                   renderCardsView(filteredPlayers);
+                   break;
+               case 'comparison':
+                   renderComparisonView(filteredPlayers);
+                   break;
+               case 'stats':
+                   renderStatsView(filteredPlayers);
+                   break;
+           }
+       }
 
-            switch (currentView) {
-                case 'cards':
-                    renderCardsView(filteredPlayers);
-                    break;
-                case 'comparison':
-                    renderComparisonView(filteredPlayers);
-                    break;
-                case 'stats':
-                    renderStatsView(filteredPlayers);
-                    break;
-            }
-        }
+       function renderCardsView(players) {
+           const content = document.getElementById('content');
+           content.innerHTML = `
+               <div class="player-grid">
+                   ${players.map(player => renderPlayerCard(player)).join('')}
+               </div>
+           `;
+       }
 
-        function renderCardsView(players) {
-            const content = document.getElementById('content');
-            content.innerHTML = `
-                <div class="player-grid">
-                    ${players.map(player => renderPlayerCard(player)).join('')}
-                </div>
-            `;
-        }
+       function renderPlayerCard(player) {
+           const stats = positionStats[player.position] || [];
+           
+           return `
+               <div class="player-card fade-in">
+                   <div class="player-header">
+                       <div class="player-info">
+                           <h3>${player.name}</h3>
+                           <div class="player-meta">
+                               <span class="position-badge">${player.position}</span>
+                               <span>${player.team}</span>
+                           </div>
+                       </div>
+                   </div>
+                   <div class="stat-grid">
+                       ${stats.map(stat => {
+                           const value = player.stats[stat] || 0;
+                           const isBest = checkIfBestStat(player, stat);
+                           return `
+                               <div class="stat-item ${isBest ? 'stat-best' : ''}">
+                                   <span class="stat-value">${formatStatValue(value, stat)}</span>
+                                   <span class="stat-label">${stat}</span>
+                               </div>
+                           `;
+                       }).join('')}
+                   </div>
+               </div>
+           `;
+       }
 
-        function renderPlayerCard(player) {
-            const stats = keyStats[player.position] || [];
-            
-            return `
-                <div class="player-card fade-in">
-                    <div class="player-header">
-                        <div class="player-info">
-                            <h3>${player.name}</h3>
-                            <div class="player-meta">
-                                <span class="position-badge">${player.position}</span>
-                                <span>${player.team}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stat-grid">
-                        ${stats.map(stat => {
-                            const value = player.stats[stat] || 0;
-                            const isBest = checkIfBestStat(player, stat);
-                            return `
-                                <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                                    <span class="stat-value">${formatStatValue(value, stat)}</span>
-                                    <span class="stat-label">${stat}</span>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-        }
+       function renderComparisonView(players) {
+           const content = document.getElementById('content');
+           const stats = getStatsForPosition(currentPosition);
+           
+           content.innerHTML = `
+               <div class="comparison-container fade-in">
+                   <div class="comparison-header">
+                       <h2>Player Comparison</h2>
+                   </div>
+                   <div class="comparison-table-wrapper">
+                       <table class="comparison-table">
+                           <thead>
+                               <tr>
+                                   <th>Player</th>
+                                   ${stats.map(stat => `<th>${stat}</th>`).join('')}
+                               </tr>
+                           </thead>
+                           <tbody>
+                               ${players.map(player => `
+                                   <tr>
+                                       <td class="player-name-cell">${player.name}</td>
+                                       ${stats.map(stat => {
+                                           const value = player.stats[stat] || 0;
+                                           const isBest = checkIfBestStat(player, stat);
+                                           return `<td class="${isBest ? 'stat-cell-best' : ''}">${formatStatValue(value, stat)}</td>`;
+                                       }).join('')}
+                                   </tr>
+                               `).join('')}
+                           </tbody>
+                       </table>
+                   </div>
+               </div>
+           `;
+       }
 
-        function renderComparisonView(players) {
-            const content = document.getElementById('content');
-            const stats = getStatsForPosition(currentPosition);
-            
-            content.innerHTML = `
-                <div class="comparison-container fade-in">
-                    <div class="comparison-header">
-                        <h2>Player Comparison</h2>
-                    </div>
-                    <div style="overflow-x: auto;">
-                        <table class="comparison-table">
-                            <thead>
-                                <tr>
-                                    <th>Player</th>
-                                    ${stats.map(stat => `<th>${stat}</th>`).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${players.map(player => `
-                                    <tr>
-                                        <td class="player-name-cell">${player.name}</td>
-                                        ${stats.map(stat => {
-                                            const value = player.stats[stat] || 0;
-                                            const isBest = checkIfBestStat(player, stat);
-                                            return `<td ${isBest ? 'style="color: #2e7d32; font-weight: 600;"' : ''}>${formatStatValue(value, stat)}</td>`;
-                                        }).join('')}
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
+       function renderStatsView(players) {
+           const content = document.getElementById('content');
+           const stats = getStatsForPosition(currentPosition);
+           const statCategories = categorizeStats(stats);
+           
+           content.innerHTML = `
+               <div class="stats-overview fade-in">
+                   <h2>Statistical Leaders</h2>
+                   ${Object.entries(statCategories).map(([category, categoryStats]) => `
+                       <div class="stat-category">
+                           <div class="stat-category-title">${category}</div>
+                           ${categoryStats.map(stat => {
+                               const leaders = getStatLeaders(players, stat, 3);
+                               if (leaders.length === 0) return '';
+                               return `
+                                   <div class="stat-row">
+                                       <span>${stat}</span>
+                                       <span class="stat-leaders">${leaders.map(l => `${l.name} (${formatStatValue(l.value, stat)})`).join(', ')}</span>
+                                   </div>
+                               `;
+                           }).join('')}
+                       </div>
+                   `).join('')}
+               </div>
+           `;
+       }
 
-        function renderStatsView(players) {
-            const content = document.getElementById('content');
-            const stats = getStatsForPosition(currentPosition);
-            const statCategories = categorizeStats(stats);
-            
-            content.innerHTML = `
-                <div class="stats-overview fade-in">
-                    <h2>Statistical Leaders</h2>
-                    ${Object.entries(statCategories).map(([category, categoryStats]) => `
-                        <div class="stat-category">
-                            <div class="stat-category-title">${category}</div>
-                            ${categoryStats.map(stat => {
-                                const leaders = getStatLeaders(players, stat, 3);
-                                return `
-                                    <div class="stat-row">
-                                        <span>${stat}</span>
-                                        <span>${leaders.map(l => `${l.name} (${formatStatValue(l.value, stat)})`).join(', ')}</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
+       function getStatsForPosition(position) {
+           if (position === 'ALL') {
+               // Get unique positions from filtered players
+               const players = getFilteredPlayers();
+               const positions = [...new Set(players.map(p => p.position))];
+               
+               // If all players are same position, show all stats for that position
+               if (positions.length === 1) {
+                   return positionStats[positions[0]] || [];
+               }
+               
+               // For mixed positions, show common stats
+               const commonStats = new Set();
+               positions.forEach(pos => {
+                   const stats = positionStats[pos] || [];
+                   stats.forEach(stat => {
+                       // Check if this stat exists for at least one player
+                       const hasStatValue = players.some(p => p.stats[stat] !== undefined && p.stats[stat] !== 0);
+                       if (hasStatValue) {
+                           commonStats.add(stat);
+                       }
+                   });
+               });
+               
+               return Array.from(commonStats);
+           }
+           return positionStats[position] || [];
+       }
 
-        function getStatsForPosition(position) {
-            if (position === 'ALL') {
-                // Get common stats across all filtered players
-                const players = getFilteredPlayers();
-                const positions = [...new Set(players.map(p => p.position))];
-                if (positions.length === 1) {
-                    return keyStats[positions[0]] || [];
-                }
-                // Return basic stats that most positions have
-                return ["Rush Yds", "Rec Yds", "TD", "Fum"];
-            }
-            return keyStats[position] || [];
-        }
-
-        function categorizeStats(stats) {
-            const categories = {
-                "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
-                "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
+       function categorizeStats(stats) {
+           const categories = {
+               "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
+               "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
                "Receiving": ["Rec", "Rec Yds", "Rec TD"],
                "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
                "Special Teams": ["Ret Yds", "Ret TD", "FG", "FGM", "Pts Allow"],
@@ -896,8 +1202,11 @@
        }
 
        function getStatLeaders(players, stat, limit = 3) {
-           return players
-               .filter(p => p.stats[stat] !== undefined)
+           const playersWithStat = players.filter(p => p.stats[stat] !== undefined && p.stats[stat] !== 0);
+           
+           if (playersWithStat.length === 0) return [];
+           
+           return playersWithStat
                .map(p => ({ name: p.name, value: p.stats[stat] || 0 }))
                .sort((a, b) => {
                    // For stats where lower is better
@@ -906,29 +1215,39 @@
                    }
                    return b.value - a.value;
                })
-               .slice(0, limit);
+               .slice(0, Math.min(limit, playersWithStat.length));
        }
 
        function checkIfBestStat(player, stat) {
            const players = getFilteredPlayers().filter(p => p.position === player.position);
-           const values = players.map(p => p.stats[stat] || 0);
            const playerValue = player.stats[stat] || 0;
            
+           // Don't highlight if value is 0
+           if (playerValue === 0) return false;
+           
+           const values = players
+               .map(p => p.stats[stat] || 0)
+               .filter(v => v !== 0);
+           
+           if (values.length === 0) return false;
+           
            if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
-               return playerValue === Math.min(...values) && playerValue > 0;
+               return playerValue === Math.min(...values);
            }
-           return playerValue === Math.max(...values) && playerValue > 0;
+           return playerValue === Math.max(...values);
        }
 
        function formatStatValue(value, stat) {
+           if (value === undefined || value === null) return '0';
+           
            if (stat === 'Sack' || stat === 'Pass Def') {
                return value.toFixed(1);
            }
            if (stat === 'FG') {
-               return `${value} Att`;
+               return `${value}`;
            }
            if (stat === 'FGM') {
-               return `${value} Miss`;
+               return `${value}`;
            }
            return value.toString();
        }
