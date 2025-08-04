@@ -250,10 +250,70 @@ const samplePlayers = [
         stats: {
             "Pts Allow": 255
         }
+    },
+    {
+        id: 13,
+        name: "T.J. Watt",
+        team: "PIT",
+        position: "DE",
+        stats: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": 48,
+            "Tack Ast": 19,
+            "Pass Def": 8,
+            "Sack": 19,
+            "Int": 0,
+            "Fum Rec": 2,
+            "Fum Force": 8,
+            "TD": 0,
+            "Safe": 1,
+            "Blk Kick": 0
+        }
+    },
+    {
+        id: 14,
+        name: "Roquan Smith",
+        team: "BAL",
+        position: "LB",
+        stats: {
+            "Ret Yds": 14,
+            "Ret TD": 0,
+            "Tack Solo": 112,
+            "Tack Ast": 46,
+            "Pass Def": 4,
+            "Sack": 4.5,
+            "Int": 1,
+            "Fum Rec": 0,
+            "Fum Force": 1,
+            "TD": 0,
+            "Safe": 0,
+            "Blk Kick": 0
+        }
+    },
+    {
+        id: 15,
+        name: "Sauce Gardner",
+        team: "NYJ",
+        position: "CB",
+        stats: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": 60,
+            "Tack Ast": 8,
+            "Pass Def": 16,
+            "Sack": 0,
+            "Int": 2,
+            "Fum Rec": 0,
+            "Fum Force": 1,
+            "TD": 0,
+            "Safe": 0,
+            "Blk Kick": 0
+        }
     }
 ];
 
-// Position stat mappings
+// Position stat mappings - RESTORED ALL STATS
 const positionStats = {
     "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
     "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
@@ -451,124 +511,122 @@ function renderComparisonView(players) {
                                     const fantasyPoints = calculateFantasyPoints(stat, value);
                                     const isBest = checkIfBestStat(player, stat);
                                     return `
-<td ${isBest ? 'style="color: #2e7d32; font-weight: 600;"' : ''}>
-                                           ${formatStatValue(value, stat)}
-                                           ${fantasyPoints > 0 ? `<br><span style="font-size: 12px; color: #2a5298;">${fantasyPoints} pts</span>` : ''}
-                                       </td>
-                                   `;
-                               }).join('')}
-                           </tr>
-                       `).join('')}
-                   </tbody>
-               </table>
-           </div>
-       </div>
-   `;
+                                        <td ${isBest ? 'style="color: #2e7d32; font-weight: 600;"' : ''}>
+                                            ${formatStatValue(value, stat)}
+                                            ${fantasyPoints > 0 ? `<br><span style="font-size: 12px; color: #2a5298;">${fantasyPoints} pts</span>` : ''}
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 function renderStatsView(players) {
-   const content = document.getElementById('content');
-   const stats = getStatsForPosition(currentPosition);
-   const statCategories = categorizeStats(stats);
-   
-   content.innerHTML = `
-       <div class="stats-overview fade-in">
-           <h2>Statistical Leaders</h2>
-           ${Object.entries(statCategories).map(([category, categoryStats]) => `
-               <div class="stat-category">
-                   <div class="stat-category-title">${category}</div>
-                   ${categoryStats.map(stat => {
-                       const leaders = getStatLeaders(players, stat, 3);
-                       return `
-                           <div class="stat-row">
-                               <span>${stat}</span>
-                               <span>${leaders.map(l => {
-                                   const fantasyPoints = calculateFantasyPoints(stat, l.value);
-                                   return `${l.name} (${formatStatValue(l.value, stat)}${fantasyPoints > 0 ? `, ${fantasyPoints} pts` : ''})`;
-                               }).join(', ')}</span>
-                           </div>
-                       `;
-                   }).join('')}
-               </div>
-           `).join('')}
-       </div>
-   `;
+    const content = document.getElementById('content');
+    const stats = getStatsForPosition(currentPosition);
+    const statCategories = categorizeStats(stats);
+    
+    content.innerHTML = `
+        <div class="stats-overview fade-in">
+            <h2>Leaders</h2>
+            ${Object.entries(statCategories).map(([category, categoryStats]) => `
+                <div class="stat-category">
+                    <div class="stat-category-title">${category}</div>
+                    ${categoryStats.map(stat => {
+                        const leaders = getStatLeaders(players, stat, 3);
+                        return `
+                            <div class="stat-row">
+                                <span>${stat}</span>
+                                <span>${leaders.map(l => {
+                                    const fantasyPoints = calculateFantasyPoints(stat, l.value);
+                                    return `${l.name} (${formatStatValue(l.value, stat)}${fantasyPoints > 0 ? `, ${fantasyPoints} pts` : ''})`;
+                                }).join(', ')}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 function getStatsForPosition(position) {
-   if (position === 'ALL') {
-       // Get common stats across all filtered players
-       const players = getFilteredPlayers();
-       const positions = [...new Set(players.map(p => p.position))];
-       if (positions.length === 1) {
-           return keyStats[positions[0]] || [];
-       }
-       // Return basic stats that most positions have
-       return ["Rush Yds", "Rec Yds", "TD", "Fum"];
-   }
-   return keyStats[position] || [];
+    if (position === 'ALL') {
+        // When ALL is selected, show ALL possible stats from all positions
+        const allStats = new Set();
+        Object.values(positionStats).forEach(stats => {
+            stats.forEach(stat => allStats.add(stat));
+        });
+        return Array.from(allStats);
+    }
+    return positionStats[position] || [];
 }
 
 function categorizeStats(stats) {
-   const categories = {
-       "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
-       "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
-       "Receiving": ["Rec", "Rec Yds", "Rec TD"],
-       "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-       "Special Teams": ["Ret Yds", "Ret TD", "FG", "FGM", "Pts Allow"],
-       "Turnovers": ["Fum", "Fum Lost", "Off Fum Ret TD"],
-       "Scoring": ["2-PT"]
-   };
+    const categories = {
+        "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
+        "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
+        "Receiving": ["Rec", "Rec Yds", "Rec TD"],
+        "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+        "Special Teams": ["Ret Yds", "Ret TD", "FG", "FGM", "Pts Allow"],
+        "Turnovers": ["Fum", "Fum Lost", "Off Fum Ret TD"],
+        "Scoring": ["2-PT"]
+    };
 
-   const result = {};
-   stats.forEach(stat => {
-       for (const [category, categoryStats] of Object.entries(categories)) {
-           if (categoryStats.includes(stat)) {
-               if (!result[category]) result[category] = [];
-               result[category].push(stat);
-               break;
-           }
-       }
-   });
-   return result;
+    const result = {};
+    stats.forEach(stat => {
+        for (const [category, categoryStats] of Object.entries(categories)) {
+            if (categoryStats.includes(stat)) {
+                if (!result[category]) result[category] = [];
+                result[category].push(stat);
+                break;
+            }
+        }
+    });
+    return result;
 }
 
 function getStatLeaders(players, stat, limit = 3) {
-   return players
-       .filter(p => p.stats[stat] !== undefined)
-       .map(p => ({ name: p.name, value: p.stats[stat] || 0 }))
-       .sort((a, b) => {
-           // For stats where lower is better
-           if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
-               return a.value - b.value;
-           }
-           return b.value - a.value;
-       })
-       .slice(0, limit);
+    return players
+        .filter(p => p.stats[stat] !== undefined)
+        .map(p => ({ name: p.name, value: p.stats[stat] || 0 }))
+        .sort((a, b) => {
+            // For stats where lower is better
+            if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
+                return a.value - b.value;
+            }
+            return b.value - a.value;
+        })
+        .slice(0, limit);
 }
 
 function checkIfBestStat(player, stat) {
-   const players = getFilteredPlayers().filter(p => p.position === player.position);
-   const values = players.map(p => p.stats[stat] || 0);
-   const playerValue = player.stats[stat] || 0;
-   
-   if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
-       return playerValue === Math.min(...values) && playerValue > 0;
-   }
-   return playerValue === Math.max(...values) && playerValue > 0;
+    const players = getFilteredPlayers().filter(p => p.position === player.position);
+    const values = players.map(p => p.stats[stat] || 0);
+    const playerValue = player.stats[stat] || 0;
+    
+    if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
+        return playerValue === Math.min(...values) && playerValue > 0;
+    }
+    return playerValue === Math.max(...values) && playerValue > 0;
 }
 
 function formatStatValue(value, stat) {
-   if (stat === 'Sack' || stat === 'Pass Def') {
-       return value.toFixed(1);
-   }
-   if (stat === 'FG') {
-       return `${value} Att`;
-   }
-   if (stat === 'FGM') {
-       return `${value} Miss`;
-   }
-   return value.toString();
+    if (stat === 'Sack' || stat === 'Pass Def') {
+        return value.toFixed(1);
+    }
+    if (stat === 'FG') {
+        return `${value} Att`;
+    }
+    if (stat === 'FGM') {
+        return `${value} Miss`;
+    }
+    return value.toString();
 }
 
 // Add touch interactions for mobile
@@ -576,26 +634,26 @@ let touchStartX = 0;
 let touchEndX = 0;
 
 document.addEventListener('touchstart', (e) => {
-   touchStartX = e.changedTouches[0].screenX;
+    touchStartX = e.changedTouches[0].screenX;
 });
 
 document.addEventListener('touchend', (e) => {
-   touchEndX = e.changedTouches[0].screenX;
-   handleSwipe();
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
 });
 
 function handleSwipe() {
-   const swipeDistance = touchEndX - touchStartX;
-   if (Math.abs(swipeDistance) < 50) return;
+    const swipeDistance = touchEndX - touchStartX;
+    if (Math.abs(swipeDistance) < 50) return;
 
-   const viewBtns = Array.from(document.querySelectorAll('.view-btn'));
-   const currentIndex = viewBtns.findIndex(btn => btn.classList.contains('active'));
+    const viewBtns = Array.from(document.querySelectorAll('.view-btn'));
+    const currentIndex = viewBtns.findIndex(btn => btn.classList.contains('active'));
 
-   if (swipeDistance > 0 && currentIndex > 0) {
-       // Swipe right - go to previous view
-       viewBtns[currentIndex - 1].click();
-   } else if (swipeDistance < 0 && currentIndex < viewBtns.length - 1) {
-       // Swipe left - go to next view
-       viewBtns[currentIndex + 1].click();
-   }
+    if (swipeDistance > 0 && currentIndex > 0) {
+        // Swipe right - go to previous view
+        viewBtns[currentIndex - 1].click();
+    } else if (swipeDistance < 0 && currentIndex < viewBtns.length - 1) {
+        // Swipe left - go to next view
+        viewBtns[currentIndex + 1].click();
+    }
 }
