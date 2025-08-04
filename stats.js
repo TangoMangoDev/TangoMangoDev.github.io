@@ -36,6 +36,352 @@ const statIdMapping = {
     34: "Ret TD"
 };
 
+// Add this to the beginning of your stats dashboard JavaScript
+
+// Fetch and store NFL players on page load
+async function loadNFLPlayersData() {
+    try {
+        // Check if we already have recent player data
+        const existingData = localStorage.getItem('nflPlayersByPosition');
+        if (existingData) {
+            const parsed = JSON.parse(existingData);
+            // If data is less than 24 hours old, use it
+            const dataAge = new Date() - new Date(parsed.lastUpdated);
+            if (dataAge < 24 * 60 * 60 * 1000) {
+                console.log('✅ Using cached NFL player data');
+                return;
+            }
+        }
+        
+        console.log('🏈 Fetching fresh NFL player data...');
+        
+        const response = await fetch('/data/fantasy/players', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch players: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Store in localStorage
+        localStorage.setItem('nflPlayersByPosition', JSON.stringify({
+            playersByPosition: data.playersByPosition,
+            totalPlayers: data.totalPlayers,
+            positionCounts: data.positionCounts,
+            lastUpdated: data.lastUpdated
+        }));
+        
+        console.log(`✅ Stored ${data.totalPlayers} NFL players grouped by position`);
+        console.log('Position counts:', data.positionCounts);
+        
+    } catch (error) {
+        console.error('Error loading NFL players:', error);
+        // Continue with sample data if fetch fails
+    }
+}
+
+// Get players by position from localStorage
+function getPlayersByPosition(position = null) {
+    try {
+        const storedData = localStorage.getItem('nflPlayersByPosition');
+        if (!storedData) return null;
+        
+        const data = JSON.parse(storedData);
+        
+        if (position && position !== 'ALL') {
+            return data.playersByPosition[position] || [];
+        }
+        
+        return data.playersByPosition;
+    } catch (error) {
+        console.error('Error retrieving players from localStorage:', error);
+        return null;
+    }
+}
+
+// Convert stored players to display format with sample stats
+function convertStoredPlayersToDisplayFormat() {
+    const playersByPosition = getPlayersByPosition();
+    
+    if (!playersByPosition) {
+        console.log('No stored player data, using default sample data');
+        return getDefaultSamplePlayers();
+    }
+    
+    // For now, take top players by rank and add sample stats
+    const displayPlayers = [];
+    const maxPerPosition = {
+        QB: 3,
+        RB: 4,
+        WR: 4,
+        TE: 2,
+        K: 2,
+        DST: 2,
+        LB: 2,
+        CB: 2,
+        S: 1,
+        DE: 1,
+        DT: 1
+    };
+    
+    Object.entries(maxPerPosition).forEach(([position, max]) => {
+        const positionPlayers = playersByPosition[position] || [];
+        const topPlayers = positionPlayers
+            .sort((a, b) => a.overallRank - b.overallRank)
+            .slice(0, max);
+        
+        topPlayers.forEach(player => {
+            displayPlayers.push({
+                id: player.id, // Preserve player ID
+                playerKey: player.playerKey,
+                name: player.name,
+                team: player.team,
+                position: player.position,
+                overallRank: player.overallRank,
+                stats: generateSampleStatsForPosition(player.position)
+            });
+        });
+    });
+    
+    console.log(`✅ Prepared ${displayPlayers.length} players for display`);
+    return displayPlayers;
+}
+
+// Quick lookup function to get player by ID and position
+function getPlayerById(playerId, position = null) {
+    const playersByPosition = getPlayersByPosition();
+    if (!playersByPosition) return null;
+    
+    if (position) {
+        // Search in specific position
+        const players = playersByPosition[position] || [];
+        return players.find(p => p.id === playerId);
+    }
+    
+    // Search all positions
+    for (const [pos, players] of Object.entries(playersByPosition)) {
+        const found = players.find(p => p.id === playerId);
+        if (found) return found;
+    }
+    
+    return null;
+}
+
+// Keep the existing generateSampleStatsForPosition function
+function generateSampleStatsForPosition(position) {
+    const statTemplates = {
+        QB: {
+            "Pass Att": Math.floor(Math.random() * 200) + 400,
+            "Comp": Math.floor(Math.random() * 150) + 250,
+            "Inc": 0, // Will be calculated
+            "Pass Yds": Math.floor(Math.random() * 2000) + 3000,
+            "Pass TD": Math.floor(Math.random() * 20) + 20,
+            "Int": Math.floor(Math.random() * 10) + 5,
+            "Sack": Math.floor(Math.random() * 30) + 10,
+            "Rush Att": Math.floor(Math.random() * 50) + 20,
+            "Rush Yds": Math.floor(Math.random() * 300) + 100,
+            "Rush TD": Math.floor(Math.random() * 5),
+            "Off Fum Ret TD": 0,
+            "2-PT": Math.floor(Math.random() * 3),
+            "Fum": Math.floor(Math.random() * 5),
+            "Fum Lost": Math.floor(Math.random() * 3)
+        },
+        RB: {
+            "Rush Att": Math.floor(Math.random() * 100) + 150,
+            "Rush Yds": Math.floor(Math.random() * 500) + 800,
+            "Rush TD": Math.floor(Math.random() * 8) + 5,
+            "Rec": Math.floor(Math.random() * 40) + 20,
+            "Rec Yds": Math.floor(Math.random() * 300) + 200,
+            "Rec TD": Math.floor(Math.random() * 4),
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Off Fum Ret TD": 0,
+            "2-PT": Math.floor(Math.random() * 2),
+            "Fum": Math.floor(Math.random() * 3),
+            "Fum Lost": Math.floor(Math.random() * 2)
+        },
+        WR: {
+            "Rush Att": Math.floor(Math.random() * 5),
+            "Rush Yds": Math.floor(Math.random() * 30),
+            "Rush TD": 0,
+            "Rec": Math.floor(Math.random() * 50) + 50,
+            "Rec Yds": Math.floor(Math.random() * 600) + 800,
+            "Rec TD": Math.floor(Math.random() * 8) + 4,
+            "Ret Yds": Math.floor(Math.random() * 100),
+            "Ret TD": 0,
+            "Off Fum Ret TD": 0,
+            "2-PT": Math.floor(Math.random() * 1),
+            "Fum": Math.floor(Math.random() * 2),
+            "Fum Lost": Math.floor(Math.random() * 1)
+        },
+        TE: {
+            "Rush Att": 0,
+            "Rush Yds": 0,
+            "Rush TD": 0,
+            "Rec": Math.floor(Math.random() * 40) + 40,
+            "Rec Yds": Math.floor(Math.random() * 400) + 500,
+            "Rec TD": Math.floor(Math.random() * 6) + 2,
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Off Fum Ret TD": 0,
+            "2-PT": Math.floor(Math.random() * 1),
+            "Fum": Math.floor(Math.random() * 2),
+            "Fum Lost": Math.floor(Math.random() * 1)
+        },
+        K: {
+            "FG": Math.floor(Math.random() * 15) + 25,
+            "FGM": Math.floor(Math.random() * 5)
+        },
+        DST: {
+            "Pts Allow": Math.floor(Math.random() * 100) + 200
+        },
+        LB: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": Math.floor(Math.random() * 60) + 50,
+            "Tack Ast": Math.floor(Math.random() * 30) + 20,
+            "Pass Def": Math.floor(Math.random() * 8) + 2,
+            "Sack": Math.floor(Math.random() * 10) + 2,
+            "Int": Math.floor(Math.random() * 3),
+            "Fum Rec": Math.floor(Math.random() * 2),
+            "Fum Force": Math.floor(Math.random() * 3),
+            "TD": Math.floor(Math.random() * 1),
+            "Safe": 0,
+            "Blk Kick": 0
+        },
+        CB: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": Math.floor(Math.random() * 40) + 30,
+            "Tack Ast": Math.floor(Math.random() * 20) + 10,
+            "Pass Def": Math.floor(Math.random() * 15) + 5,
+            "Sack": 0,
+            "Int": Math.floor(Math.random() * 5) + 1,
+            "Fum Rec": Math.floor(Math.random() * 1),
+            "Fum Force": Math.floor(Math.random() * 2),
+            "TD": Math.floor(Math.random() * 1),
+            "Safe": 0,
+            "Blk Kick": 0
+        },
+        S: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": Math.floor(Math.random() * 50) + 40,
+            "Tack Ast": Math.floor(Math.random() * 25) + 15,
+            "Pass Def": Math.floor(Math.random() * 10) + 3,
+            "Sack": Math.floor(Math.random() * 3),
+            "Int": Math.floor(Math.random() * 4) + 1,
+            "Fum Rec": Math.floor(Math.random() * 1),
+            "Fum Force": Math.floor(Math.random() * 2),
+            "TD": Math.floor(Math.random() * 1),
+            "Safe": 0,
+            "Blk Kick": 0
+        },
+        DE: {
+            "Ret Yds": 0,
+            "Ret TD": 0,
+            "Tack Solo": Math.floor(Math.random() * 30) + 20,
+            "Tack Ast": Math.floor(Math.random() * 20) + 10,
+            "Pass Def": Math.floor(Math.random() * 6) + 2,
+            "Sack": Math.floor(Math.random() * 10) + 5,
+            "Int": 0,
+            "Fum Rec": Math.floor(Math.random() * 2),
+            "Fum Force": Math.floor(Math.random() * 5) + 2,
+            "TD": Math.floor(Math.random() * 1),
+            "Safe": Math.floor(Math.random() * 1),
+            "Blk Kick": 0
+        },
+        DT: {
+            "Tack Solo": Math.floor(Math.random() * 25) + 15,
+            "Tack Ast": Math.floor(Math.random() * 20) + 10,
+            "Pass Def": Math.floor(Math.random() * 4),
+            "Sack": Math.floor(Math.random() * 6) + 1,
+            "Int": 0,
+            "Fum Rec": Math.floor(Math.random() * 1),
+            "Fum Force": Math.floor(Math.random() * 2),
+            "TD": 0,
+            "Safe": 0,
+            "Blk Kick": 0,
+            "Ret Yds": 0,
+            "Ret TD": 0
+        }
+    };
+    
+    const template = statTemplates[position];
+    if (template && template.Comp && template["Pass Att"]) {
+        template.Inc = template["Pass Att"] - template.Comp;
+    }
+    
+    return template || {};
+}
+
+// Update the initialization
+let samplePlayers = [];
+
+// Modified DOMContentLoaded to load player data first
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load NFL player data first
+    await loadNFLPlayersData();
+    
+    // Then convert to display format
+    samplePlayers = convertStoredPlayersToDisplayFormat();
+    
+    // Add league selector to header if data exists
+    const header = document.querySelector('.header');
+    const leagueSelectorHtml = createLeagueSelector();
+    if (leagueSelectorHtml && header) {
+        const selectorDiv = document.createElement('div');
+        selectorDiv.innerHTML = leagueSelectorHtml;
+        header.insertBefore(selectorDiv.firstChild, header.querySelector('.position-filter'));
+        
+        document.getElementById('league-select')?.addEventListener('change', (e) => {
+            localStorage.setItem('activeLeagueId', e.target.value);
+            samplePlayers = convertStoredPlayersToDisplayFormat();
+            render();
+        });
+    }
+    
+    setupEventListeners();
+    render();
+});
+
+// Update getFilteredPlayers to work with position-grouped data
+function getFilteredPlayers() {
+    if (currentPosition !== 'ALL' && searchQuery === '') {
+        // Fast path: get directly from position group
+        const playersByPosition = getPlayersByPosition();
+        if (playersByPosition && playersByPosition[currentPosition]) {
+            // Convert to display format with stats
+            return playersByPosition[currentPosition]
+                .slice(0, 20) // Limit for performance
+                .map(player => ({
+                    id: player.id,
+                    playerKey: player.playerKey,
+                    name: player.name,
+                    team: player.team,
+                    position: player.position,
+                    overallRank: player.overallRank,
+                    stats: generateSampleStatsForPosition(player.position)
+                }));
+        }
+    }
+    
+    // Use the sample players for filtering
+    return samplePlayers.filter(player => {
+        const matchesPosition = currentPosition === 'ALL' || player.position === currentPosition;
+        const matchesSearch = searchQuery === '' || 
+            player.name.toLowerCase().includes(searchQuery) ||
+            player.team.toLowerCase().includes(searchQuery);
+        return matchesPosition && matchesSearch;
+    });
+}
+
 // Data Management Functions
 function getFantasyDataFromLocalStorage() {
     try {
