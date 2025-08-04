@@ -320,7 +320,7 @@ function generateSampleStatsForPosition(position) {
 }
 
 // Update the initialization
-let samplePlayers = [];
+/////let samplePlayers = [];
 
 // Modified DOMContentLoaded to load player data first
 document.addEventListener('DOMContentLoaded', async () => {
