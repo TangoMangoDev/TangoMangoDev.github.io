@@ -35,9 +35,6 @@ const statIdMapping = {
     33: "Ret Yds",
     34: "Ret TD"
 };
-
-// Add this to the beginning of your stats dashboard JavaScript
-
 // Fetch and store NFL players on page load
 async function loadNFLPlayersData() {
     try {
