@@ -82,6 +82,7 @@ async function loadNFLPlayersData() {
         // Continue with sample data if fetch fails
     }
 }
+ loadNFLPlayersData();
 
 // Get players by position from localStorage
 function getPlayersByPosition(position = null) {
