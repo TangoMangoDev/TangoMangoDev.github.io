@@ -37,10 +37,10 @@ class FantasyDashboard {
             this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
         }
         
-        // Bind submit button event - this is the fix
+        // Bind submit button event
         if (this.elements.submitBtn) {
             this.elements.submitBtn.addEventListener('click', () => {
-                console.log('Submit button clicked!'); // Debug log
+                console.log('Submit button clicked!');
                 this.submitSelectedLeagues();
             });
         }
@@ -103,8 +103,8 @@ class FantasyDashboard {
     }
     
     async submitSelectedLeagues() {
-        console.log('submitSelectedLeagues called!'); // Debug log
-        console.log('Selected leagues:', Array.from(this.selectedLeagues)); // Debug log
+        console.log('submitSelectedLeagues called!');
+        console.log('Selected leagues:', Array.from(this.selectedLeagues));
         
         if (this.isSubmitting || this.selectedLeagues.size === 0) {
             console.log('Blocking submission - isSubmitting:', this.isSubmitting, 'selectedLeagues.size:', this.selectedLeagues.size);
@@ -119,7 +119,7 @@ class FantasyDashboard {
         
         try {
             const selectedLeagueIds = Array.from(this.selectedLeagues);
-            console.log('Submitting leagues:', selectedLeagueIds); // Debug log
+            console.log('Submitting leagues:', selectedLeagueIds);
             
             const response = await fetch('/data/fantasy/teams', {
                 method: 'POST',
@@ -153,6 +153,10 @@ class FantasyDashboard {
             }
             
             const data = await response.json();
+            
+            // STORE IN LOCALSTORAGE
+            this.storeFantasyDataInLocalStorage(data);
+            
             this.showSuccess(`Successfully imported ${data.importedCount || selectedLeagueIds.length} league${selectedLeagueIds.length === 1 ? '' : 's'} with teams and scoring data!`);
             
             this.displayImportResults(data);
@@ -168,6 +172,63 @@ class FantasyDashboard {
             this.isSubmitting = false;
             this.elements.submitBtn.disabled = false;
             this.elements.submitBtn.textContent = '📤 Submit Selected Leagues';
+        }
+    }
+    
+    storeFantasyDataInLocalStorage(data) {
+        try {
+            // Get existing data or initialize
+            let storedData = JSON.parse(localStorage.getItem('fantasyLeagueData') || '{}');
+            
+            // Initialize if needed
+            if (!storedData.leagues) {
+                storedData.leagues = {};
+            }
+            if (!storedData.lastUpdated) {
+                storedData.lastUpdated = null;
+            }
+            
+            // Process each result
+            if (data.results && Array.isArray(data.results)) {
+                data.results.forEach(result => {
+                    if (result.success) {
+                        // Store league data indexed by leagueId
+                        storedData.leagues[result.leagueId] = {
+                            leagueId: result.leagueId,
+                            leagueName: result.leagueName,
+                            teams: result.teams || [],
+                            scoringSettings: result.scoringSettings || [],
+                            teamsCount: result.teamsCount || 0,
+                            importedAt: new Date().toISOString(),
+                            airtableStatus: result.airtableStatus,
+                            airtableRecordId: result.airtableRecordId
+                        };
+                    }
+                });
+            }
+            
+            // Update metadata
+            storedData.lastUpdated = new Date().toISOString();
+            storedData.totalLeagues = Object.keys(storedData.leagues).length;
+            
+            // Store in localStorage
+            localStorage.setItem('fantasyLeagueData', JSON.stringify(storedData));
+            
+            console.log('✅ Fantasy data stored in localStorage:', storedData);
+            
+            // Also store a simplified version for quick access
+            const simplifiedData = {
+                leagueIds: Object.keys(storedData.leagues),
+                leagueNames: Object.values(storedData.leagues).map(l => ({
+                    id: l.leagueId,
+                    name: l.leagueName
+                })),
+                lastUpdated: storedData.lastUpdated
+            };
+            localStorage.setItem('fantasyLeagueQuickAccess', JSON.stringify(simplifiedData));
+            
+        } catch (error) {
+            console.error('Error storing data in localStorage:', error);
         }
     }
     
@@ -294,7 +355,7 @@ class FantasyDashboard {
         if (count > 0) {
             this.elements.submitSection.classList.remove('hidden');
             
-            // RE-BIND THE SUBMIT BUTTON EVENT EVERY TIME IT'S SHOWN - THIS IS THE FIX
+            // RE-BIND THE SUBMIT BUTTON EVENT EVERY TIME IT'S SHOWN
             const submitBtn = document.getElementById('submit-btn');
             if (submitBtn) {
                 // Remove any existing listeners
