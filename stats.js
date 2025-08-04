@@ -1,26 +1,3 @@
-// Scoring Rules - matches the example provided
-const scoringRules = {
-    "2": {"points": 0.1, "bonuses": null},
-    "4": {"points": 0.04, "bonuses": [{"bonus": {"target": 300, "points": "4"}}, {"bonus": {"target": 350, "points": "2"}}, {"bonus": {"target": 400, "points": "2"}}]},
-    "5": {"points": 6, "bonuses": null},
-    "6": {"points": -4, "bonuses": null},
-    "8": {"points": 0.2, "bonuses": null},
-    "9": {"points": 0.1, "bonuses": [{"bonus": {"target": 100, "points": "4"}}, {"bonus": {"target": 150, "points": "2"}}, {"bonus": {"target": 200, "points": "2"}}]},
-    "10": {"points": 6, "bonuses": null},
-    "11": {"points": 1, "bonuses": null},
-    "12": {"points": 0.1, "bonuses": [{"bonus": {"target": 100, "points": "4"}}, {"bonus": {"target": 150, "points": "2"}}, {"bonus": {"target": 200, "points": "2"}}]},
-    "13": {"points": 6, "bonuses": null},
-    "14": {"points": 0.1, "bonuses": [{"bonus": {"target": 70, "points": "3"}}, {"bonus": {"target": 100, "points": "1.5"}}, {"bonus": {"target": 150, "points": "2"}}]},
-    "15": {"points": 6, "bonuses": null},
-    "16": {"points": 2, "bonuses": null},
-    "17": {"points": -2, "bonuses": null},
-    "18": {"points": -2, "bonuses": null},
-    "19": {"points": 3, "bonuses": null},
-    "20": {"points": 3, "bonuses": null},
-    "21": {"points": 3, "bonuses": null},
-    "22": {"points": 4, "bonuses": null}
-};
-
 // Stat ID to stat name mapping based on the stats table
 const statIdMapping = {
     1: "Pass Att",
@@ -44,276 +21,361 @@ const statIdMapping = {
     19: "Fum Lost",
     20: "FG",
     21: "FGM",
-    22: "Pts Allow"
+    22: "Pts Allow",
+    23: "Tack Solo",
+    24: "Tack Ast",
+    25: "Pass Def",
+    26: "Sack",
+    27: "Int",
+    28: "Fum Rec",
+    29: "Fum Force",
+    30: "TD",
+    31: "Safe",
+    32: "Blk Kick",
+    33: "Ret Yds",
+    34: "Ret TD"
 };
 
-// Sample Data
-const samplePlayers = [
-    {
-        id: 1,
-        name: "Patrick Mahomes",
-        team: "KC",
-        position: "QB",
-        stats: {
-            "Pass Att": 648,
-            "Comp": 435,
-            "Inc": 213,
-            "Pass Yds": 5250,
-            "Pass TD": 41,
-            "Int": 12,
-            "Sack": 26,
-            "Rush Att": 61,
-            "Rush Yds": 389,
-            "Rush TD": 2,
-            "Off Fum Ret TD": 0,
-            "2-PT": 1,
-            "Fum": 5,
-            "Fum Lost": 3
+// Data Management Functions
+function getFantasyDataFromLocalStorage() {
+    try {
+        const storedData = localStorage.getItem('fantasyLeagueData');
+        if (!storedData) {
+            console.log('No fantasy data found in localStorage');
+            return null;
         }
-    },
-    {
-        id: 2,
-        name: "Josh Allen",
-        team: "BUF",
-        position: "QB",
-        stats: {
-            "Pass Att": 599,
-            "Comp": 385,
-            "Inc": 214,
-            "Pass Yds": 4407,
-            "Pass TD": 35,
-            "Int": 14,
-            "Sack": 33,
-            "Rush Att": 124,
-            "Rush Yds": 762,
-            "Rush TD": 7,
-            "Off Fum Ret TD": 0,
-            "2-PT": 2,
-            "Fum": 8,
-            "Fum Lost": 4
-        }
-    },
-    {
-        id: 3,
-        name: "Christian McCaffrey",
-        team: "SF",
-        position: "RB",
-        stats: {
-            "Rush Att": 272,
-            "Rush Yds": 1459,
-            "Rush TD": 14,
-            "Rec": 67,
-            "Rec Yds": 564,
-            "Rec TD": 5,
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 1,
-            "Fum": 2,
-            "Fum Lost": 1
-        }
-    },
-    {
-        id: 4,
-        name: "Austin Ekeler",
-        team: "LAC",
-        position: "RB",
-        stats: {
-            "Rush Att": 204,
-            "Rush Yds": 915,
-            "Rush TD": 13,
-            "Rec": 107,
-            "Rec Yds": 722,
-            "Rec TD": 5,
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 0,
-            "Fum": 3,
-            "Fum Lost": 2
-        }
-    },
-    {
-        id: 5,
-        name: "Tyreek Hill",
-        team: "MIA",
-        position: "WR",
-        stats: {
-            "Rush Att": 6,
-            "Rush Yds": 47,
-            "Rush TD": 0,
-            "Rec": 119,
-            "Rec Yds": 1710,
-            "Rec TD": 7,
-            "Ret Yds": 26,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 0,
-            "Fum": 1,
-            "Fum Lost": 0
-        }
-    },
-    {
-        id: 6,
-        name: "CeeDee Lamb",
-        team: "DAL",
-        position: "WR",
-        stats: {
-            "Rush Att": 2,
-            "Rush Yds": 16,
-            "Rush TD": 0,
-            "Rec": 107,
-            "Rec Yds": 1359,
-            "Rec TD": 9,
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 1,
-            "Fum": 2,
-            "Fum Lost": 1
-        }
-    },
-    {
-        id: 7,
-        name: "Travis Kelce",
-        team: "KC",
-        position: "TE",
-        stats: {
-            "Rush Att": 0,
-            "Rush Yds": 0,
-            "Rush TD": 0,
-            "Rec": 110,
-            "Rec Yds": 1338,
-            "Rec TD": 12,
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 0,
-            "Fum": 1,
-            "Fum Lost": 0
-        }
-    },
-    {
-        id: 8,
-        name: "T.J. Hockenson",
-        team: "MIN",
-        position: "TE",
-        stats: {
-            "Rush Att": 0,
-            "Rush Yds": 0,
-            "Rush TD": 0,
-            "Rec": 86,
-            "Rec Yds": 914,
-            "Rec TD": 6,
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Off Fum Ret TD": 0,
-            "2-PT": 0,
-            "Fum": 0,
-            "Fum Lost": 0
-        }
-    },
-    {
-        id: 9,
-        name: "Justin Tucker",
-        team: "BAL",
-        position: "K",
-        stats: {
-            "FG": 37,
-            "FGM": 2
-        }
-    },
-    {
-        id: 10,
-        name: "Harrison Butker",
-        team: "KC",
-        position: "K",
-        stats: {
-            "FG": 38,
-            "FGM": 3
-        }
-    },
-    {
-        id: 11,
-        name: "49ers Defense",
-        team: "SF",
-        position: "DST",
-        stats: {
-            "Pts Allow": 278
-        }
-    },
-    {
-        id: 12,
-        name: "Ravens Defense",
-        team: "BAL",
-        position: "DST",
-        stats: {
-            "Pts Allow": 255
-        }
-    },
-    {
-        id: 13,
-        name: "T.J. Watt",
-        team: "PIT",
-        position: "DE",
-        stats: {
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Tack Solo": 48,
-            "Tack Ast": 19,
-            "Pass Def": 8,
-            "Sack": 19,
-            "Int": 0,
-            "Fum Rec": 2,
-            "Fum Force": 8,
-            "TD": 0,
-            "Safe": 1,
-            "Blk Kick": 0
-        }
-    },
-    {
-        id: 14,
-        name: "Roquan Smith",
-        team: "BAL",
-        position: "LB",
-        stats: {
-            "Ret Yds": 14,
-            "Ret TD": 0,
-            "Tack Solo": 112,
-            "Tack Ast": 46,
-            "Pass Def": 4,
-            "Sack": 4.5,
-            "Int": 1,
-            "Fum Rec": 0,
-            "Fum Force": 1,
-            "TD": 0,
-            "Safe": 0,
-            "Blk Kick": 0
-        }
-    },
-    {
-        id: 15,
-        name: "Sauce Gardner",
-        team: "NYJ",
-        position: "CB",
-        stats: {
-            "Ret Yds": 0,
-            "Ret TD": 0,
-            "Tack Solo": 60,
-            "Tack Ast": 8,
-            "Pass Def": 16,
-            "Sack": 0,
-            "Int": 2,
-            "Fum Rec": 0,
-            "Fum Force": 1,
-            "TD": 0,
-            "Safe": 0,
-            "Blk Kick": 0
-        }
+        
+        const data = JSON.parse(storedData);
+        console.log('✅ Retrieved fantasy data from localStorage:', data);
+        return data;
+    } catch (error) {
+        console.error('Error retrieving fantasy data from localStorage:', error);
+        return null;
     }
-];
+}
 
-// Position stat mappings - RESTORED ALL STATS
+function getActiveLeagueData() {
+    const fantasyData = getFantasyDataFromLocalStorage();
+    if (!fantasyData || !fantasyData.leagues) {
+        return null;
+    }
+    
+    // Get the active league ID from localStorage or use the first available
+    let activeLeagueId = localStorage.getItem('activeLeagueId');
+    
+    if (!activeLeagueId || !fantasyData.leagues[activeLeagueId]) {
+        // Use the first league if no active league is set
+        const leagueIds = Object.keys(fantasyData.leagues);
+        if (leagueIds.length === 0) {
+            return null;
+        }
+        activeLeagueId = leagueIds[0];
+        localStorage.setItem('activeLeagueId', activeLeagueId);
+    }
+    
+    return fantasyData.leagues[activeLeagueId];
+}
+
+function convertStoredDataToSampleFormat() {
+    const leagueData = getActiveLeagueData();
+    if (!leagueData) {
+        console.log('No active league data found, using default sample data');
+        return getDefaultSamplePlayers();
+    }
+    
+    // For now, we'll return the sample data but with the actual scoring rules from the imported league
+    // In a real implementation, you would fetch actual player data from Yahoo or your backend
+    const samplePlayers = getDefaultSamplePlayers();
+    
+    // Store the actual scoring rules globally
+    window.activeLeagueScoringRules = {};
+    if (leagueData.scoringSettings && Array.isArray(leagueData.scoringSettings)) {
+        leagueData.scoringSettings.forEach(setting => {
+            window.activeLeagueScoringRules[setting.name] = {
+                points: setting.points,
+                bonuses: setting.bonuses
+            };
+        });
+    }
+    
+    console.log('✅ Using scoring rules from league:', leagueData.leagueName);
+    console.log('Scoring rules:', window.activeLeagueScoringRules);
+    
+    return samplePlayers;
+}
+
+function getDefaultSamplePlayers() {
+    // Return the original sample data
+    return [
+        {
+            id: 1,
+            name: "Patrick Mahomes",
+            team: "KC",
+            position: "QB",
+            stats: {
+                "Pass Att": 648,
+                "Comp": 435,
+                "Inc": 213,
+                "Pass Yds": 5250,
+                "Pass TD": 41,
+                "Int": 12,
+                "Sack": 26,
+                "Rush Att": 61,
+                "Rush Yds": 389,
+                "Rush TD": 2,
+                "Off Fum Ret TD": 0,
+                "2-PT": 1,
+                "Fum": 5,
+                "Fum Lost": 3
+            }
+        },
+        {
+            id: 2,
+            name: "Josh Allen",
+            team: "BUF",
+            position: "QB",
+            stats: {
+                "Pass Att": 599,
+                "Comp": 385,
+                "Inc": 214,
+                "Pass Yds": 4407,
+                "Pass TD": 35,
+                "Int": 14,
+                "Sack": 33,
+                "Rush Att": 124,
+                "Rush Yds": 762,
+                "Rush TD": 7,
+                "Off Fum Ret TD": 0,
+                "2-PT": 2,
+                "Fum": 8,
+                "Fum Lost": 4
+            }
+        },
+        {
+            id: 3,
+            name: "Christian McCaffrey",
+            team: "SF",
+            position: "RB",
+            stats: {
+                "Rush Att": 272,
+                "Rush Yds": 1459,
+                "Rush TD": 14,
+                "Rec": 67,
+                "Rec Yds": 564,
+                "Rec TD": 5,
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 1,
+                "Fum": 2,
+                "Fum Lost": 1
+            }
+        },
+        {
+            id: 4,
+            name: "Austin Ekeler",
+            team: "LAC",
+            position: "RB",
+            stats: {
+                "Rush Att": 204,
+                "Rush Yds": 915,
+                "Rush TD": 13,
+                "Rec": 107,
+                "Rec Yds": 722,
+                "Rec TD": 5,
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 0,
+                "Fum": 3,
+                "Fum Lost": 2
+            }
+        },
+        {
+            id: 5,
+            name: "Tyreek Hill",
+            team: "MIA",
+            position: "WR",
+            stats: {
+                "Rush Att": 6,
+                "Rush Yds": 47,
+                "Rush TD": 0,
+                "Rec": 119,
+                "Rec Yds": 1710,
+                "Rec TD": 7,
+                "Ret Yds": 26,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 0,
+                "Fum": 1,
+                "Fum Lost": 0
+            }
+        },
+        {
+            id: 6,
+            name: "CeeDee Lamb",
+            team: "DAL",
+            position: "WR",
+            stats: {
+                "Rush Att": 2,
+                "Rush Yds": 16,
+                "Rush TD": 0,
+                "Rec": 107,
+                "Rec Yds": 1359,
+                "Rec TD": 9,
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 1,
+                "Fum": 2,
+                "Fum Lost": 1
+            }
+        },
+        {
+            id: 7,
+            name: "Travis Kelce",
+            team: "KC",
+            position: "TE",
+            stats: {
+                "Rush Att": 0,
+                "Rush Yds": 0,
+                "Rush TD": 0,
+                "Rec": 110,
+                "Rec Yds": 1338,
+                "Rec TD": 12,
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 0,
+                "Fum": 1,
+                "Fum Lost": 0
+            }
+        },
+        {
+            id: 8,
+            name: "T.J. Hockenson",
+            team: "MIN",
+            position: "TE",
+            stats: {
+                "Rush Att": 0,
+                "Rush Yds": 0,
+                "Rush TD": 0,
+                "Rec": 86,
+                "Rec Yds": 914,
+                "Rec TD": 6,
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Off Fum Ret TD": 0,
+                "2-PT": 0,
+                "Fum": 0,
+                "Fum Lost": 0
+            }
+        },
+        {
+            id: 9,
+            name: "Justin Tucker",
+            team: "BAL",
+            position: "K",
+            stats: {
+                "FG": 37,
+                "FGM": 2
+            }
+        },
+        {
+            id: 10,
+            name: "Harrison Butker",
+            team: "KC",
+            position: "K",
+            stats: {
+                "FG": 38,
+                "FGM": 3
+            }
+        },
+        {
+            id: 11,
+            name: "49ers Defense",
+            team: "SF",
+            position: "DST",
+            stats: {
+                "Pts Allow": 278
+            }
+        },
+        {
+            id: 12,
+            name: "Ravens Defense",
+            team: "BAL",
+            position: "DST",
+            stats: {
+                "Pts Allow": 255
+            }
+        },
+        {
+            id: 13,
+            name: "T.J. Watt",
+            team: "PIT",
+            position: "DE",
+            stats: {
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Tack Solo": 48,
+                "Tack Ast": 19,
+                "Pass Def": 8,
+                "Sack": 19,
+                "Int": 0,
+                "Fum Rec": 2,
+                "Fum Force": 8,
+                "TD": 0,
+                "Safe": 1,
+                "Blk Kick": 0
+            }
+        },
+        {
+            id: 14,
+            name: "Roquan Smith",
+            team: "BAL",
+            position: "LB",
+            stats: {
+                "Ret Yds": 14,
+                "Ret TD": 0,
+                "Tack Solo": 112,
+                "Tack Ast": 46,
+                "Pass Def": 4,
+                "Sack": 4.5,
+                "Int": 1,
+                "Fum Rec": 0,
+                "Fum Force": 1,
+                "TD": 0,
+                "Safe": 0,
+                "Blk Kick": 0
+            }
+        },
+        {
+            id: 15,
+            name: "Sauce Gardner",
+            team: "NYJ",
+            position: "CB",
+            stats: {
+                "Ret Yds": 0,
+                "Ret TD": 0,
+                "Tack Solo": 60,
+                "Tack Ast": 8,
+                "Pass Def": 16,
+                "Sack": 0,
+                "Int": 2,
+                "Fum Rec": 0,
+                "Fum Force": 1,
+                "TD": 0,
+                "Safe": 0,
+                "Blk Kick": 0
+            }
+        }
+    ];
+}
+
+// Initialize the players data from localStorage or use sample data
+let samplePlayers = convertStoredDataToSampleFormat();
+
+// Position stat mappings
 const positionStats = {
     "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
     "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
@@ -348,8 +410,11 @@ let currentPosition = 'ALL';
 let currentView = 'cards';
 let searchQuery = '';
 
-// Fantasy Points Calculation Function
+// Fantasy Points Calculation Function - Updated to use dynamic scoring rules
 function calculateFantasyPoints(statName, statValue) {
+    // Use the active league's scoring rules if available
+    const scoringRules = window.activeLeagueScoringRules || {};
+    
     // Find the stat ID for the given stat name
     const statId = Object.keys(statIdMapping).find(id => statIdMapping[id] === statName);
     
@@ -372,8 +437,48 @@ function calculateFantasyPoints(statName, statValue) {
     return Math.round(points * 100) / 100; // Round to 2 decimal places
 }
 
+// Add league selector functionality
+function createLeagueSelector() {
+    const fantasyData = getFantasyDataFromLocalStorage();
+    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
+        return '';
+    }
+    
+    const activeLeagueId = localStorage.getItem('activeLeagueId') || Object.keys(fantasyData.leagues)[0];
+    
+    return `
+        <div class="league-selector">
+            <label for="league-select">Active League: </label>
+            <select id="league-select" class="league-dropdown">
+                ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
+                    <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
+                        ${league.leagueName}
+                    </option>
+                `).join('')}
+            </select>
+        </div>
+    `;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Add league selector to header if data exists
+    const header = document.querySelector('.header');
+    const leagueSelectorHtml = createLeagueSelector();
+    if (leagueSelectorHtml && header) {
+        const selectorDiv = document.createElement('div');
+        selectorDiv.innerHTML = leagueSelectorHtml;
+        header.insertBefore(selectorDiv.firstChild, header.querySelector('.position-filter'));
+        
+        // Add event listener for league change
+        document.getElementById('league-select')?.addEventListener('change', (e) => {
+            localStorage.setItem('activeLeagueId', e.target.value);
+            // Reload the data with new league
+            samplePlayers = convertStoredDataToSampleFormat();
+            render();
+        });
+    }
+    
     setupEventListeners();
     render();
 });
@@ -657,3 +762,50 @@ function handleSwipe() {
         viewBtns[currentIndex + 1].click();
     }
 }
+
+// Add styles for the league selector
+const style = document.createElement('style');
+style.textContent = `
+    .league-selector {
+        margin-bottom: 12px;
+        padding: 12px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .league-selector label {
+        font-weight: 500;
+        color: rgba(255,255,255,0.9);
+    }
+    
+    .league-dropdown {
+        flex: 1;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    
+    .league-dropdown option {
+        background: #2a5298;
+        color: white;
+    }
+    
+    .fantasy-points {
+        font-size: 11px;
+        color: #2a5298;
+        margin-top: 2px;
+        font-weight: 600;
+    }
+    
+    .comparison-table-wrapper {
+        overflow-x: auto;
+    }
+`;
+document.head.appendChild(style);
