@@ -1,3 +1,402 @@
+// Add these functions at the beginning of stats.js
+
+// Fetch and store fantasy rosters for a league
+async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
+    try {
+        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : ''}`;
+        
+        // Check if we already have recent roster data
+        if (!forceRefresh) {
+            const existingData = localStorage.getItem(storageKey);
+            if (existingData) {
+                const parsed = JSON.parse(existingData);
+                // 24 hours cache for rosters
+                const dataAge = new Date() - new Date(parsed.lastUpdated);
+                if (dataAge < 24 * 60 * 60 * 1000) {
+                    console.log('✅ Using cached roster data for league:', leagueId);
+                    return parsed;
+                }
+            }
+        }
+        
+        console.log(`📋 Fetching fresh roster data for league: ${leagueId}${week ? `, week ${week}` : ''}...`);
+        
+        const requestBody = { leagueId };
+        if (week) {
+            requestBody.week = week;
+        }
+        
+        const response = await fetch('/data/fantasy/rosters', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            if (errorData.needsAuth) {
+                console.error('Yahoo authentication required');
+                throw new Error('Authentication required');
+            }
+            throw new Error(`Failed to fetch rosters: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Structure data for storage
+        const rostersData = {
+            leagueId: data.leagueId,
+            week: data.week,
+            teams: data.teams,
+            totalTeams: data.totalTeams,
+            lastUpdated: new Date().toISOString(),
+            playersByTeam: {},
+            allPlayers: [],
+            teamNameToId: {}
+        };
+        
+        // Process teams for easier lookups
+        data.teams.forEach(team => {
+            rostersData.teamNameToId[team.teamName] = team.teamId;
+            rostersData.playersByTeam[team.teamId] = team.players;
+            
+            team.players.forEach(player => {
+                rostersData.allPlayers.push({
+                    ...player,
+                    fantasyTeamId: team.teamId,
+                    fantasyTeamName: team.teamName
+                });
+            });
+        });
+        
+        localStorage.setItem(storageKey, JSON.stringify(rostersData));
+        console.log(`✅ Stored rosters for ${data.totalTeams} teams (${rostersData.allPlayers.length} total players)`);
+        
+        return rostersData;
+        
+    } catch (error) {
+        console.error('Error loading fantasy rosters:', error);
+        
+        // Try to return cached data if available
+        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : ''}`;
+        const cachedData = localStorage.getItem(storageKey);
+        if (cachedData) {
+            console.log('⚠️ Using stale cached data due to error');
+            return JSON.parse(cachedData);
+        }
+        
+        return null;
+    }
+}
+
+// Get roster data from cache
+function getCachedRosterData(leagueId, week = null) {
+    const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : ''}`;
+    const data = localStorage.getItem(storageKey);
+    return data ? JSON.parse(data) : null;
+}
+
+// Initialize or update active league
+function initializeActiveLeague() {
+    const fantasyData = getFantasyDataFromLocalStorage();
+    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
+        return null;
+    }
+    
+    let activeLeagueId = localStorage.getItem('activeLeagueId');
+    
+    // If no active league or the active league doesn't exist in stored data
+    if (!activeLeagueId || !fantasyData.leagues[activeLeagueId]) {
+        // Use the first available league
+        activeLeagueId = Object.keys(fantasyData.leagues)[0];
+        localStorage.setItem('activeLeagueId', activeLeagueId);
+    }
+    
+    return activeLeagueId;
+}
+
+// Global state for current filters
+let currentFilters = {
+    league: null,
+    team: 'ALL',
+    week: null,
+    position: 'ALL'
+};
+
+// Update the createLeagueSelector function to include team and week filters
+function createFilterControls() {
+    const fantasyData = getFantasyDataFromLocalStorage();
+    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
+        return '';
+    }
+    
+    const activeLeagueId = currentFilters.league || initializeActiveLeague();
+    const activeLeague = fantasyData.leagues[activeLeagueId];
+    const rosterData = getCachedRosterData(activeLeagueId);
+    
+    return `
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label for="league-select">League:</label>
+                <select id="league-select" class="filter-dropdown">
+                    ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
+                        <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
+                            ${league.leagueName}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="team-select">Team:</label>
+                <select id="team-select" class="filter-dropdown">
+                    <option value="ALL">All Teams</option>
+                    ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
+                        <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
+                            ${team.teamName}
+                        </option>
+                    `).join('') : ''}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="week-select">Week:</label>
+                <select id="week-select" class="filter-dropdown">
+                    <option value="">Current</option>
+                    ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
+                        <option value="${week}" ${week == currentFilters.week ? 'selected' : ''}>
+                            Week ${week}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+        </div>
+    `;
+}
+
+// Update the setupEventListeners function
+function setupEventListeners() {
+    // League filter
+    document.getElementById('league-select')?.addEventListener('change', async (e) => {
+        currentFilters.league = e.target.value;
+        localStorage.setItem('activeLeagueId', e.target.value);
+        
+        // Load rosters for new league
+        await loadRostersForActiveLeague();
+        
+        // Update the filter controls and re-render
+        updateFilterControls();
+        render();
+    });
+    
+    // Team filter
+    document.getElementById('team-select')?.addEventListener('change', (e) => {
+        currentFilters.team = e.target.value;
+        render();
+    });
+    
+    // Week filter
+    document.getElementById('week-select')?.addEventListener('change', async (e) => {
+        currentFilters.week = e.target.value || null;
+        
+        // Load rosters for selected week
+        await loadRostersForActiveLeague();
+        render();
+    });
+    
+    // Position filter
+    document.getElementById('positionFilter').addEventListener('click', (e) => {
+        if (e.target.classList.contains('position-btn')) {
+            document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentFilters.position = e.target.dataset.position;
+            currentPosition = currentFilters.position; // Keep backward compatibility
+            render();
+        }
+    });
+
+    // View toggle
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentView = e.target.dataset.view;
+            render();
+        });
+    });
+
+    // Search
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        render();
+    });
+}
+
+// Load rosters for the active league
+async function loadRostersForActiveLeague() {
+    const activeLeagueId = currentFilters.league || initializeActiveLeague();
+    if (!activeLeagueId) return;
+    
+    try {
+        const rosterData = await loadFantasyRosters(activeLeagueId, currentFilters.week);
+        console.log(`Loaded rosters for league ${activeLeagueId}:`, rosterData);
+        
+        // You can update global state here if needed
+        window.currentRosterData = rosterData;
+    } catch (error) {
+        console.error('Failed to load rosters:', error);
+    }
+}
+
+// Update filter controls without full page reload
+function updateFilterControls() {
+    const filterContainer = document.querySelector('.filter-controls-container');
+    if (filterContainer) {
+        filterContainer.innerHTML = createFilterControls();
+        
+        // Re-attach event listeners for the new controls
+        document.getElementById('team-select')?.addEventListener('change', (e) => {
+            currentFilters.team = e.target.value;
+            render();
+        });
+        
+        document.getElementById('week-select')?.addEventListener('change', async (e) => {
+            currentFilters.week = e.target.value || null;
+            await loadRostersForActiveLeague();
+            render();
+        });
+    }
+}
+
+// Replace the existing DOMContentLoaded event listener with this updated version
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize active league
+    currentFilters.league = initializeActiveLeague();
+    
+    // Load NFL player data first
+    await loadNFLPlayersData();
+    
+    // Load rosters for active league
+    if (currentFilters.league) {
+        await loadRostersForActiveLeague();
+    }
+    
+    // Then convert to display format
+    samplePlayers = convertStoredPlayersToDisplayFormat();
+    
+    // Add filter controls to header
+    const header = document.querySelector('.header');
+    const filterControlsHtml = createFilterControls();
+    if (filterControlsHtml && header) {
+        const filterContainer = document.createElement('div');
+        filterContainer.className = 'filter-controls-container';
+        filterContainer.innerHTML = filterControlsHtml;
+        header.appendChild(filterContainer);
+    }
+    
+    setupEventListeners();
+    render();
+});
+
+// Update styles for the new filter controls
+const additionalStyles = document.createElement('style');
+additionalStyles.textContent = `
+    .filter-controls {
+        display: flex;
+        gap: 16px;
+        margin-top: 16px;
+        padding: 12px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-group label {
+        font-weight: 500;
+        color: rgba(255,255,255,0.9);
+        font-size: 14px;
+    }
+    
+    .filter-dropdown {
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        min-width: 120px;
+    }
+    
+    .filter-dropdown option {
+        background: #2a5298;
+        color: white;
+    }
+    
+    .filter-controls-container {
+        width: 100%;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-controls {
+            gap: 12px;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: calc(50% - 6px);
+        }
+        
+        .filter-dropdown {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+`;
+document.head.appendChild(additionalStyles);
+
+// Optional: Add a function to display roster info alongside sample data
+function getRosterInfoForPlayer(playerId) {
+    if (!window.currentRosterData) return null;
+    
+    const player = window.currentRosterData.allPlayers.find(p => 
+        p.playerId === playerId || p.playerKey.includes(`.p.${playerId}`)
+    );
+    
+    return player ? {
+        fantasyTeam: player.fantasyTeamName,
+        position: player.selectedPosition
+    } : null;
+}
+
+// Update getFilteredPlayers to respect team filter when roster data is available
+const originalGetFilteredPlayers = getFilteredPlayers;
+function getFilteredPlayers() {
+    let players = originalGetFilteredPlayers.call(this);
+    
+    // Apply team filter if roster data is available and team is selected
+    if (currentFilters.team !== 'ALL' && window.currentRosterData) {
+        const teamPlayers = window.currentRosterData.playersByTeam[currentFilters.team];
+        if (teamPlayers) {
+            const teamPlayerIds = teamPlayers.map(p => p.playerId);
+            players = players.filter(player => 
+                teamPlayerIds.includes(player.id?.toString())
+            );
+        }
+    }
+    
+    return players;
+}
+
 // Stat ID to stat name mapping based on the stats table
 const statIdMapping = {
     1: "Pass Att",
