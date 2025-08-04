@@ -82,7 +82,6 @@ async function loadNFLPlayersData() {
         // Continue with sample data if fetch fails
     }
 }
- //let storedData = loadNFLPlayersData();
 
 // Get players by position from localStorage
 function getPlayersByPosition(position = null) {
