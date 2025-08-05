@@ -3,373 +3,492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Import NFL Players</title>
+    <title>Admin - Player Import</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #f5f6fa;
-            color: #333;
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
         
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-        
-        .header h1 {
-            color: #e74c3c;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .admin-badge {
-            background: #e74c3c;
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        
-        .card {
             background: white;
             border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            margin-bottom: 2rem;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
         
-        .form-group {
-            margin-bottom: 1.5rem;
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #555;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .import-section {
+            margin-bottom: 40px;
+        }
+        
+        .import-controls {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         
         label {
-            display: block;
-            margin-bottom: 0.5rem;
             font-weight: 600;
-            color: #2c3e50;
+            color: #666;
+            font-size: 14px;
         }
         
-        input[type="number"] {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e9ecef;
-            border-radius: 6px;
-            font-size: 1rem;
+        input[type="number"], 
+        input[type="text"],
+        select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 180px;
+            transition: border-color 0.3s;
         }
         
-        .btn {
-            background: #e74c3c;
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background-color: #4CAF50;
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s;
-            margin-right: 1rem;
+            transition: background-color 0.3s;
         }
         
-        .btn:hover {
-            background: #c0392b;
+        button:hover {
+            background-color: #45a049;
         }
         
-        .btn:disabled {
-            background: #bdc3c7;
+        button:disabled {
+            background-color: #ccc;
             cursor: not-allowed;
         }
         
-        .btn-stop {
-            background: #f39c12;
+        .warning-button {
+            background-color: #ff9800;
         }
         
-        .btn-stop:hover {
-            background: #e67e22;
+        .warning-button:hover {
+            background-color: #f57c00;
         }
         
-        .progress-section {
-            margin-top: 2rem;
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
         }
         
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 1rem;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: #27ae60;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-text {
-            text-align: center;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-        
-        .status {
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-        }
-        
-        .status.success {
-            background: #d4edda;
+        .success {
+            background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
         
-        .status.error {
-            background: #f8d7da;
+        .error {
+            background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
         
-        .status.info {
-            background: #d1ecf1;
+        .info {
+            background-color: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
         
-        .players-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+        #results {
+            margin-top: 20px;
             max-height: 400px;
             overflow-y: auto;
-        }
-        
-        .player-card {
-            background: #f8f9fa;
-            padding: 0.75rem;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-        
-        .player-name {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-        
-        .player-details {
-            font-size: 0.8rem;
-            color: #6c757d;
-        }
-        
-        .hidden {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
             display: none;
+        }
+        
+        .result-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .cancel-button {
+            background-color: #6c757d;
+        }
+        
+        .cancel-button:hover {
+            background-color: #5a6268;
+        }
+        
+        .warning-text {
+            color: #ff9800;
+            font-weight: 600;
+            margin: 15px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🔧 Admin Panel</h1>
-            <span class="admin-badge">ADMIN ACCESS</span>
-            <p>Import NFL Players Database</p>
+        <h1>Admin - Player & Stats Import</h1>
+        
+        <!-- Player Import Section -->
+        <div class="import-section">
+            <h2>Import NFL Players</h2>
+            <div class="import-controls">
+                <div class="input-group">
+                    <label for="offenseCount">Offense Players:</label>
+                    <input type="number" id="offenseCount" min="1" max="1000" value="350" placeholder="e.g., 350">
+                </div>
+                <div class="input-group">
+                    <label for="defenseCount">Defense Players:</label>
+                    <input type="number" id="defenseCount" min="1" max="500" value="50" placeholder="e.g., 50">
+                </div>
+                <button id="importPlayersBtn" onclick="importPlayers()">Import Players</button>
+            </div>
         </div>
         
-        <div class="card">
-            <h2>Import NFL Players</h2>
-            <p>Import players by Overall Rank from Yahoo Fantasy API. Each batch imports 25 players.</p>
-            
-            <div class="form-group">
-                <label for="totalPlayers">Total Number of Players to Import:</label>
-                <input type="number" id="totalPlayers" value="350" min="25" max="1000" step="25">
-                <small>Recommended: 350 players (covers top fantasy relevant players)</small>
-            </div>
-            
-            <button id="startImport" class="btn">🚀 Start Import</button>
-            <button id="stopImport" class="btn btn-stop hidden">⏹️ Stop Import</button>
-            
-            <div id="progressSection" class="progress-section hidden">
-                <div class="progress-text" id="progressText">Preparing import...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+        <!-- Season Stats Import Section -->
+        <div class="import-section">
+            <h2>Import Historical Season Stats</h2>
+            <div class="import-controls">
+                <div class="input-group">
+                    <label for="seasonYear">Season Year:</label>
+                    <select id="seasonYear">
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                    </select>
                 </div>
-                <div id="statusMessage"></div>
+                <div class="input-group">
+                    <label for="leagueId">League ID:</label>
+                    <input type="text" id="leagueId" placeholder="e.g., 123456" style="width: 200px;">
+                </div>
+                <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import Season Stats</button>
             </div>
-            
-            <div id="recentPlayers" class="hidden">
-                <h3>Recently Imported Players</h3>
-                <div id="playersGrid" class="players-grid"></div>
+        </div>
+        
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>Import Season Statistics</h3>
+            <p>You are about to import ALL player statistics for the <strong id="modalYear"></strong> season.</p>
+            <p class="warning-text">⚠️ This will fetch data for all 18 weeks and may take several minutes.</p>
+            <p>Do you want to continue?</p>
+            <div class="modal-buttons">
+                <button class="cancel-button" onclick="closeModal()">Cancel</button>
+                <button onclick="confirmStatsImport()">Continue</button>
             </div>
         </div>
     </div>
 
     <script>
-        class PlayerImporter {
-            constructor() {
-                this.isImporting = false;
-                this.shouldStop = false;
-                this.currentStart = 0;
-                this.totalPlayers = 0;
-                this.importedCount = 0;
-                
-                this.elements = {
-                    totalPlayers: document.getElementById('totalPlayers'),
-                    startImport: document.getElementById('startImport'),
-                    stopImport: document.getElementById('stopImport'),
-                    progressSection: document.getElementById('progressSection'),
-                    progressText: document.getElementById('progressText'),
-                    progressFill: document.getElementById('progressFill'),
-                    statusMessage: document.getElementById('statusMessage'),
-                    recentPlayers: document.getElementById('recentPlayers'),
-                    playersGrid: document.getElementById('playersGrid')
-                };
-                
-                this.bindEvents();
+        // Import Players Function
+        async function importPlayers() {
+            const offenseCount = parseInt(document.getElementById('offenseCount').value) || 350;
+            const defenseCount = parseInt(document.getElementById('defenseCount').value) || 50;
+            const totalCount = offenseCount + defenseCount;
+            
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            const importBtn = document.getElementById('importPlayersBtn');
+            
+            // Validation
+            if (offenseCount < 1 || defenseCount < 1) {
+                showStatus('Please enter valid numbers for both offense and defense players.', 'error');
+                return;
             }
             
-            bindEvents() {
-                this.elements.startImport.addEventListener('click', () => this.startImport());
-                this.elements.stopImport.addEventListener('click', () => this.stopImport());
-            }
+            importBtn.disabled = true;
+            showStatus(`Starting import of ${totalCount} players (${offenseCount} offense, ${defenseCount} defense)...`, 'info');
+            resultsDiv.style.display = 'none';
+            resultsDiv.innerHTML = '';
             
-            async startImport() {
-                this.totalPlayers = parseInt(this.elements.totalPlayers.value);
-                this.currentStart = 0;
-                this.importedCount = 0;
-                this.isImporting = true;
-                this.shouldStop = false;
-                
-                this.elements.startImport.classList.add('hidden');
-                this.elements.stopImport.classList.remove('hidden');
-                this.elements.progressSection.classList.remove('hidden');
-                this.elements.recentPlayers.classList.remove('hidden');
-                
-                this.showStatus('Starting player import...', 'info');
-                
-                await this.importBatch();
-            }
+            let importedPlayers = [];
+            let totalImported = 0;
             
-            stopImport() {
-                this.shouldStop = true;
-                this.showStatus('Stopping import after current batch...', 'info');
-            }
-            
-            async importBatch() {
-                if (this.shouldStop || this.currentStart >= this.totalPlayers) {
-                    this.finishImport();
-                    return;
-                }
+            try {
+                // Import offense players first
+                let start = 0;
+                let offenseImported = 0;
                 
-                const batchSize = 25;
-                const remainingPlayers = this.totalPlayers - this.currentStart;
-                const currentBatchSize = Math.min(batchSize, remainingPlayers);
+                showStatus(`Importing offense players...`, 'info');
                 
-                this.updateProgress();
-                
-                try {
+                while (offenseImported < offenseCount) {
+                    const batchSize = Math.min(25, offenseCount - offenseImported);
+                    
                     const response = await fetch('/data/admin/import', {
                         method: 'POST',
-                        credentials: 'include',
                         headers: {
                             'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify({
-                            start: this.currentStart,
-                            count: currentBatchSize
+                            start: start,
+                            count: batchSize
                         })
                     });
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                        throw new Error(`Failed to import players: ${response.status}`);
                     }
                     
                     const data = await response.json();
                     
-                    if (data.success) {
-                        this.importedCount += data.importedCount;
-                        this.currentStart += data.importedCount;
-                        
-                        this.showStatus(`Imported ${data.importedCount} players (${this.importedCount}/${this.totalPlayers} total)`, 'success');
-                        this.displayRecentPlayers(data.players);
-                        
-                        // Continue with next batch after a short delay
-                        setTimeout(() => {
-                            if (!this.shouldStop) {
-                                this.importBatch();
-                            } else {
-                                this.finishImport();
-                            }
-                        }, 500);
-                    } else {
-                        throw new Error(data.error || 'Import failed');
+                    if (data.importedCount > 0) {
+                        importedPlayers = importedPlayers.concat(data.players);
+                        offenseImported += data.importedCount;
+                        totalImported += data.importedCount;
+                        showStatus(`Imported ${totalImported} players so far...`, 'info');
                     }
                     
-                } catch (error) {
-                    console.error('Import error:', error);
-                    this.showStatus(`Error: ${error.message}`, 'error');
-                    this.finishImport();
+                    start += batchSize;
+                    
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
-            }
-            
-            updateProgress() {
-                const percentage = (this.currentStart / this.totalPlayers) * 100;
-                this.elements.progressFill.style.width = `${percentage}%`;
-                this.elements.progressText.textContent = 
-                    `Importing players ${this.currentStart + 1}-${Math.min(this.currentStart + 25, this.totalPlayers)} of ${this.totalPlayers}`;
-            }
-            
-            displayRecentPlayers(players) {
-                // Only show the last 20 players to avoid DOM bloat
-                const playersToShow = players.slice(-20);
                 
-                this.elements.playersGrid.innerHTML = playersToShow.map(player => `
-                    <div class="player-card">
-                        <div class="player-name">${player.name}</div>
-                        <div class="player-details">
-                            Rank: ${player.rank}<br>
-                            Position: ${player.position || 'N/A'}<br>
-                            Team: ${player.team || 'N/A'}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            finishImport() {
-                this.isImporting = false;
-                this.elements.startImport.classList.remove('hidden');
-                this.elements.stopImport.classList.add('hidden');
+                // Import defense players
+                showStatus(`Importing defense players...`, 'info');
+                let defenseImported = 0;
                 
-                const finalPercentage = (this.importedCount / this.totalPlayers) * 100;
-                this.elements.progressFill.style.width = `${finalPercentage}%`;
-                this.elements.progressText.textContent = `Import Complete: ${this.importedCount}/${this.totalPlayers} players`;
+                while (defenseImported < defenseCount && totalImported < totalCount) {
+                    const batchSize = Math.min(25, defenseCount - defenseImported);
+                    
+                    const response = await fetch('/data/admin/import', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            start: start,
+                            count: batchSize
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to import defense players: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Filter for defense players
+                    const defensePlayers = data.players.filter(p => 
+                        ['DEF', 'LB', 'CB', 'S', 'DE', 'DT'].some(pos => p.position.includes(pos))
+                    );
+                    
+                    if (defensePlayers.length > 0) {
+                        importedPlayers = importedPlayers.concat(defensePlayers);
+                        defenseImported += defensePlayers.length;
+                        totalImported += data.importedCount;
+                        showStatus(`Imported ${totalImported} players so far...`, 'info');
+                    }
+                    
+                    start += batchSize;
+                    
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
                 
-                this.showStatus(`✅ Import finished! Successfully imported ${this.importedCount} NFL players.`, 'success');
-            }
-            
-            showStatus(message, type) {
-                this.elements.statusMessage.className = `status ${type}`;
-                this.elements.statusMessage.textContent = message;
+                showStatus(`✅ Successfully imported ${totalImported} players!`, 'success');
+                displayResults(importedPlayers);
+                
+            } catch (error) {
+                console.error('Import error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                importBtn.disabled = false;
             }
         }
         
-        // Initialize the importer when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new PlayerImporter();
-        });
+        // Show stats confirmation modal
+        function showStatsConfirmation() {
+            const year = document.getElementById('seasonYear').value;
+            const leagueId = document.getElementById('leagueId').value;
+            
+            if (!leagueId) {
+                showStatus('Please enter a League ID.', 'error');
+                return;
+            }
+            
+            document.getElementById('modalYear').textContent = year;
+            document.getElementById('confirmModal').style.display = 'block';
+        }
+        
+        // Close modal
+        function closeModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+        
+        // Confirm and import stats
+        async function confirmStatsImport() {
+            closeModal();
+            
+            const year = parseInt(document.getElementById('seasonYear').value);
+            const leagueId = document.getElementById('leagueId').value;
+            const importBtn = document.getElementById('importStatsBtn');
+            
+            importBtn.disabled = true;
+            showStatus(`Starting import of ${year} season stats for league ${leagueId}...`, 'info');
+            
+            try {
+                const response = await fetch('/data/admin/stats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        year: year,
+                        leagueId: leagueId,
+                        startWeek: 1,
+                        endWeek: 18
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Failed to import stats: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                showStatus(
+                    `✅ ${data.message}`, 
+                    'success'
+                );
+                
+                // Display summary
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = `
+                    <h3>Import Summary</h3>
+                    <div class="result-item"><strong>Year:</strong> ${data.year}</div>
+                    <div class="result-item"><strong>League ID:</strong> ${data.leagueId}</div>
+                    <div class="result-item"><strong>Weeks Processed:</strong> ${data.weeksProcessed}</div>
+                    <div class="result-item"><strong>Total Players:</strong> ${data.totalPlayers}</div>
+                    <div class="result-item"><strong>Players Stored:</strong> ${data.storedCount}</div>
+                `;
+                
+            } catch (error) {
+                console.error('Stats import error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                importBtn.disabled = false;
+            }
+        }
+        
+        // Show status message
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+            statusDiv.style.display = 'block';
+        }
+        
+        // Display import results
+        function displayResults(players) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            
+            const positionGroups = {};
+            players.forEach(player => {
+                const mainPos = player.position.split(',')[0].trim();
+                if (!positionGroups[mainPos]) {
+                    positionGroups[mainPos] = [];
+                }
+                positionGroups[mainPos].push(player);
+            });
+            
+            let html = '<h3>Imported Players by Position</h3>';
+            
+            Object.entries(positionGroups).forEach(([position, playerList]) => {
+                html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('confirmModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
     </script>
 </body>
 </html>
