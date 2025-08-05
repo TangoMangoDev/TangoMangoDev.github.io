@@ -1,4 +1,6 @@
-// Fetch and store fantasy rosters for a league
+// Get saved week preference
+function getSavedWeek() {
+  const savedWeek = localStorage.getItem('selectedWeek');
   if (savedWeek && savedWeek !== 'current') {
     return parseInt(savedWeek);
   }
@@ -6,6 +8,13 @@
 }
 
 // Save week preference
+function saveWeekPreference(week) {
+  if (week) {
+    localStorage.setItem('selectedWeek', week.toString());
+  } else {
+    localStorage.setItem('selectedWeek', 'current');
+  }
+} week preference
 function saveWeekPreference(week) {
   if (week) {
     localStorage.setItem('selectedWeek', week.toString());
