@@ -104,6 +104,14 @@
             background-color: #f57c00;
         }
         
+        .danger-button {
+            background-color: #f44336;
+        }
+        
+        .danger-button:hover {
+            background-color: #da190b;
+        }
+        
         #status {
             margin-top: 20px;
             padding: 15px;
@@ -129,9 +137,58 @@
             border: 1px solid #bee5eb;
         }
         
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        /* Progress Bar Styles */
+        #progressContainer {
+            display: none;
+            margin-top: 15px;
+        }
+        
+        .progress-bar-container {
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 25px;
+            position: relative;
+        }
+        
+        #progressBar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #progressText {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        #progressPercent {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #333;
+            font-weight: 600;
+            font-size: 12px;
+            z-index: 10;
+        }
+        
         #results {
             margin-top: 20px;
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
             padding: 15px;
             background-color: #f9f9f9;
@@ -148,6 +205,19 @@
             border-bottom: none;
         }
         
+        .result-summary {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .result-summary h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        
         /* Modal styles */
         .modal {
             display: none;
@@ -162,12 +232,14 @@
         
         .modal-content {
             background-color: white;
-            margin: 15% auto;
+            margin: 10% auto;
             padding: 30px;
             border-radius: 12px;
-            width: 80%;
-            max-width: 500px;
+            width: 90%;
+            max-width: 600px;
             text-align: center;
+            max-height: 80vh;
+            overflow-y: auto;
         }
         
         .modal h3 {
@@ -195,6 +267,62 @@
             font-weight: 600;
             margin: 15px 0;
         }
+        
+        .danger-text {
+            color: #f44336;
+            font-weight: 600;
+            margin: 15px 0;
+        }
+        
+        .modal-details {
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .modal-details ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        /* Stats by week display */
+        .week-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .week-item {
+            background-color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .week-item.completed {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .week-item.failed {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .week-number {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .week-count {
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -219,42 +347,85 @@
         
         <!-- Season Stats Import Section -->
         <div class="import-section">
-            <h2>Import Historical Season Stats</h2>
+            <h2>Import Complete Season Stats</h2>
             <div class="import-controls">
                 <div class="input-group">
-                    <label for="seasonYear">Season Year:</label>
-                    <select id="seasonYear">
+                    <label for="statsYear">Season Year:</label>
+                    <select id="statsYear">
                         <option value="2024">2024</option>
                         <option value="2023">2023</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label for="leagueId">League ID:</label>
-                    <input type="text" id="leagueId" placeholder="e.g., 123456" style="width: 200px;">
+                    <label for="statsLeagueId">League ID:</label>
+                    <input type="text" id="statsLeagueId" placeholder="e.g., 123456" style="width: 200px;">
                 </div>
-                <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import Season Stats</button>
+                <div class="input-group">
+                    <label for="statsMax">Max Players Per Week:</label>
+                    <input type="number" id="statsMax" min="25" max="1000" value="450" placeholder="e.g., 450">
+                </div>
+                <button id="importStatsBtn" class="danger-button" onclick="showStatsConfirmation()">Import Full Season</button>
             </div>
         </div>
         
         <div id="status"></div>
+        
+        <!-- Progress Container -->
+        <div id="progressContainer">
+            <div class="progress-bar-container">
+                <div id="progressBar"></div>
+                <div id="progressPercent">0%</div>
+            </div>
+            <div id="progressText">Preparing import...</div>
+        </div>
+        
         <div id="results"></div>
     </div>
     
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal">
         <div class="modal-content">
-            <h3>Import Season Statistics</h3>
-            <p>You are about to import ALL player statistics for the <strong id="modalYear"></strong> season.</p>
-            <p class="warning-text">⚠️ This will fetch data for all 18 weeks and may take several minutes.</p>
-            <p>Do you want to continue?</p>
+            <h3>⚠️ Import Complete Season Statistics</h3>
+            <p>You are about to import <strong>ALL PLAYER STATISTICS</strong> for the entire season:</p>
+            
+            <div class="modal-details">
+                <ul>
+                    <li><strong>Year:</strong> <span id="modalYear"></span></li>
+                    <li><strong>League ID:</strong> <span id="modalLeagueId"></span></li>
+                    <li><strong>Weeks:</strong> All 18 weeks (Week 1 through Week 18)</li>
+                    <li><strong>Max Players Per Week:</strong> <span id="modalMax"></span></li>
+                    <li><strong>Total API Calls:</strong> ~<span id="modalApiCalls"></span> requests</li>
+                    <li><strong>Estimated Time:</strong> <span id="modalEstimatedTime"></span> minutes</li>
+                </ul>
+            </div>
+            
+            <p class="danger-text">🔥 This is a MASSIVE operation that will:</p>
+            <div class="modal-details">
+                <ul>
+                    <li>Make hundreds of API calls to Yahoo Fantasy</li>
+                    <li>Process thousands of player records</li>
+                    <li>Take 15-30 minutes to complete</li>
+                    <li>Use significant system resources</li>
+                    <li>Should NOT be interrupted once started</li>
+                </ul>
+            </div>
+            
+            <p class="warning-text">⚠️ Make sure you have a stable internet connection and won't need to close this page.</p>
+            
+            <p><strong>Are you absolutely sure you want to continue?</strong></p>
+            
             <div class="modal-buttons">
                 <button class="cancel-button" onclick="closeModal()">Cancel</button>
-                <button onclick="confirmStatsImport()">Continue</button>
+                <button class="danger-button" onclick="confirmStatsImport()">Yes, Import Everything</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Global variables for tracking import progress
+        let isImporting = false;
+        let importStartTime = null;
+        
         // Import Players Function
         async function importPlayers() {
             const offenseCount = parseInt(document.getElementById('offenseCount').value) || 350;
@@ -271,10 +442,19 @@
                 return;
             }
             
+            if (isImporting) {
+                showStatus('Another import is already in progress. Please wait.', 'warning');
+                return;
+            }
+            
+            isImporting = true;
             importBtn.disabled = true;
             showStatus(`Starting import of ${totalCount} players (${offenseCount} offense, ${defenseCount} defense)...`, 'info');
             resultsDiv.style.display = 'none';
             resultsDiv.innerHTML = '';
+            
+            // Show progress
+            showProgress(0, totalCount, 'Starting player import...');
             
             let importedPlayers = [];
             let totalImported = 0;
@@ -289,7 +469,7 @@
                 while (offenseImported < offenseCount) {
                     const batchSize = Math.min(25, offenseCount - offenseImported);
                     
-                    const response = await fetch('/data/admin/import', {
+                    const response = await fetchWithRetry('/data/admin/import', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -311,12 +491,11 @@
                         importedPlayers = importedPlayers.concat(data.players);
                         offenseImported += data.importedCount;
                         totalImported += data.importedCount;
+                        updateProgress(totalImported, totalCount, `Imported ${totalImported} of ${totalCount} players`);
                         showStatus(`Imported ${totalImported} players so far...`, 'info');
                     }
                     
                     start += batchSize;
-                    
-                    // Small delay to avoid rate limiting
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
@@ -327,7 +506,7 @@
                 while (defenseImported < defenseCount && totalImported < totalCount) {
                     const batchSize = Math.min(25, defenseCount - defenseImported);
                     
-                    const response = await fetch('/data/admin/import', {
+                    const response = await fetchWithRetry('/data/admin/import', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -354,37 +533,54 @@
                         importedPlayers = importedPlayers.concat(defensePlayers);
                         defenseImported += defensePlayers.length;
                         totalImported += data.importedCount;
+                        updateProgress(totalImported, totalCount, `Imported ${totalImported} of ${totalCount} players`);
                         showStatus(`Imported ${totalImported} players so far...`, 'info');
                     }
                     
                     start += batchSize;
-                    
-                    // Small delay to avoid rate limiting
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
+                hideProgress();
                 showStatus(`✅ Successfully imported ${totalImported} players!`, 'success');
                 displayResults(importedPlayers);
                 
             } catch (error) {
                 console.error('Import error:', error);
+                hideProgress();
                 showStatus(`❌ Error: ${error.message}`, 'error');
             } finally {
+                isImporting = false;
                 importBtn.disabled = false;
             }
         }
         
         // Show stats confirmation modal
         function showStatsConfirmation() {
-            const year = document.getElementById('seasonYear').value;
-            const leagueId = document.getElementById('leagueId').value;
+            const year = document.getElementById('statsYear').value;
+            const leagueId = document.getElementById('statsLeagueId').value;
+            const maxPlayers = parseInt(document.getElementById('statsMax').value);
             
             if (!leagueId) {
                 showStatus('Please enter a League ID.', 'error');
                 return;
             }
             
+            if (isImporting) {
+                showStatus('Another import is already in progress. Please wait.', 'warning');
+                return;
+            }
+            
+            // Calculate estimates
+            const totalWeeks = 18;
+            const estimatedApiCalls = Math.ceil(maxPlayers / 25) * totalWeeks;
+            const estimatedMinutes = Math.ceil(estimatedApiCalls * 0.75 / 60); // ~0.75 seconds per call
+            
             document.getElementById('modalYear').textContent = year;
+            document.getElementById('modalLeagueId').textContent = leagueId;
+            document.getElementById('modalMax').textContent = maxPlayers.toLocaleString();
+            document.getElementById('modalApiCalls').textContent = estimatedApiCalls.toLocaleString();
+            document.getElementById('modalEstimatedTime').textContent = estimatedMinutes;
             document.getElementById('confirmModal').style.display = 'block';
         }
         
@@ -393,62 +589,190 @@
             document.getElementById('confirmModal').style.display = 'none';
         }
         
-        // Confirm and import stats
+        // Confirm and import all season stats
         async function confirmStatsImport() {
             closeModal();
             
-            const year = parseInt(document.getElementById('seasonYear').value);
-            const leagueId = document.getElementById('leagueId').value;
+            const year = parseInt(document.getElementById('statsYear').value);
+            const leagueId = document.getElementById('statsLeagueId').value;
+            const maxPlayers = parseInt(document.getElementById('statsMax').value);
             const importBtn = document.getElementById('importStatsBtn');
             
+            if (isImporting) {
+                showStatus('Another import is already in progress. Please wait.', 'warning');
+                return;
+            }
+            
+            isImporting = true;
+            importStartTime = Date.now();
             importBtn.disabled = true;
-            showStatus(`Starting import of ${year} season stats for league ${leagueId}...`, 'info');
+            
+            const totalWeeks = 18;
+            const estimatedTotalOperations = Math.ceil(maxPlayers / 25) * totalWeeks;
+            
+            showStatus(`🚀 Starting MASSIVE import of ALL ${year} season stats for league ${leagueId}...`, 'info');
+            showProgress(0, estimatedTotalOperations, 'Initializing season import...');
+            
+            let completedOperations = 0;
+            let totalPlayersProcessed = 0;
+            let weekResults = {};
+            let failedWeeks = [];
             
             try {
-                const response = await fetch('/data/admin/stats', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        year: year,
-                        leagueId: leagueId,
-                        startWeek: 1,
-                        endWeek: 18
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Failed to import stats: ${response.status}`);
+                // Loop through all 18 weeks
+                for (let week = 1; week <= totalWeeks; week++) {
+                    showStatus(`📅 Processing Week ${week} of ${totalWeeks}...`, 'info');
+                    updateProgress(completedOperations, estimatedTotalOperations, `Processing Week ${week} of ${totalWeeks}`);
+                    
+                    let weekPlayersImported = 0;
+                    let start = 0;
+                    const batchSize = 25;
+                    let weekSuccess = true;
+                    
+                    try {
+                        // Paginate through players for this week
+                        while (weekPlayersImported < maxPlayers) {
+                            const currentBatchSize = Math.min(batchSize, maxPlayers - weekPlayersImported);
+                            
+                            showStatus(`📊 Week ${week}: Importing players ${start + 1}-${start + currentBatchSize}...`, 'info');
+                            
+                            const response = await fetchWithRetry('/data/admin/stats', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                    year: year,
+                                    leagueId: leagueId,
+                                    week: week,
+                                    start: start,
+                                    count: currentBatchSize,
+                                    max: maxPlayers
+                                })
+                            }, 5); // More retries for stats
+                            
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({}));
+                                throw new Error(errorData.error || `Failed to import week ${week}, batch ${start}: HTTP ${response.status}`);
+                            }
+                            
+                            const data = await response.json();
+                            weekPlayersImported += data.importedCount;
+                            completedOperations++;
+                            
+                            updateProgress(completedOperations, estimatedTotalOperations, 
+                                `Week ${week}: ${weekPlayersImported} players imported`);
+                            
+                            if (!data.hasMore || data.importedCount === 0) {
+                                break;
+                            }
+                            
+                            start += currentBatchSize;
+                            
+                            // Small delay between batches
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                        
+                        weekResults[week] = {
+                            success: true,
+                            playersImported: weekPlayersImported,
+                            totalRequested: maxPlayers
+                        };
+                        
+                        totalPlayersProcessed += weekPlayersImported;
+                        
+                        showStatus(`✅ Week ${week} complete: ${weekPlayersImported} players imported`, 'success');
+                        
+                    } catch (weekError) {
+                        console.error(`Week ${week} failed:`, weekError);
+                        weekSuccess = false;
+                        failedWeeks.push(week);
+                        
+                        weekResults[week] = {
+                            success: false,
+                            error: weekError.message,
+                            playersImported: weekPlayersImported
+                        };
+                        
+                        showStatus(`⚠️ Week ${week} failed: ${weekError.message}`, 'warning');
+                        
+                        // Continue to next week rather than failing entirely
+                    }
+                    
+                    // Longer delay between weeks to be respectful to API
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
                 
-                const data = await response.json();
+                // Calculate final results
+                const successfulWeeks = Object.values(weekResults).filter(w => w.success).length;
+                const totalElapsedTime = Math.round((Date.now() - importStartTime) / 1000 / 60 * 10) / 10;
                 
-                showStatus(
-                    `✅ ${data.message}`, 
-                    'success'
-                );
+                hideProgress();
                 
-                // Display summary
-                const resultsDiv = document.getElementById('results');
-                resultsDiv.style.display = 'block';
-                resultsDiv.innerHTML = `
-                    <h3>Import Summary</h3>
-                    <div class="result-item"><strong>Year:</strong> ${data.year}</div>
-                    <div class="result-item"><strong>League ID:</strong> ${data.leagueId}</div>
-                    <div class="result-item"><strong>Weeks Processed:</strong> ${data.weeksProcessed}</div>
-                    <div class="result-item"><strong>Total Players:</strong> ${data.totalPlayers}</div>
-                    <div class="result-item"><strong>Players Stored:</strong> ${data.storedCount}</div>
-                `;
+                if (failedWeeks.length === 0) {
+                    showStatus(`🎉 COMPLETE SUCCESS! Imported all ${successfulWeeks} weeks with ${totalPlayersProcessed.toLocaleString()} total player-week records in ${totalElapsedTime} minutes!`, 'success');
+                } else if (successfulWeeks > 0) {
+                    showStatus(`⚠️ PARTIAL SUCCESS: ${successfulWeeks}/${totalWeeks} weeks imported successfully. ${failedWeeks.length} weeks failed. Total: ${totalPlayersProcessed.toLocaleString()} player records in ${totalElapsedTime} minutes.`, 'warning');
+                } else {
+                    showStatus(`❌ IMPORT FAILED: No weeks were successfully imported.`, 'error');
+                }
+                
+                // Display comprehensive results
+                displaySeasonResults(year, leagueId, weekResults, totalPlayersProcessed, totalElapsedTime, maxPlayers);
                 
             } catch (error) {
-                console.error('Stats import error:', error);
-                showStatus(`❌ Error: ${error.message}`, 'error');
+                console.error('Season import error:', error);
+                hideProgress();
+                showStatus(`❌ Critical Error: ${error.message}`, 'error');
             } finally {
+                isImporting = false;
                 importBtn.disabled = false;
             }
+        }
+        
+        // Fetch with retry logic
+        async function fetchWithRetry(url, options, maxRetries = 3) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    return response; // Return response regardless of status - let caller handle it
+                } catch (error) {
+                    console.log(`Fetch attempt ${i + 1} failed:`, error.message);
+                    
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    
+                    // Exponential backoff
+                    const delay = Math.min(1000 * Math.pow(2, i), 10000);
+                    console.log(`Retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        // Progress bar functions
+        function showProgress(current, total, text) {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'block';
+            updateProgress(current, total, text);
+        }
+        
+        function updateProgress(current, total, text) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressPercent = document.getElementById('progressPercent');
+            
+            const percentage = total > 0 ? (current / total) * 100 : 0;
+            progressBar.style.width = Math.min(percentage, 100) + '%';
+            progressPercent.textContent = Math.round(Math.min(percentage, 100)) + '%';
+            progressText.textContent = text;
+        }
+        
+        function hideProgress() {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'none';
         }
         
         // Show status message
@@ -457,9 +781,12 @@
             statusDiv.textContent = message;
             statusDiv.className = type;
             statusDiv.style.display = 'block';
+            
+            // Auto-scroll to status for long operations
+            statusDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         
-        // Display import results
+        // Display import results for players
         function displayResults(players) {
             const resultsDiv = document.getElementById('results');
             resultsDiv.style.display = 'block';
@@ -473,22 +800,208 @@
                 positionGroups[mainPos].push(player);
             });
             
-            let html = '<h3>Imported Players by Position</h3>';
+            let html = `
+                <div class="result-summary">
+                    <h4>Player Import Summary</h4>
+                    <div class="result-item"><strong>Total Players Imported:</strong> ${players.length.toLocaleString()}</div>
+                    <div class="result-item"><strong>Unique Positions:</strong> ${Object.keys(positionGroups).length}</div>
+                </div>
+                <h4>Players by Position:</h4>
+            `;
             
-            Object.entries(positionGroups).forEach(([position, playerList]) => {
-                html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
-            });
+            Object.entries(positionGroups)
+                .sort(([,a], [,b]) => b.length - a.length)
+                .forEach(([position, playerList]) => {
+                    html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
+                });
             
             resultsDiv.innerHTML = html;
         }
         
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('confirmModal');
-            if (event.target === modal) {
-                closeModal();
-            }
-        }
-    </script>
+        // Display comprehensive season import results
+        function displaySeasonResults(year, leagueId, weekResults, totalPlayers, elapsedTime, maxRequested) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            
+            const successfulWeeks = Object.values(weekResults).filter(w => w.success);
+            const failedWeeks = Object.entries(weekResults).filter(([,w]) => !w.success);
+            
+            let html = `
+                <div class="result-summary">
+                    <h4>🏈 Complete Season Import Results</h4>
+                    <div class="result-item"><strong>Season:</strong> ${year}</div>
+                    <div class="result-item"><strong>League ID:</strong> ${leagueId}</div>
+                    <div class="result-item"><strong>Total Import Time:</strong> ${elapsedTime} minutes</div>
+                    <div class="result-item"><strong>Successful Weeks:</strong> ${successfulWeeks.length}/18</div>
+                    <div class="result-item"><strong>Total Player Records:</strong> ${totalPlayers.toLocaleString()}</div>
+                    <div class="result-item"><strong>Max Requested Per Week:</strong> ${maxRequested.toLocaleString()}</div>
+                    <div class="result-item"><strong>Average Players Per Week:</strong> ${Math.round(totalPlayers / Math.max(successfulWeeks.length, 1)).toLocaleString()}</div>
+                </div>
+            `;
+            
+            if (failedWeeks.length > 0) {
+                html += `<div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ffc107;">
+                       <h4 style="color: #856404; margin: 0 0 10px 0;">⚠️ Failed Weeks</h4>
+                       ${failedWeeks.map(([week, result]) => `
+                           <div class="result-item" style="color: #856404;">
+                               <strong>Week ${week}:</strong> ${result.error} (${result.playersImported || 0} players imported before failure)
+                           </div>
+                       `).join('')}
+                   </div>
+               `;
+           }
+           
+           html += `<h4>Week-by-Week Results:</h4><div class="week-stats">`;
+           
+           for (let week = 1; week <= 18; week++) {
+               const result = weekResults[week];
+               const statusClass = result ? (result.success ? 'completed' : 'failed') : 'failed';
+               const playerCount = result ? result.playersImported : 0;
+               const statusText = result ? 
+                   (result.success ? `${playerCount.toLocaleString()} players` : 'Failed') : 
+                   'Not processed';
+               
+               html += `
+                   <div class="week-item ${statusClass}">
+                       <div class="week-number">Week ${week}</div>
+                       <div class="week-count">${statusText}</div>
+                   </div>
+               `;
+           }
+           
+           html += `</div>`;
+           
+           // Add performance stats
+           const avgPlayersPerWeek = Math.round(totalPlayers / Math.max(successfulWeeks.length, 1));
+           const playersPerMinute = Math.round(totalPlayers / Math.max(elapsedTime, 0.1));
+           
+           html += `
+               <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #28a745;">
+                   <h4 style="color: #155724; margin: 0 0 10px 0;">📊 Performance Metrics</h4>
+                   <div class="result-item"><strong>Processing Rate:</strong> ${playersPerMinute.toLocaleString()} players/minute</div>
+                   <div class="result-item"><strong>Average Week Completion:</strong> ${avgPlayersPerWeek.toLocaleString()} players</div>
+                   <div class="result-item"><strong>Success Rate:</strong> ${Math.round(successfulWeeks.length / 18 * 100)}%</div>
+                   <div class="result-item"><strong>Data Coverage:</strong> ${Math.round(totalPlayers / (maxRequested * 18) * 100)}% of requested data</div>
+               </div>
+           `;
+           
+           resultsDiv.innerHTML = html;
+           resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+       }
+       
+       // Close modal when clicking outside
+       window.onclick = function(event) {
+           const modal = document.getElementById('confirmModal');
+           if (event.target === modal) {
+               closeModal();
+           }
+       }
+       
+       // Prevent accidental page closes during import
+       window.addEventListener('beforeunload', function(e) {
+           if (isImporting) {
+               const message = 'A large import operation is in progress. Are you sure you want to leave?';
+               e.preventDefault();
+               e.returnValue = message;
+               return message;
+           }
+       });
+       
+       // Add keyboard shortcuts
+       document.addEventListener('keydown', function(e) {
+           // ESC to close modal
+           if (e.key === 'Escape') {
+               closeModal();
+           }
+           
+           // Ctrl+R or F5 warning during import
+           if (isImporting && (e.key === 'F5' || (e.ctrlKey && e.key === 'r'))) {
+               e.preventDefault();
+               showStatus('⚠️ Import in progress! Please wait for completion before refreshing.', 'warning');
+           }
+       });
+       
+       // Auto-refresh status for long operations
+       let statusRefreshInterval;
+       
+       function startStatusRefresh() {
+           if (statusRefreshInterval) clearInterval(statusRefreshInterval);
+           
+           statusRefreshInterval = setInterval(() => {
+               if (isImporting && importStartTime) {
+                   const elapsed = Math.round((Date.now() - importStartTime) / 1000 / 60 * 10) / 10;
+                   const statusDiv = document.getElementById('status');
+                   if (statusDiv && statusDiv.textContent) {
+                       // Add elapsed time to current status
+                       const baseMessage = statusDiv.textContent.split(' (')[0];
+                       statusDiv.textContent = `${baseMessage} (${elapsed} min elapsed)`;
+                   }
+               }
+           }, 30000); // Update every 30 seconds
+       }
+       
+       function stopStatusRefresh() {
+           if (statusRefreshInterval) {
+               clearInterval(statusRefreshInterval);
+               statusRefreshInterval = null;
+           }
+       }
+       
+       // Enhanced error handling with user-friendly messages
+       function handleImportError(error, context = '') {
+           console.error(`Import error ${context}:`, error);
+           
+           let userMessage = error.message;
+           
+           // Translate common errors to user-friendly messages
+           if (error.message.includes('Yahoo authentication')) {
+               userMessage = 'Yahoo authentication expired. Please refresh the page and try again.';
+           } else if (error.message.includes('Failed to fetch')) {
+               userMessage = 'Network connection lost. Please check your internet connection and try again.';
+           } else if (error.message.includes('429') || error.message.includes('rate limit')) {
+               userMessage = 'API rate limit exceeded. The system will automatically retry with delays.';
+           } else if (error.message.includes('500')) {
+               userMessage = 'Server error occurred. This may be temporary - try again in a few minutes.';
+           } else if (error.message.includes('timeout')) {
+               userMessage = 'Request timed out. The server may be busy - try again later.';
+           }
+           
+           return userMessage;
+       }
+       
+       // Initialize page
+       document.addEventListener('DOMContentLoaded', function() {
+           // Focus on first input for better UX
+           document.getElementById('offenseCount').focus();
+           
+           // Add tooltips or help text
+           const inputs = document.querySelectorAll('input[type="number"]');
+           inputs.forEach(input => {
+               input.addEventListener('focus', function() {
+                   this.select(); // Select all text on focus for easy editing
+               });
+           });
+           
+           // Validate inputs on change
+           document.getElementById('statsMax').addEventListener('change', function() {
+               const value = parseInt(this.value);
+               if (value > 1000) {
+                   showStatus('⚠️ Warning: Requesting more than 1000 players per week may take a very long time and could hit API limits.', 'warning');
+               }
+           });
+           
+           document.getElementById('statsLeagueId').addEventListener('input', function() {
+               // Basic validation - league IDs are typically numeric
+               const value = this.value.trim();
+               if (value && !/^\d+$/.test(value)) {
+                   this.style.borderColor = '#ffc107';
+               } else {
+                   this.style.borderColor = '#ddd';
+               }
+           });
+           
+           console.log('Admin Player Import page initialized successfully');
+       });
+   </script>
 </body>
 </html>
