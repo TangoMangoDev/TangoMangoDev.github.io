@@ -1,9 +1,28 @@
-// Add these functions at the beginning of stats.js
-
 // Fetch and store fantasy rosters for a league
+  if (savedWeek && savedWeek !== 'current') {
+    return parseInt(savedWeek);
+  }
+  return null; // null means current week
+}
+
+// Save week preference
+function saveWeekPreference(week) {
+  if (week) {
+    localStorage.setItem('selectedWeek', week.toString());
+  } else {
+    localStorage.setItem('selectedWeek', 'current');
+  }
+}
+
+// Update the loadFantasyRosters function
 async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
     try {
-        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : ''}`;
+        // If no week specified, use saved preference
+        if (week === null && !forceRefresh) {
+            week = getSavedWeek();
+        }
+        
+        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : '_current'}`;
         
         // Check if we already have recent roster data
         if (!forceRefresh) {
@@ -13,13 +32,13 @@ async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
                 // 24 hours cache for rosters
                 const dataAge = new Date() - new Date(parsed.lastUpdated);
                 if (dataAge < 24 * 60 * 60 * 1000) {
-                    console.log('✅ Using cached roster data for league:', leagueId);
+                    console.log(`✅ Using cached roster data for league: ${leagueId}, week: ${week || 'current'}`);
                     return parsed;
                 }
             }
         }
         
-        console.log(`📋 Fetching fresh roster data for league: ${leagueId}${week ? `, week ${week}` : ''}...`);
+        console.log(`📋 Fetching fresh roster data for league: ${leagueId}, week: ${week || 'current'}...`);
         
         const requestBody = { leagueId };
         if (week) {
@@ -50,30 +69,49 @@ async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
         const rostersData = {
             leagueId: data.leagueId,
             week: data.week,
-            teams: data.teams,
+            rostersJson: data.rostersJson,
             totalTeams: data.totalTeams,
+            totalPlayers: data.totalPlayers,
             lastUpdated: new Date().toISOString(),
+            // Process for easier frontend use
+            teams: [],
             playersByTeam: {},
             allPlayers: [],
             teamNameToId: {}
         };
         
-        // Process teams for easier lookups
-        data.teams.forEach(team => {
-            rostersData.teamNameToId[team.teamName] = team.teamId;
-            rostersData.playersByTeam[team.teamId] = team.players;
+        // Get team names from stored league data
+        const fantasyData = getFantasyDataFromLocalStorage();
+        const leagueInfo = fantasyData?.leagues?.[leagueId];
+        
+        // Process the roster JSON
+        Object.entries(data.rostersJson).forEach(([teamId, players]) => {
+            // Find team name from league data
+            const teamInfo = leagueInfo?.teams?.find(t => t.teamId === teamId);
+            const teamName = teamInfo?.teamName || `Team ${teamId}`;
             
-            team.players.forEach(player => {
+            rostersData.teams.push({
+                teamId: teamId,
+                teamName: teamName,
+                rosterCount: players.length,
+                players: players
+            });
+            
+            rostersData.teamNameToId[teamName] = teamId;
+            rostersData.playersByTeam[teamId] = players;
+            
+            // Add to all players list
+            players.forEach(player => {
                 rostersData.allPlayers.push({
                     ...player,
-                    fantasyTeamId: team.teamId,
-                    fantasyTeamName: team.teamName
+                    fantasyTeamId: teamId,
+                    fantasyTeamName: teamName
                 });
             });
         });
         
         localStorage.setItem(storageKey, JSON.stringify(rostersData));
-        console.log(`✅ Stored rosters for ${data.totalTeams} teams (${rostersData.allPlayers.length} total players)`);
+        console.log(`✅ Stored rosters for week ${data.week}: ${data.totalTeams} teams, ${data.totalPlayers} players`);
         
         return rostersData;
         
@@ -81,7 +119,7 @@ async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
         console.error('Error loading fantasy rosters:', error);
         
         // Try to return cached data if available
-        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : ''}`;
+        const storageKey = `fantasyRosters_${leagueId}${week ? `_week${week}` : '_current'}`;
         const cachedData = localStorage.getItem(storageKey);
         if (cachedData) {
             console.log('⚠️ Using stale cached data due to error');
@@ -91,6 +129,63 @@ async function loadFantasyRosters(leagueId, week = null, forceRefresh = false) {
         return null;
     }
 }
+
+// Update the createFilterControls function to use saved week
+function createFilterControls() {
+    const fantasyData = getFantasyDataFromLocalStorage();
+    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
+        return '';
+    }
+    
+    const activeLeagueId = currentFilters.league || initializeActiveLeague();
+    const activeLeague = fantasyData.leagues[activeLeagueId];
+    const savedWeek = getSavedWeek();
+    
+    // Set current filter week if not set
+    if (currentFilters.week === undefined) {
+        currentFilters.week = savedWeek;
+    }
+    
+    return `
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label for="league-select">League:</label>
+                <select id="league-select" class="filter-dropdown">
+                    ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
+                        <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
+                            ${league.leagueName}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="team-select">Team:</label>
+                <select id="team-select" class="filter-dropdown">
+                    <option value="ALL">All Teams</option>
+                    ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
+                        <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
+                            ${team.teamName}
+                        </option>
+                    `).join('') : ''}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="week-select">Week:</label>
+                <select id="week-select" class="filter-dropdown">
+                    <option value="" ${!savedWeek ? 'selected' : ''}>Current</option>
+                    ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
+                        <option value="${week}" ${week === savedWeek ? 'selected' : ''}>
+                            Week ${week}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+        </div>
+    `;
+}
+
 
 // Get roster data from cache
 function getCachedRosterData(leagueId, week = null) {
@@ -125,57 +220,6 @@ let currentFilters = {
     week: null,
     position: 'ALL'
 };
-
-// Update the createLeagueSelector function to include team and week filters
-function createFilterControls() {
-    const fantasyData = getFantasyDataFromLocalStorage();
-    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
-        return '';
-    }
-    
-    const activeLeagueId = currentFilters.league || initializeActiveLeague();
-    const activeLeague = fantasyData.leagues[activeLeagueId];
-    const rosterData = getCachedRosterData(activeLeagueId);
-    
-    return `
-        <div class="filter-controls">
-            <div class="filter-group">
-                <label for="league-select">League:</label>
-                <select id="league-select" class="filter-dropdown">
-                    ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
-                        <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
-                            ${league.leagueName}
-                        </option>
-                    `).join('')}
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="team-select">Team:</label>
-                <select id="team-select" class="filter-dropdown">
-                    <option value="ALL">All Teams</option>
-                    ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
-                        <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
-                            ${team.teamName}
-                        </option>
-                    `).join('') : ''}
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="week-select">Week:</label>
-                <select id="week-select" class="filter-dropdown">
-                    <option value="">Current</option>
-                    ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
-                        <option value="${week}" ${week == currentFilters.week ? 'selected' : ''}>
-                            Week ${week}
-                        </option>
-                    `).join('')}
-                </select>
-            </div>
-        </div>
-    `;
-}
 
 // Update the setupEventListeners function
 function setupEventListeners() {
@@ -276,14 +320,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize active league
     currentFilters.league = initializeActiveLeague();
     
+    // Load saved week preference
+    currentFilters.week = getSavedWeek();
+    
     // Load NFL player data first
     await loadNFLPlayersData();
     
-    // Load rosters for active league
+    // Load rosters for active league and saved week
     if (currentFilters.league) {
         await loadRostersForActiveLeague();
     }
-    
     // Then convert to display format
     samplePlayers = convertStoredPlayersToDisplayFormat();
     
