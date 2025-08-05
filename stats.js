@@ -244,14 +244,17 @@ function setupEventListeners() {
         render();
     });
     
-    // Week filter
-    document.getElementById('week-select')?.addEventListener('change', async (e) => {
-        currentFilters.week = e.target.value || null;
-        
-        // Load rosters for selected week
-        await loadRostersForActiveLeague();
-        render();
-    });
+document.getElementById('week-select')?.addEventListener('change', async (e) => {
+    const selectedWeek = e.target.value ? parseInt(e.target.value) : null;
+    currentFilters.week = selectedWeek;
+    
+    // Save week preference
+    saveWeekPreference(selectedWeek);
+    
+    // Load rosters for selected week
+    await loadRostersForActiveLeague();
+    render();
+});
     
     // Position filter
     document.getElementById('positionFilter').addEventListener('click', (e) => {
