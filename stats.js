@@ -234,51 +234,51 @@ function createFilterControls() {
 
 // Load stats function
 async function loadStats(resetPage = true) {
-    if (resetPage) {
-        apiState.currentPage = 1;
-        currentPlayers = [];
-    }
+   if (resetPage) {
+       apiState.currentPage = 1;
+       currentPlayers = [];
+   }
 
-    apiState.loading = true;
-    apiState.error = null;
-    
-    updateFilterControlsUI();
-    
-    try {
-        const data = await window.statsAPI.getPlayersData(
-            currentFilters.year,
-            currentFilters.week,
-            currentFilters.position,
-            apiState.currentPage
-        );
-        
-        // ALWAYS convert raw stats to display format, regardless of source (API or cache)
-        const playersWithReadableStats = data.data.map(player => ({
-            ...player,
-            stats: convertStatsForDisplay(player.stats)
-        }));
-        
-        if (resetPage) {
-            currentPlayers = playersWithReadableStats;
-        } else {
-            currentPlayers = [...currentPlayers, ...playersWithReadableStats];
-        }
-        
-        apiState.totalPages = data.pagination.totalPages;
-        apiState.totalRecords = data.pagination.totalRecords;
-        apiState.hasMore = data.pagination.hasNext;
-        apiState.loading = false;
-        
-        console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
-        
-    } catch (error) {
-        console.error('Failed to load stats:', error);
-        apiState.error = error.message;
-        apiState.loading = false;
-    }
-    
-    updateFilterControlsUI();
-    render();
+   apiState.loading = true;
+   apiState.error = null;
+   
+   updateFilterControlsUI();
+   
+   try {
+       const data = await window.statsAPI.getPlayersData(
+           currentFilters.year,
+           currentFilters.week,
+           currentFilters.position,
+           apiState.currentPage
+       );
+       
+       // Convert raw stats to display format ONLY when rendering
+       const playersWithReadableStats = data.data.map(player => ({
+           ...player,
+           stats: convertStatsForDisplay(player.stats) // Convert HERE during render
+       }));
+       
+       if (resetPage) {
+           currentPlayers = playersWithReadableStats;
+       } else {
+           currentPlayers = [...currentPlayers, ...playersWithReadableStats];
+       }
+       
+       apiState.totalPages = data.pagination.totalPages;
+       apiState.totalRecords = data.pagination.totalRecords;
+       apiState.hasMore = data.pagination.hasNext;
+       apiState.loading = false;
+       
+       console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
+       
+   } catch (error) {
+       console.error('Failed to load stats:', error);
+       apiState.error = error.message;
+       apiState.loading = false;
+   }
+   
+   updateFilterControlsUI();
+   render();
 }
 
 // Event listeners
