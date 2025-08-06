@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Player Import</title>
+    <title>Admin - Stats Import</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -148,7 +148,6 @@
             border-bottom: none;
         }
         
-        /* Progress bar styles */
         .progress-container {
             width: 100%;
             background-color: #f0f0f0;
@@ -169,7 +168,6 @@
             transition: width 0.3s ease;
         }
         
-        /* Modal styles */
         .modal {
             display: none;
             position: fixed;
@@ -216,27 +214,20 @@
             font-weight: 600;
             margin: 15px 0;
         }
+
+        .batch-info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #1565c0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Admin - Player & Stats Import</h1>
-        
-        <!-- Player Import Section -->
-        <div class="import-section">
-            <h2>Import NFL Players</h2>
-            <div class="import-controls">
-                <div class="input-group">
-                    <label for="offenseCount">Offense Players:</label>
-                    <input type="number" id="offenseCount" min="1" max="1000" value="350" placeholder="e.g., 350">
-                </div>
-                <div class="input-group">
-                    <label for="defenseCount">Defense Players:</label>
-                    <input type="number" id="defenseCount" min="1" max="500" value="50" placeholder="e.g., 50">
-                </div>
-                <button id="importPlayersBtn" onclick="importPlayers()">Import Players</button>
-            </div>
-        </div>
+        <h1>Admin - Season Stats Import</h1>
         
         <!-- Season Stats Import Section -->
         <div class="import-section">
@@ -253,7 +244,19 @@
                     <label for="maxPlayers">Max Players:</label>
                     <input type="number" id="maxPlayers" min="10" max="1000" value="450" placeholder="e.g., 450">
                 </div>
+                <div class="input-group">
+                    <label for="batchSize">Batch Size:</label>
+                    <input type="number" id="batchSize" min="5" max="25" value="10" placeholder="e.g., 10">
+                </div>
                 <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import All Season Stats</button>
+            </div>
+            
+            <div class="batch-info">
+                <strong>Batch Size Guidelines:</strong><br>
+                • 5-10: Safe for CPU limits, slower overall<br>
+                • 10-15: Balanced performance and safety<br>
+                • 15-25: Faster but may hit CPU limits<br>
+                <em>Recommended: 10 for reliable imports</em>
             </div>
         </div>
         
@@ -270,6 +273,8 @@
         <div class="modal-content">
             <h3>Import Season Statistics</h3>
             <p>You are about to import ALL player statistics for the <strong id="modalYear"></strong> season.</p>
+            <p>Max Players: <strong id="modalMaxPlayers"></strong></p>
+            <p>Batch Size: <strong id="modalBatchSize"></strong></p>
             <p class="warning-text">⚠️ This will fetch data for all 18 weeks and may take several minutes.</p>
             <p>Do you want to continue?</p>
             <div class="modal-buttons">
@@ -282,7 +287,6 @@
 <script>
 // Global variables for player key management
 let playerBatches = [];
-let currentBatchIndex = 0;
 let totalPlayersProcessed = 0;
 let totalWeeksCompleted = 0;
 let totalSeasonTotalsProcessed = 0;
@@ -296,87 +300,15 @@ let performanceMetrics = {
     weeklyPerformance: []
 };
 
-// Import Players Function (unchanged)
-async function importPlayers() {
-    const offenseCount = parseInt(document.getElementById('offenseCount').value) || 350;
-    const defenseCount = parseInt(document.getElementById('defenseCount').value) || 50;
-    const totalCount = offenseCount + defenseCount;
-    
-    const statusDiv = document.getElementById('status');
-    const resultsDiv = document.getElementById('results');
-    const importBtn = document.getElementById('importPlayersBtn');
-    
-    // Validation
-    if (offenseCount < 1 || defenseCount < 1) {
-        showStatus('Please enter valid numbers for both offense and defense players.', 'error');
-        return;
-    }
-    
-    importBtn.disabled = true;
-    showStatus(`Starting import of ${totalCount} players (${offenseCount} offense, ${defenseCount} defense)...`, 'info');
-    resultsDiv.style.display = 'none';
-    resultsDiv.innerHTML = '';
-    
-    let importedPlayers = [];
-    let totalImported = 0;
-    
-    try {
-        // Import offense players first
-        let start = 0;
-        let offenseImported = 0;
-        
-        showStatus(`Importing offense players...`, 'info');
-        
-        while (offenseImported < offenseCount) {
-            const batchSize = Math.min(10, offenseCount - offenseImported);
-            
-            const response = await fetch('/data/admin/import', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    start: start,
-                    count: batchSize
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Failed to import players: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.importedCount > 0) {
-                importedPlayers = importedPlayers.concat(data.players);
-                offenseImported += data.importedCount;
-                totalImported += data.importedCount;
-                showStatus(`Imported ${totalImported} players so far...`, 'info');
-            }
-            
-            start += batchSize;
-            
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        showStatus(`✅ Successfully imported ${totalImported} players!`, 'success');
-        displayResults(importedPlayers);
-        
-    } catch (error) {
-        console.error('Import error:', error);
-        showStatus(`❌ Error: ${error.message}`, 'error');
-    } finally {
-        importBtn.disabled = false;
-    }
-}
-
 // Show stats confirmation modal
 function showStatsConfirmation() {
     const year = document.getElementById('seasonYear').value;
+    const maxPlayers = document.getElementById('maxPlayers').value;
+    const batchSize = document.getElementById('batchSize').value;
     
     document.getElementById('modalYear').textContent = year;
+    document.getElementById('modalMaxPlayers').textContent = maxPlayers;
+    document.getElementById('modalBatchSize').textContent = batchSize;
     document.getElementById('confirmModal').style.display = 'block';
 }
 
@@ -385,19 +317,19 @@ function closeModal() {
     document.getElementById('confirmModal').style.display = 'none';
 }
 
-// COMPLETE: Confirm and import stats with season totals
+// COMPLETE: Confirm and import stats with frontend-controlled batching
 async function confirmStatsImport() {
     closeModal();
     
     const year = parseInt(document.getElementById('seasonYear').value);
     const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
+    const batchSize = parseInt(document.getElementById('batchSize').value);
     const importBtn = document.getElementById('importStatsBtn');
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
     
     // Reset global variables
     playerBatches = [];
-    currentBatchIndex = 0;
     totalPlayersProcessed = 0;
     totalWeeksCompleted = 0;
     totalSeasonTotalsProcessed = 0;
@@ -413,19 +345,22 @@ async function confirmStatsImport() {
     
     importBtn.disabled = true;
     progressContainer.style.display = 'block';
-    showStatus(`Starting import of ${year} season stats...`, 'info');
+    showStatus(`Starting import of ${year} season stats with batch size ${batchSize}...`, 'info');
     
     const overallStartTime = Date.now();
     
     try {
-        // STEP 1: Collect all player batches (10 players each) with REAL player info
-        showStatus(`Step 1: Collecting player keys and info...`, 'info');
+        // STEP 1: Collect all player batches using frontend-controlled batching
+        showStatus(`Step 1: Collecting player keys and info (batch size: ${batchSize})...`, 'info');
         
         let start = 0;
+        let batchNumber = 1;
+        
         while (start < maxPlayers) {
-            const batchSize = Math.min(10, maxPlayers - start);
+            const currentBatchSize = Math.min(batchSize, maxPlayers - start);
             
-            console.log(`Fetching player batch: start=${start}, count=${batchSize}`);
+            showStatus(`Collecting batch ${batchNumber}: players ${start + 1}-${start + currentBatchSize}...`, 'info');
+            console.log(`Fetching player batch ${batchNumber}: start=${start}, count=${currentBatchSize}`);
             
             // Get player keys AND player info for this batch
             const response = await fetch('/data/admin/stats', {
@@ -436,11 +371,11 @@ async function confirmStatsImport() {
                 credentials: 'include',
                 body: JSON.stringify({
                     year: year,
-                    week: 1, // Use week 1 to get player keys and info
+                    week: 1,
                     start: start,
-                    count: batchSize,
+                    count: currentBatchSize,
                     max: maxPlayers,
-                    useStoredKeys: false // Force fresh fetch for player info
+                    useStoredKeys: false
                 })
             });
             
@@ -451,18 +386,19 @@ async function confirmStatsImport() {
             
             const data = await response.json();
             
-            console.log(`Received batch data:`, data);
+            console.log(`Received batch ${batchNumber} data:`, data);
             
             // Validate we got player keys and info
             if (!data.playerKeys || !data.playerInfoData || data.playerKeys.length === 0) {
                 console.error('Missing player keys or info data:', data);
-                throw new Error('Failed to get valid player keys and info from API');
+                throw new Error(`Failed to get valid player keys and info from API for batch ${batchNumber}`);
             }
             
             // Store the player keys AND real player info for this batch
             playerBatches.push({
+                batchNumber: batchNumber,
                 start: start,
-                count: batchSize,
+                count: currentBatchSize,
                 playerKeys: data.playerKeys,
                 playerInfoData: data.playerInfoData
             });
@@ -470,44 +406,55 @@ async function confirmStatsImport() {
             performanceMetrics.totalApiCalls++;
             performanceMetrics.totalFetchTimeMs += data.performance?.totalTimeMs || 0;
             
-            console.log(`Stored batch ${playerBatches.length}: ${data.playerKeys.length} players`);
+            console.log(`Stored batch ${batchNumber}: ${data.playerKeys.length} players`);
+            
+            // Update progress for player collection phase
+            const collectionProgress = Math.round((start + currentBatchSize) / maxPlayers * 20); // 20% for collection
+            progressBar.style.width = collectionProgress + '%';
+            progressBar.textContent = `Collecting: ${collectionProgress}%`;
             
             if (!data.hasMore || data.importedCount === 0) {
                 break;
             }
             
-            start += batchSize;
-            await new Promise(resolve => setTimeout(resolve, 300));
+            start += currentBatchSize;
+            batchNumber++;
+            
+            // Short delay between batch collections
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
         
         if (playerBatches.length === 0) {
             throw new Error('No player batches collected!');
         }
         
-        showStatus(`Collected ${playerBatches.length} player batches with ${playerBatches.reduce((sum, batch) => sum + batch.playerKeys.length, 0)} total players. Starting weekly import...`, 'info');
+        const totalPlayersCollected = playerBatches.reduce((sum, batch) => sum + batch.playerKeys.length, 0);
+        showStatus(`Collected ${playerBatches.length} batches with ${totalPlayersCollected} total players. Starting weekly import...`, 'info');
         
-        // STEP 2: Process all weeks for all player batches using stored data
+        // STEP 2: Process all weeks for all player batches
         const totalBatches = playerBatches.length;
         const totalOperations = totalBatches * 18; // 18 weeks
+        let completedOperations = Math.round(totalPlayersCollected / maxPlayers * 20); // Start from collection progress
         
         for (let week = 1; week <= 18; week++) {
             const weekStartTime = Date.now();
-            showStatus(`Processing Week ${week} of 18...`, 'info');
+            showStatus(`Processing Week ${week} of 18 (${totalBatches} batches)...`, 'info');
             
             let weekPlayersProcessed = 0;
             
             for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
                 const batch = playerBatches[batchIndex];
                 
-                console.log(`Processing week ${week}, batch ${batchIndex + 1}/${totalBatches}`);
+                console.log(`Processing week ${week}, batch ${batch.batchNumber}/${totalBatches} (${batch.playerKeys.length} players)`);
                 
                 // Use the stored player keys and info for this week
                 const requestBody = {
                     year: year,
                     week: week,
+                    batchSize: batch.playerKeys.length, // Pass actual batch size
                     playerKeys: batch.playerKeys,
                     playerInfoData: batch.playerInfoData,
-                    useStoredKeys: true // Use stored keys for all weeks (including week 1 now)
+                    useStoredKeys: true
                 };
                 
                 const response = await fetch('/data/admin/stats', {
@@ -527,18 +474,20 @@ async function confirmStatsImport() {
                     performanceMetrics.totalApiCalls++;
                     performanceMetrics.totalFetchTimeMs += data.performance?.totalTimeMs || 0;
                     
-                    console.log(`Week ${week} batch ${batchIndex + 1} complete: ${data.importedCount} players`);
+                    console.log(`Week ${week} batch ${batch.batchNumber} complete: ${data.importedCount} players`);
                 } else {
-                    console.error(`Failed to process week ${week} batch ${batchIndex + 1}:`, response.status);
+                    const errorData = await response.json();
+                    console.error(`Failed to process week ${week} batch ${batch.batchNumber}:`, response.status, errorData);
                 }
                 
-                // Update progress
-                const completed = (week - 1) * totalBatches + (batchIndex + 1);
-                const progressPercent = Math.round((completed / totalOperations) * 100);
+                // Update progress (20% for collection + 75% for weeks + 5% for totals)
+                completedOperations++;
+                const progressPercent = Math.min(95, 20 + Math.round((completedOperations - 20) / totalOperations * 75));
                 progressBar.style.width = progressPercent + '%';
-                progressBar.textContent = progressPercent + '%';
+                progressBar.textContent = `Week ${week}: ${progressPercent}%`;
                 
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // Short delay between batches
+                await new Promise(resolve => setTimeout(resolve, 150));
             }
             
             const weekDuration = Date.now() - weekStartTime;
@@ -561,7 +510,7 @@ async function confirmStatsImport() {
             totalWeeksCompleted++;
             
             showStatus(`✅ Week ${week} complete: ${weekPlayersProcessed} players in ${(weekDuration/1000).toFixed(1)}s`, 'success');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
         
         // STEP 3: Fetch season totals for all player batches
@@ -570,7 +519,7 @@ async function confirmStatsImport() {
         for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
             const batch = playerBatches[batchIndex];
             
-            console.log(`Fetching season totals for batch ${batchIndex + 1}/${playerBatches.length}`);
+            console.log(`Fetching season totals for batch ${batch.batchNumber}/${playerBatches.length}`);
             
             const response = await fetch('/data/admin/stats', {
                 method: 'POST',
@@ -580,9 +529,10 @@ async function confirmStatsImport() {
                 credentials: 'include',
                 body: JSON.stringify({
                     year: year,
+                    batchSize: batch.playerKeys.length, // Pass actual batch size
                     playerKeys: batch.playerKeys,
                     playerInfoData: batch.playerInfoData,
-                    fetchTotals: true // Flag to fetch season totals
+                    fetchTotals: true
                 })
             });
             
@@ -590,13 +540,23 @@ async function confirmStatsImport() {
                 const data = await response.json();
                 totalSeasonTotalsProcessed += data.totalsImported || 0;
                 
-                console.log(`Season totals batch ${batchIndex + 1} complete: ${data.totalsImported} players`);
+                console.log(`Season totals batch ${batch.batchNumber} complete: ${data.totalsImported} players`);
             } else {
-                console.error(`Failed to fetch season totals for batch ${batchIndex + 1}:`, response.status);
+                const errorData = await response.json();
+                console.error(`Failed to fetch season totals for batch ${batch.batchNumber}:`, response.status, errorData);
             }
             
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Final progress update
+            const finalProgress = 95 + Math.round((batchIndex + 1) / playerBatches.length * 5);
+            progressBar.style.width = finalProgress + '%';
+            progressBar.textContent = `Totals: ${finalProgress}%`;
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
+        
+        // Final completion
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100% Complete!';
         
         showStatus(`✅ Season totals complete: ${totalSeasonTotalsProcessed} players`, 'success');
         
@@ -607,7 +567,7 @@ async function confirmStatsImport() {
         showStatus(`🎉 ALL DONE! Imported ${totalPlayersProcessed.toLocaleString()} weekly records + ${totalSeasonTotalsProcessed.toLocaleString()} season totals!`, 'success');
         
         // Display enhanced summary with performance metrics
-        displayEnhancedStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed, performanceMetrics, totalSeasonTotalsProcessed);
+        displayEnhancedStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed, performanceMetrics, totalSeasonTotalsProcessed, batchSize);
         
     } catch (error) {
         console.error('Stats import error:', error);
@@ -619,11 +579,11 @@ async function confirmStatsImport() {
 }
 
 // Enhanced stats summary with detailed performance metrics
-function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonTotals) {
+function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonTotals, batchSize) {
     const resultsDiv = document.getElementById('results');
     resultsDiv.style.display = 'block';
     
-    // Find best and worst performing weeks (avoid errors if no data)
+    // Find best and worst performing weeks
     let bestWeek = { week: 'N/A', playersPerSecond: 'N/A' };
     let worstWeek = { week: 'N/A', playersPerSecond: 'N/A' };
     
@@ -645,6 +605,7 @@ function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonT
                 <div class="result-item"><strong>Year:</strong> ${year}</div>
                 <div class="result-item"><strong>Weeks Processed:</strong> ${weeks}/18</div>
                 <div class="result-item"><strong>Player Batches:</strong> ${playerBatches.length}</div>
+                <div class="result-item"><strong>Batch Size:</strong> ${batchSize} players</div>
                 <div class="result-item"><strong>Weekly Records:</strong> ${totalRecords.toLocaleString()}</div>
                 <div class="result-item"><strong>Season Totals:</strong> ${seasonTotals.toLocaleString()}</div>
                 <div class="result-item"><strong>Total API Calls:</strong> ${metrics.totalApiCalls}</div>
@@ -657,6 +618,7 @@ function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonT
                 <div class="result-item"><strong>Total Fetch Time:</strong> ${(metrics.totalFetchTimeMs / 1000).toFixed(1)}s</div>
                 <div class="result-item"><strong>Fastest Week:</strong> Week ${bestWeek.week} (${bestWeek.playersPerSecond} p/s)</div>
                 <div class="result-item"><strong>Slowest Week:</strong> Week ${worstWeek.week} (${worstWeek.playersPerSecond} p/s)</div>
+                <div class="result-item"><strong>Avg Time/Batch:</strong> ${(metrics.totalFetchTimeMs / metrics.totalApiCalls).toFixed(1)}ms</div>
             </div>
         </div>
         
@@ -666,9 +628,16 @@ function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonT
                 <div class="result-item">
                     <strong>Week ${week.week}:</strong> 
                     ${week.playersProcessed} players in ${(week.duration / 1000).toFixed(1)}s 
-                    (${week.playersPerSecond} players/sec)
+                    (${week.playersPerSecond} players/sec, ${playerBatches.length} batches)
                 </div>
             `).join('')}
+        </div>
+        
+        <h4>🔧 Batch Configuration</h4>
+        <div style="background: #f8f9fa; padding: 10px; border-radius: 5px;">
+            <div class="result-item"><strong>Configured Batch Size:</strong> ${batchSize} players</div>
+            <div class="result-item"><strong>Total Batches Created:</strong> ${playerBatches.length}</div>
+            <div class="result-item"><strong>Players per Batch:</strong> ${playerBatches.map(b => b.playerKeys.length).join(', ')}</div>
         </div>
     `;
 }
@@ -679,29 +648,6 @@ function showStatus(message, type) {
     statusDiv.textContent = message;
     statusDiv.className = type;
     statusDiv.style.display = 'block';
-}
-
-// Display import results
-function displayResults(players) {
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.style.display = 'block';
-    
-    const positionGroups = {};
-    players.forEach(player => {
-        const mainPos = player.position.split(',')[0].trim();
-        if (!positionGroups[mainPos]) {
-            positionGroups[mainPos] = [];
-        }
-        positionGroups[mainPos].push(player);
-    });
-    
-    let html = '<h3>Imported Players by Position</h3>';
-    
-    Object.entries(positionGroups).forEach(([position, playerList]) => {
-        html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
-    });
-    
-    resultsDiv.innerHTML = html;
 }
 
 // Close modal when clicking outside
