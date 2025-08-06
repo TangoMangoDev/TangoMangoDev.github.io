@@ -174,16 +174,15 @@ class StatsIndexedDB {
         };
     }
 }
-
-// Stats API Client
+// Updated Stats API Client with URL parameters and pagination
 class StatsAPIClient {
     constructor() {
         this.baseUrl = '/data/stats';
-        this.cache = new Map(); // Additional in-memory cache for quick access
+        this.cache = new Map();
     }
 
-    async getStats(year, week = 'total', position = 'ALL', forceRefresh = false) {
-        const cacheKey = `${year}_${week}_${position}`;
+    async getStats(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50, forceRefresh = false) {
+        const cacheKey = `${year}_${week}_${position}_${page}_${limit}`;
         
         // Check in-memory cache first (fastest)
         if (!forceRefresh && this.cache.has(cacheKey)) {
@@ -192,22 +191,31 @@ class StatsAPIClient {
         }
 
         // Check if data is already loaded in IndexedDB
-        if (!forceRefresh && window.statsDB && window.statsDB.isDataLoaded(year, week, position)) {
+        if (!forceRefresh && window.statsDB && window.statsDB.isDataLoaded(year, week, position, page)) {
             console.log(`📦 Serving from IndexedDB: ${cacheKey}`);
-            const data = await window.statsDB.getStats(year, week, position);
-            this.cache.set(cacheKey, data); // Store in memory cache too
+            const data = await window.statsDB.getStats(year, week, position, page);
+            this.cache.set(cacheKey, data);
             return data;
         }
 
-        // Fetch from backend
-        console.log(`🌐 Fetching from backend: ${cacheKey}`);
+        // Fetch from backend using URL parameters
+        const params = new URLSearchParams({
+            year: year,
+            week: week,
+            position: position,
+            page: page.toString(),
+            limit: limit.toString()
+        });
+
+        const url = `${this.baseUrl}?${params.toString()}`;
+        console.log(`🌐 Fetching from backend: ${url}`);
+
         try {
-            const response = await fetch(this.baseUrl, {
-                method: 'POST',
+            const response = await fetch(url, {
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ year, week, position })
+                }
             });
 
             if (!response.ok) {
@@ -220,18 +228,16 @@ class StatsAPIClient {
                 throw new Error(result.error || 'Failed to fetch stats');
             }
 
-            const data = result.data;
-
             // Store in IndexedDB
             if (window.statsDB) {
-                await window.statsDB.storeStats(data, year, week, position);
+                await window.statsDB.storeStats(result.data, year, week, position, page);
             }
 
             // Store in memory cache
-            this.cache.set(cacheKey, data);
+            this.cache.set(cacheKey, result);
 
-            console.log(`✅ Fetched and cached ${data.length} records for ${cacheKey}`);
-            return data;
+            console.log(`✅ Fetched and cached ${result.data.length} records for ${cacheKey}`);
+            return result;
 
         } catch (error) {
             console.error('Error fetching stats:', error);
@@ -255,7 +261,6 @@ class StatsAPIClient {
         }
     }
 
-    // Get cache info for debugging
     getCacheInfo() {
         return {
             memoryCacheSize: this.cache.size,
@@ -264,6 +269,348 @@ class StatsAPIClient {
     }
 }
 
+// Updated IndexedDB Manager with pagination support
+class StatsIndexedDB {
+    constructor() {
+        this.dbName = 'FantasyStatsDB';
+        this.version = 1;
+        this.db = null;
+        this.loadTracker = new Map();
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                this.loadStoredTracker();
+                resolve(this.db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains('stats')) {
+                    const statsStore = db.createObjectStore('stats', { keyPath: 'id' });
+                    statsStore.createIndex('year', 'year', { unique: false });
+                    statsStore.createIndex('week', 'week', { unique: false });
+                    statsStore.createIndex('position', 'position', { unique: false });
+                    statsStore.createIndex('playerKey', 'playerKey', { unique: false });
+                    statsStore.createIndex('page', 'page', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.createObjectStore('metadata', { keyPath: 'key' });
+                }
+            };
+        });
+    }
+
+    generateLoadKey(year, week, position = 'ALL', page = 1) {
+        return `${year}_${week}_${position}_${page}`;
+    }
+
+    isDataLoaded(year, week, position = 'ALL', page = 1) {
+        const key = this.generateLoadKey(year, week, position, page);
+        return this.loadTracker.has(key) || localStorage.getItem(`loaded_${key}`) === 'true';
+    }
+
+    markAsLoaded(year, week, position = 'ALL', page = 1) {
+        const key = this.generateLoadKey(year, week, position, page);
+        this.loadTracker.set(key, true);
+        localStorage.setItem(`loaded_${key}`, 'true');
+        
+        this.storeMetadata(key, {
+            year, week, position, page,
+            loadedAt: new Date().toISOString()
+        });
+    }
+
+    async storeMetadata(key, data) {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['metadata'], 'readwrite');
+        const store = transaction.objectStore('metadata');
+        
+        await store.put({ key, ...data });
+    }
+
+    loadStoredTracker() {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('loaded_') && localStorage.getItem(key) === 'true') {
+                const loadKey = key.replace('loaded_', '');
+                this.loadTracker.set(loadKey, true);
+            }
+        }
+    }
+
+    async storeStats(statsArray, year, week, position = 'ALL', page = 1) {
+        if (!this.db) await this.init();
+
+        const transaction = this.db.transaction(['stats'], 'readwrite');
+        const store = transaction.objectStore('stats');
+
+        for (const player of statsArray) {
+            const record = {
+                id: `${player.playerKey}_${year}_${week}_${page}`,
+                playerKey: player.playerKey,
+                playerName: player.playerName,
+                position: player.position,
+                team: player.team,
+                year: year,
+                week: week,
+                page: page,
+                stats: player.stats,
+                storedAt: new Date().toISOString()
+            };
+
+            await store.put(record);
+        }
+
+        this.markAsLoaded(year, week, position, page);
+    }
+
+    async getStats(year, week, position = 'ALL', page = 1) {
+        if (!this.db) await this.init();
+
+        const transaction = this.db.transaction(['stats'], 'readonly');
+        const store = transaction.objectStore('stats');
+
+        let results = [];
+
+        if (position === 'ALL') {
+            const yearIndex = store.index('year');
+            const request = yearIndex.getAll(year);
+            
+            const allRecords = await new Promise((resolve) => {
+                request.onsuccess = () => resolve(request.result || []);
+            });
+
+            results = allRecords.filter(record => 
+                record.week === week && record.page === page
+            );
+        } else {
+            const positionIndex = store.index('position');
+            const request = positionIndex.getAll(position);
+            
+            const positionRecords = await new Promise((resolve) => {
+                request.onsuccess = () => resolve(request.result || []);
+            });
+
+            results = positionRecords.filter(record => 
+                record.year === year && record.week === week && record.page === page
+            );
+        }
+
+        return results;
+    }
+
+    async getStorageInfo() {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['stats', 'metadata'], 'readonly');
+        const statsStore = transaction.objectStore('stats');
+        const metadataStore = transaction.objectStore('metadata');
+
+        const statsCount = await new Promise((resolve) => {
+            const request = statsStore.count();
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        const metadataCount = await new Promise((resolve) => {
+            const request = metadataStore.count();
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        return {
+            statsRecords: statsCount,
+            metadataRecords: metadataCount,
+            loadedKeys: Array.from(this.loadTracker.keys()),
+            localStorageKeys: Object.keys(localStorage).filter(k => k.startsWith('loaded_'))
+        };
+    }
+}
+
+// Updated Main Fantasy Dashboard Class with Auto-Load
+class FantasyDashboard {
+    constructor() {
+        this.leagues = [];
+        this.selectedLeagues = new Set();
+        this.isLoading = false;
+        this.isSubmitting = false;
+        
+        // Stats-related properties with pagination
+        this.currentYear = '2024';
+        this.currentWeek = 'total';
+        this.currentPosition = 'ALL';
+        this.currentPage = 1;
+        this.pageSize = 50;
+        this.statsData = [];
+        this.pagination = null;
+        this.isStatsLoading = false;
+        
+        this.initializeElements();
+        this.bindEvents();
+        this.initializeStats();
+    }
+    
+    async initializeStats() {
+        try {
+            // Initialize IndexedDB
+            window.statsDB = new StatsIndexedDB();
+            await window.statsDB.init();
+            console.log('✅ IndexedDB initialized');
+            
+            // Initialize API client
+            window.statsAPI = new StatsAPIClient();
+            
+            // Populate the select dropdowns first
+            await this.populateStatsSelects();
+            
+            // Load initial stats data automatically
+            console.log('🚀 Loading initial stats data...');
+            await this.loadStatsData();
+            
+        } catch (error) {
+            console.error('Error initializing stats:', error);
+            this.showError('Failed to initialize stats database');
+        }
+    }
+    
+    initializeElements() {
+        this.elements = {
+            // Existing elements
+            welcomeSection: document.getElementById('welcome-section'),
+            importDataBtn: document.getElementById('import-data-btn'),
+            loading: document.getElementById('loading'),
+            error: document.getElementById('error'),
+            success: document.getElementById('success'),
+            leaguesSection: document.getElementById('leagues-section'),
+            leaguesContainer: document.getElementById('leagues-container'),
+            submitSection: document.getElementById('submit-section'),
+            selectedCount: document.getElementById('selected-count'),
+            noLeagues: document.getElementById('no-leagues'),
+            submitBtn: document.getElementById('submit-btn'),
+            retryBtn: document.getElementById('retry-btn'),
+            importResultsSection: document.getElementById('import-results-section'),
+            importResultsContainer: document.getElementById('import-results-container'),
+            
+            // Stats elements
+            statsSection: document.getElementById('stats-section'),
+            statsLoading: document.getElementById('stats-loading'),
+            statsContainer: document.getElementById('stats-container'),
+            yearSelect: document.getElementById('year-select'),
+            weekSelect: document.getElementById('week-select'),
+            positionSelect: document.getElementById('position-select'),
+            statsCount: document.getElementById('stats-count'),
+            cacheInfo: document.getElementById('cache-info'),
+            
+            // Pagination elements
+            paginationContainer: document.getElementById('pagination-container'),
+            prevPageBtn: document.getElementById('prev-page-btn'),
+            nextPageBtn: document.getElementById('next-page-btn'),
+            pageInfo: document.getElementById('page-info')
+        };
+    }
+    
+    bindEvents() {
+        // Existing events
+        if (this.elements.importDataBtn) {
+            this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
+        }
+        if (this.elements.retryBtn) {
+            this.elements.retryBtn.addEventListener('click', () => this.loadLeagues());
+        }
+        if (this.elements.submitBtn) {
+            this.elements.submitBtn.addEventListener('click', () => {
+                console.log('Submit button clicked!');
+                this.submitSelectedLeagues();
+            });
+        }
+        
+        // Stats events
+        if (this.elements.yearSelect) {
+            this.elements.yearSelect.addEventListener('change', (e) => {
+                this.currentYear = e.target.value;
+                this.currentPage = 1; // Reset to page 1
+                this.loadStatsData();
+            });
+        }
+        
+        if (this.elements.weekSelect) {
+            this.elements.weekSelect.addEventListener('change', (e) => {
+                this.currentWeek = e.target.value;
+                this.currentPage = 1; // Reset to page 1
+                this.loadStatsData();
+            });
+        }
+        
+        if (this.elements.positionSelect) {
+            this.elements.positionSelect.addEventListener('change', (e) => {
+                this.currentPosition = e.target.value;
+                this.currentPage = 1; // Reset to page 1
+                this.loadStatsData();
+            });
+        }
+
+        // Pagination events
+        if (this.elements.prevPageBtn) {
+            this.elements.prevPageBtn.addEventListener('click', () => {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.loadStatsData();
+                }
+            });
+        }
+
+        if (this.elements.nextPageBtn) {
+            this.elements.nextPageBtn.addEventListener('click', () => {
+                if (this.pagination && this.currentPage < this.pagination.totalPages) {
+                    this.currentPage++;
+                    this.loadStatsData();
+                }
+            });
+        }
+    }
+    
+    async loadStatsData(forceRefresh = false) {
+        if (this.isStatsLoading) return;
+        
+        this.isStatsLoading = true;
+        this.showStatsLoading();
+        
+        try {
+            console.log(`Loading stats: ${this.currentYear}/${this.currentWeek}/${this.currentPosition} - Page ${this.currentPage}`);
+            
+            const result = await window.statsAPI.getStats(
+                this.currentYear, 
+                this.currentWeek, 
+                this.currentPosition, 
+                this.currentPage,
+                this.pageSize,
+                forceRefresh
+            );
+            
+            this.statsData = result.data || [];
+            this.pagination = result.pagination || null;
+            
+            this.renderStatsData();
+            this.updateStatsCount();
+            this.updatePagination();
+            this.updateCacheInfo();
+            
+            // Show the stats section automatically
+            this.elements.statsSection.classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error loading stats data:', error);
+            this.showError(`Failed to load stats: ${error.message}`);
+        } finally {
+            this.isStatsLoading = false;
+            this.hideStatsLoading();
 // Main Fantasy Dashboard Class
 class FantasyDashboard {
     constructor() {
