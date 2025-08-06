@@ -3,302 +3,607 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Stats Import</title>
+    <title>Admin - Player Import</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
+        /* ... your existing styles ... */
         
-        .container {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-        }
-        
-        h2 {
-            color: #555;
-            margin-top: 30px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #eee;
-        }
-        
-        .import-section {
-            margin-bottom: 40px;
-        }
-        
-        .import-controls {
-            display: flex;
-            gap: 20px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        label {
-            font-weight: 600;
-            color: #666;
-            font-size: 14px;
-        }
-        
-        input[type="number"], 
-        input[type="text"],
-        select {
-            padding: 10px 15px;
-            border: 2px solid #ddd;
+        .resume-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
             border-radius: 8px;
-            font-size: 16px;
-            width: 180px;
-            transition: border-color 0.3s;
-        }
-        
-        input[type="number"]:focus,
-        input[type="text"]:focus,
-        select:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-        
-        button {
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        button:hover {
-            background-color: #45a049;
-        }
-        
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .warning-button {
-            background-color: #ff9800;
-        }
-        
-        .warning-button:hover {
-            background-color: #f57c00;
-        }
-        
-        #status {
-            margin-top: 20px;
             padding: 15px;
-            border-radius: 8px;
+            margin: 20px 0;
             display: none;
         }
         
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .resume-section h3 {
+            color: #856404;
+            margin-bottom: 15px;
         }
         
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .resume-button {
+            background-color: #ffc107;
+            color: #212529;
         }
         
-        .info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+        .resume-button:hover {
+            background-color: #e0a800;
         }
         
-        #results {
-            margin-top: 20px;
-            max-height: 400px;
-            overflow-y: auto;
+        .progress-details {
+            background-color: #f8f9fa;
+            border-radius: 5px;
             padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            display: none;
-        }
-        
-        .result-item {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .result-item:last-child {
-            border-bottom: none;
-        }
-        
-        .progress-container {
-            width: 100%;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            margin: 10px 0;
-            display: none;
-        }
-        
-        .progress-bar {
-            width: 0%;
-            height: 25px;
-            background-color: #4CAF50;
-            border-radius: 8px;
-            text-align: center;
-            line-height: 25px;
-            color: white;
-            font-weight: bold;
-            transition: width 0.3s ease;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 15% auto;
-            padding: 30px;
-            border-radius: 12px;
-            width: 80%;
-            max-width: 500px;
-            text-align: center;
-        }
-        
-        .modal h3 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 30px;
-        }
-        
-        .cancel-button {
-            background-color: #6c757d;
-        }
-        
-        .cancel-button:hover {
-            background-color: #5a6268;
-        }
-        
-        .warning-text {
-            color: #ff9800;
-            font-weight: 600;
             margin: 15px 0;
-        }
-
-        .batch-info {
-            background-color: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
+            font-family: monospace;
             font-size: 14px;
-            color: #1565c0;
+        }
+        
+        .error-recovery {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .checkpoint-info {
+            background-color: #d1ecf1;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Admin - Season Stats Import</h1>
+        <h1>Admin - Player & Stats Import</h1>
         
-        <!-- Season Stats Import Section -->
-        <div class="import-section">
-            <h2>Import Season Stats (All Weeks)</h2>
-            <div class="import-controls">
-                <div class="input-group">
-                    <label for="seasonYear">Season Year:</label>
-                    <select id="seasonYear">
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="maxPlayers">Max Players:</label>
-                    <input type="number" id="maxPlayers" min="10" max="1000" value="450" placeholder="e.g., 450">
-                </div>
-                <div class="input-group">
-                    <label for="batchSize">Batch Size:</label>
-                    <input type="number" id="batchSize" min="5" max="25" value="10" placeholder="e.g., 10">
-                </div>
-                <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import All Season Stats</button>
-            </div>
-            
-            <div class="batch-info">
-                <strong>Batch Size Guidelines:</strong><br>
-                • 5-10: Safe for CPU limits, slower overall<br>
-                • 10-15: Balanced performance and safety<br>
-                • 15-25: Faster but may hit CPU limits<br>
-                <em>Recommended: 10 for reliable imports</em>
+        <!-- Resume Section -->
+        <div class="resume-section" id="resumeSection">
+            <h3>🔄 Resume Previous Import</h3>
+            <div class="checkpoint-info" id="resumeInfo"></div>
+            <button class="resume-button" onclick="resumeImport()">Resume Import</button>
+            <button class="cancel-button" onclick="clearProgress()">Clear Progress</button>
+        </div>
+        
+        <!-- Error Recovery Section -->
+        <div class="error-recovery" id="errorRecovery">
+            <h3>⚠️ Import Error Detected</h3>
+            <div id="errorDetails"></div>
+            <div class="modal-buttons">
+                <button class="resume-button" onclick="retryCurrentBatch()">Retry Current Batch</button>
+                <button onclick="skipCurrentBatch()">Skip Current Batch</button>
+                <button class="cancel-button" onclick="clearProgress()">Abort Import</button>
             </div>
         </div>
         
+        <!-- ... your existing sections ... -->
+        
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+        
+        <div class="progress-details" id="progressDetails" style="display: none;">
+            <div><strong>Current Operation:</strong> <span id="currentOperation">Initializing...</span></div>
+            <div><strong>Batch Progress:</strong> <span id="batchProgress">0/0</span></div>
+            <div><strong>Week Progress:</strong> <span id="weekProgress">0/18</span></div>
+            <div><strong>Total Players:</strong> <span id="totalPlayersCount">0</span></div>
+            <div><strong>Last Checkpoint:</strong> <span id="lastCheckpoint">None</span></div>
+            <div><strong>Estimated Time Remaining:</strong> <span id="timeRemaining">Calculating...</span></div>
         </div>
         
         <div id="status"></div>
         <div id="results"></div>
     </div>
     
-    <!-- Confirmation Modal -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <h3>Import Season Statistics</h3>
-            <p>You are about to import ALL player statistics for the <strong id="modalYear"></strong> season.</p>
-            <p>Max Players: <strong id="modalMaxPlayers"></strong></p>
-            <p>Batch Size: <strong id="modalBatchSize"></strong></p>
-            <p class="warning-text">⚠️ This will fetch data for all 18 weeks and may take several minutes.</p>
-            <p>Do you want to continue?</p>
-            <div class="modal-buttons">
-                <button class="cancel-button" onclick="closeModal()">Cancel</button>
-                <button onclick="confirmStatsImport()">Continue</button>
-            </div>
-        </div>
-    </div>
+    <!-- ... your existing modal ... -->
 
 <script>
-// Global variables for player key management
-let playerBatches = [];
-let totalPlayersProcessed = 0;
-let totalWeeksCompleted = 0;
-let totalSeasonTotalsProcessed = 0;
-let performanceMetrics = {
-    totalTimeMs: 0,
-    totalApiCalls: 0,
-    totalFetchTimeMs: 0,
-    avgPlayersPerSecond: 0,
-    fastestWeekMs: Infinity,
-    slowestWeekMs: 0,
-    weeklyPerformance: []
+// Enhanced global variables with persistence
+let importState = {
+    isImporting: false,
+    year: null,
+    maxPlayers: null,
+    playerBatches: [],
+    currentWeek: 1,
+    currentBatchIndex: 0,
+    totalPlayersProcessed: 0,
+    totalWeeksCompleted: 0,
+    totalSeasonTotalsProcessed: 0,
+    completedOperations: new Set(), // Track completed week-batch combinations
+    failedOperations: new Map(), // Track failed operations with retry count
+    startTime: null,
+    lastCheckpointTime: null,
+    performanceMetrics: {
+        totalTimeMs: 0,
+        totalApiCalls: 0,
+        totalFetchTimeMs: 0,
+        avgPlayersPerSecond: 0,
+        fastestWeekMs: Infinity,
+        slowestWeekMs: 0,
+        weeklyPerformance: []
+    }
 };
+
+const STORAGE_KEY = 'nfl_import_progress';
+const MAX_RETRIES = 3;
+const CHECKPOINT_INTERVAL = 5000; // Save progress every 5 seconds
+
+// Load progress from localStorage on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadProgressFromStorage();
+    checkForResumableImport();
+});
+
+// Save progress to localStorage
+function saveProgressToStorage() {
+    try {
+        const progressData = {
+            ...importState,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
+    } catch (error) {
+        console.error('Failed to save progress:', error);
+    }
+}
+
+// Load progress from localStorage
+function loadProgressFromStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const progressData = JSON.parse(saved);
+            // Only restore if it's recent (within 24 hours)
+            if (Date.now() - progressData.timestamp < 24 * 60 * 60 * 1000) {
+                importState = { ...importState, ...progressData };
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load progress:', error);
+    }
+}
+
+// Check for resumable import
+function checkForResumableImport() {
+    if (importState.year && importState.playerBatches.length > 0 && !importState.isImporting) {
+        const resumeSection = document.getElementById('resumeSection');
+        const resumeInfo = document.getElementById('resumeInfo');
+        
+        const completed = importState.completedOperations.size;
+        const total = importState.playerBatches.length * 18;
+        const percent = Math.round((completed / total) * 100);
+        
+        resumeInfo.innerHTML = `
+            <strong>Year:</strong> ${importState.year}<br>
+            <strong>Progress:</strong> ${completed}/${total} operations (${percent}%)<br>
+            <strong>Current Week:</strong> ${importState.currentWeek}/18<br>
+            <strong>Failed Operations:</strong> ${importState.failedOperations.size}<br>
+            <strong>Last Saved:</strong> ${new Date(importState.timestamp).toLocaleTimeString()}
+        `;
+        
+        resumeSection.style.display = 'block';
+    }
+}
+
+// Clear progress data
+function clearProgress() {
+    localStorage.removeItem(STORAGE_KEY);
+    importState = {
+        isImporting: false,
+        year: null,
+        maxPlayers: null,
+        playerBatches: [],
+        currentWeek: 1,
+        currentBatchIndex: 0,
+        totalPlayersProcessed: 0,
+        totalWeeksCompleted: 0,
+        totalSeasonTotalsProcessed: 0,
+        completedOperations: new Set(),
+        failedOperations: new Map(),
+        startTime: null,
+        lastCheckpointTime: null,
+        performanceMetrics: {
+            totalTimeMs: 0,
+            totalApiCalls: 0,
+            totalFetchTimeMs: 0,
+            avgPlayersPerSecond: 0,
+            fastestWeekMs: Infinity,
+            slowestWeekMs: 0,
+            weeklyPerformance: []
+        }
+    };
+    
+    document.getElementById('resumeSection').style.display = 'none';
+    document.getElementById('errorRecovery').style.display = 'none';
+    showStatus('Progress cleared.', 'info');
+}
+
+// Resume import from saved progress
+async function resumeImport() {
+    if (!importState.year || importState.playerBatches.length === 0) {
+        showStatus('No valid import state to resume.', 'error');
+        return;
+    }
+    
+    document.getElementById('resumeSection').style.display = 'none';
+    showStatus('Resuming import from last checkpoint...', 'info');
+    
+    // Continue the import process from where we left off
+    await continueStatsImport();
+}
+
+// Enhanced stats import with checkpointing
+async function confirmStatsImport() {
+    closeModal();
+    
+    // Clear any existing progress
+    clearProgress();
+    
+    const year = parseInt(document.getElementById('seasonYear').value);
+    const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
+    
+    // Initialize import state
+    importState = {
+        isImporting: true,
+        year: year,
+        maxPlayers: maxPlayers,
+        playerBatches: [],
+        currentWeek: 1,
+        currentBatchIndex: 0,
+        totalPlayersProcessed: 0,
+        totalWeeksCompleted: 0,
+        totalSeasonTotalsProcessed: 0,
+        completedOperations: new Set(),
+        failedOperations: new Map(),
+        startTime: Date.now(),
+        lastCheckpointTime: Date.now(),
+        performanceMetrics: {
+            totalTimeMs: 0,
+            totalApiCalls: 0,
+            totalFetchTimeMs: 0,
+            avgPlayersPerSecond: 0,
+            fastestWeekMs: Infinity,
+            slowestWeekMs: 0,
+            weeklyPerformance: []
+        }
+    };
+    
+    await continueStatsImport();
+}
+
+// Continue stats import (used for both new and resumed imports)
+async function continueStatsImport() {
+    const importBtn = document.getElementById('importStatsBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressDetails = document.getElementById('progressDetails');
+    
+    importBtn.disabled = true;
+    progressContainer.style.display = 'block';
+    progressDetails.style.display = 'block';
+    
+    // Start checkpoint saving
+    const checkpointInterval = setInterval(() => {
+        if (importState.isImporting) {
+            saveProgressToStorage();
+            updateProgressDisplay();
+        } else {
+            clearInterval(checkpointInterval);
+        }
+    }, CHECKPOINT_INTERVAL);
+    
+    try {
+        // Step 1: Collect player batches (skip if already collected)
+        if (importState.playerBatches.length === 0) {
+            await collectPlayerBatches();
+        }
+        
+        // Step 2: Process weekly stats
+        await processWeeklyStats();
+        
+        // Step 3: Process season totals
+        await processSeasonTotals();
+        
+        // Import completed successfully
+        importState.isImporting = false;
+        showStatus('🎉 Import completed successfully!', 'success');
+        displayEnhancedStatsSummary();
+        clearProgress(); // Clear progress after successful completion
+        
+    } catch (error) {
+        console.error('Stats import error:', error);
+        handleImportError(error);
+    } finally {
+        importBtn.disabled = false;
+        clearInterval(checkpointInterval);
+        saveProgressToStorage();
+    }
+}
+
+// Collect player batches with error handling
+async function collectPlayerBatches() {
+    updateCurrentOperation('Collecting player batches...');
+    
+    let start = 0;
+    while (start < importState.maxPlayers) {
+        const batchSize = Math.min(25, importState.maxPlayers - start);
+        
+        try {
+            const response = await fetch('/data/admin/stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    year: importState.year,
+                    week: 1,
+                    start: start,
+                    count: batchSize,
+                    max: importState.maxPlayers,
+                    useStoredKeys: false
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to get player batch: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.playerKeys || !data.playerInfoData || data.playerKeys.length === 0) {
+                throw new Error('Invalid player data received');
+            }
+            
+            importState.playerBatches.push({
+                start: start,
+                count: batchSize,
+                playerKeys: data.playerKeys,
+                playerInfoData: data.playerInfoData
+            });
+            
+            updateProgressDisplay();
+            
+            if (!data.hasMore || data.importedCount === 0) {
+                break;
+            }
+            
+            start += batchSize;
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+        } catch (error) {
+            console.error(`Error collecting batch at start=${start}:`, error);
+            throw new Error(`Failed to collect player batch: ${error.message}`);
+        }
+    }
+    
+    if (importState.playerBatches.length === 0) {
+        throw new Error('No player batches collected!');
+    }
+    
+    showStatus(`Collected ${importState.playerBatches.length} player batches`, 'success');
+}
+
+// Process weekly stats with resumption
+async function processWeeklyStats() {
+    const totalBatches = importState.playerBatches.length;
+    
+    for (let week = importState.currentWeek; week <= 18; week++) {
+        importState.currentWeek = week;
+        const weekStartTime = Date.now();
+        
+        updateCurrentOperation(`Processing Week ${week} of 18...`);
+        
+        let weekPlayersProcessed = 0;
+        
+        for (let batchIndex = importState.currentBatchIndex; batchIndex < totalBatches; batchIndex++) {
+            importState.currentBatchIndex = batchIndex;
+            const operationKey = `week-${week}-batch-${batchIndex}`;
+            
+            // Skip if already completed
+            if (importState.completedOperations.has(operationKey)) {
+                continue;
+            }
+            
+            // Check retry limit
+            const retryCount = importState.failedOperations.get(operationKey) || 0;
+            if (retryCount >= MAX_RETRIES) {
+                console.warn(`Skipping ${operationKey} - max retries exceeded`);
+                continue;
+            }
+            
+            try {
+                const batch = importState.playerBatches[batchIndex];
+                
+                const response = await fetch('/data/admin/stats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        year: importState.year,
+                        week: week,
+                        playerKeys: batch.playerKeys,
+                        playerInfoData: batch.playerInfoData,
+                        useStoredKeys: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                weekPlayersProcessed += data.importedCount;
+                importState.totalPlayersProcessed += data.importedCount;
+                
+                // Mark as completed
+                importState.completedOperations.add(operationKey);
+                importState.failedOperations.delete(operationKey);
+                
+                updateProgressDisplay();
+                
+            } catch (error) {
+                console.error(`Error processing ${operationKey}:`, error);
+                
+                // Track failure
+                importState.failedOperations.set(operationKey, retryCount + 1);
+                
+                // Show error but continue
+                showStatus(`⚠️ Failed ${operationKey} (retry ${retryCount + 1}/${MAX_RETRIES}): ${error.message}`, 'error');
+                
+                // Don't throw - just continue to next batch
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Reset batch index for next week
+        importState.currentBatchIndex = 0;
+        
+        const weekDuration = Date.now() - weekStartTime;
+        importState.performanceMetrics.weeklyPerformance.push({
+            week: week,
+            duration: weekDuration,
+            playersProcessed: weekPlayersProcessed,
+            playersPerSecond: Math.round(weekPlayersProcessed / (weekDuration / 1000))
+        });
+        
+        if (weekPlayersProcessed > 0) {
+            showStatus(`✅ Week ${week} complete: ${weekPlayersProcessed} players`, 'success');
+        }
+        
+        importState.totalWeeksCompleted = week;
+        saveProgressToStorage();
+    }
+}
+
+// Process season totals
+async function processSeasonTotals() {
+    updateCurrentOperation('Processing season totals...');
+    
+    for (let batchIndex = 0; batchIndex < importState.playerBatches.length; batchIndex++) {
+        const operationKey = `totals-batch-${batchIndex}`;
+        
+        if (importState.completedOperations.has(operationKey)) {
+            continue;
+        }
+        
+        try {
+            const batch = importState.playerBatches[batchIndex];
+            
+            const response = await fetch('/data/admin/stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    year: importState.year,
+                    playerKeys: batch.playerKeys,
+                    playerInfoData: batch.playerInfoData,
+                    fetchTotals: true
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                importState.totalSeasonTotalsProcessed += data.totalsImported || 0;
+                importState.completedOperations.add(operationKey);
+                updateProgressDisplay();
+            }
+            
+        } catch (error) {
+            console.error(`Error processing season totals batch ${batchIndex}:`, error);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+}
+
+// Update current operation display
+function updateCurrentOperation(operation) {
+    document.getElementById('currentOperation').textContent = operation;
+}
+
+// Update progress display
+function updateProgressDisplay() {
+    const totalOperations = importState.playerBatches.length * 18;
+    const completed = importState.completedOperations.size;
+    const progressPercent = Math.round((completed / totalOperations) * 100);
+    
+    document.getElementById('progressBar').style.width = progressPercent + '%';
+    document.getElementById('progressBar').textContent = progressPercent + '%';
+    
+    document.getElementById('batchProgress').textContent = 
+        `${importState.currentBatchIndex + 1}/${importState.playerBatches.length}`;
+    document.getElementById('weekProgress').textContent = 
+        `${importState.currentWeek}/18`;
+    document.getElementById('totalPlayersCount').textContent = 
+        importState.totalPlayersProcessed.toLocaleString();
+    document.getElementById('lastCheckpoint').textContent = 
+        new Date().toLocaleTimeString();
+    
+    // Calculate estimated time remaining
+    if (importState.startTime && completed > 0) {
+        const elapsed = Date.now() - importState.startTime;
+        const rate = completed / elapsed;
+        const remaining = (totalOperations - completed) / rate;
+        const remainingMinutes = Math.round(remaining / 60000);
+        
+        document.getElementById('timeRemaining').textContent = 
+            remainingMinutes > 0 ? `~${remainingMinutes} minutes` : 'Almost done!';
+    }
+}
+
+// Handle import errors
+function handleImportError(error) {
+    importState.isImporting = false;
+    
+    const errorRecovery = document.getElementById('errorRecovery');
+    const errorDetails = document.getElementById('errorDetails');
+    
+    errorDetails.innerHTML = `
+        <strong>Error:</strong> ${error.message}<br>
+        <strong>Current Week:</strong> ${importState.currentWeek}<br>
+        <strong>Current Batch:</strong> ${importState.currentBatchIndex + 1}/${importState.playerBatches.length}<br>
+        <strong>Operations Completed:</strong> ${importState.completedOperations.size}<br>
+        <strong>Failed Operations:</strong> ${importState.failedOperations.size}
+    `;
+    
+    errorRecovery.style.display = 'block';
+    showStatus(`❌ Import failed: ${error.message}`, 'error');
+    saveProgressToStorage();
+}
+
+// Retry current batch
+async function retryCurrentBatch() {
+    document.getElementById('errorRecovery').style.display = 'none';
+    showStatus('Retrying current batch...', 'info');
+    
+    // Clear the failed operation to allow retry
+    const operationKey = `week-${importState.currentWeek}-batch-${importState.currentBatchIndex}`;
+    importState.failedOperations.delete(operationKey);
+    
+    await resumeImport();
+}
+
+// Skip current batch
+async function skipCurrentBatch() {
+    document.getElementById('errorRecovery').style.display = 'none';
+    
+    const operationKey = `week-${importState.currentWeek}-batch-${importState.currentBatchIndex}`;
+    importState.completedOperations.add(operationKey); // Mark as completed to skip
+    importState.currentBatchIndex++;
+    
+    showStatus('Skipping current batch...', 'info');
+    await resumeImport();
+}
 
 // Show stats confirmation modal
 function showStatsConfirmation() {
@@ -657,7 +962,7 @@ window.onclick = function(event) {
         closeModal();
     }
 }
-</script>
 
+</script>
 </body>
 </html>
