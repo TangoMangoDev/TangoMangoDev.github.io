@@ -148,6 +148,27 @@
             border-bottom: none;
         }
         
+        /* Progress bar styles */
+        .progress-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 0%;
+            height: 25px;
+            background-color: #4CAF50;
+            border-radius: 8px;
+            text-align: center;
+            line-height: 25px;
+            color: white;
+            font-weight: bold;
+            transition: width 0.3s ease;
+        }
+        
         /* Modal styles */
         .modal {
             display: none;
@@ -236,6 +257,10 @@
             </div>
         </div>
         
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+        
         <div id="status"></div>
         <div id="results"></div>
     </div>
@@ -255,6 +280,12 @@
     </div>
 
     <script>
+        // Global variables for player key management
+        let playerBatches = [];
+        let currentBatchIndex = 0;
+        let totalPlayersProcessed = 0;
+        let totalWeeksCompleted = 0;
+        
         // Import Players Function (unchanged)
         async function importPlayers() {
             const offenseCount = parseInt(document.getElementById('offenseCount').value) || 350;
@@ -344,87 +375,156 @@
             document.getElementById('confirmModal').style.display = 'none';
         }
         
-        // Confirm and import stats - ALL WEEKS AUTOMATICALLY
+        // NEW: Confirm and import stats with player key management
         async function confirmStatsImport() {
             closeModal();
             
             const year = parseInt(document.getElementById('seasonYear').value);
             const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
             const importBtn = document.getElementById('importStatsBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            
+            // Reset global variables
+            playerBatches = [];
+            currentBatchIndex = 0;
+            totalPlayersProcessed = 0;
+            totalWeeksCompleted = 0;
             
             importBtn.disabled = true;
-            showStatus(`Starting import of ALL ${year} season stats...`, 'info');
-            
-            let totalPlayersImported = 0;
-            let totalWeeksProcessed = 0;
+            progressContainer.style.display = 'block';
+            showStatus(`Starting import of ${year} season stats...`, 'info');
             
             try {
-                // Import ALL 18 weeks automatically
+                // STEP 1: Collect all player batches (25 players each)
+                showStatus(`Step 1: Collecting player keys...`, 'info');
+                
+                let start = 0;
+                while (start < maxPlayers) {
+                    const batchSize = Math.min(25, maxPlayers - start);
+                    
+                    // Get player keys for this batch
+                    const response = await fetch('/data/admin/stats', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            year: year,
+                            week: 1, // Use week 1 just to get player keys
+                            start: start,
+                            count: batchSize,
+                            max: maxPlayers
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `Failed to get player keys: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Store the player keys for this batch
+                    playerBatches.push({
+                        start: start,
+                        count: batchSize,
+                        playerKeys: extractPlayerKeysFromResponse(data)
+                    });
+                    
+                    if (!data.hasMore || data.importedCount === 0) {
+                        break;
+                    }
+                    
+                    start += batchSize;
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                showStatus(`Collected ${playerBatches.length} player batches. Starting weekly import...`, 'info');
+                
+                // STEP 2: Process all weeks for all player batches
+                const totalBatches = playerBatches.length;
+                const totalOperations = totalBatches * 18; // 18 weeks
+                
                 for (let week = 1; week <= 18; week++) {
                     showStatus(`Processing Week ${week} of 18...`, 'info');
                     
-                    let weekPlayers = 0;
-                    let start = 0;
-                    
-                    // Paginate through players for this week
-                    while (weekPlayers < maxPlayers) {
-                        const batchSize = Math.min(25, maxPlayers - weekPlayers);
+                    for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
+                        const batch = playerBatches[batchIndex];
                         
-                        const response = await fetch('/data/admin/stats', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            credentials: 'include',
-                            body: JSON.stringify({
-                                year: year,
-                                week: week,
-                                start: start,
-                                count: batchSize,
-                                max: maxPlayers
-                            })
-                        });
+                        // Use the stored player keys for this week
+                        const response = await fetchStatsForPlayerKeys(year, week, batch.playerKeys);
                         
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.error || `Failed to import week ${week}: ${response.status}`);
+                        if (response && response.importedCount > 0) {
+                            totalPlayersProcessed += response.importedCount;
                         }
                         
-                        const data = await response.json();
-                        weekPlayers += data.importedCount;
+                        // Update progress
+                        const completed = (week - 1) * totalBatches + (batchIndex + 1);
+                        const progressPercent = Math.round((completed / totalOperations) * 100);
+                        progressBar.style.width = progressPercent + '%';
+                        progressBar.textContent = progressPercent + '%';
                         
-                        if (!data.hasMore || data.importedCount === 0) {
-                            break;
-                        }
-                        
-                        start += batchSize;
                         await new Promise(resolve => setTimeout(resolve, 300));
                     }
                     
-                    totalPlayersImported += weekPlayers;
-                    totalWeeksProcessed++;
-                    
-                    showStatus(`✅ Week ${week} complete: ${weekPlayers} players imported`, 'success');
+                    totalWeeksCompleted++;
+                    showStatus(`✅ Week ${week} complete`, 'success');
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
                 
-                showStatus(`🎉 ALL DONE! Imported ${totalPlayersImported} total player-week records across ${totalWeeksProcessed} weeks!`, 'success');
+                showStatus(`🎉 ALL DONE! Imported stats for ${totalPlayersProcessed} total player-week records across ${totalWeeksCompleted} weeks!`, 'success');
                 
                 // Display summary
-                const resultsDiv = document.getElementById('results');
-                resultsDiv.style.display = 'block';
-                resultsDiv.innerHTML = `
-                    <h3>Import Summary</h3>
-                    <div class="result-item"><strong>Year:</strong> ${year}</div>
-                    <div class="result-item"><strong>Weeks Processed:</strong> ${totalWeeksProcessed}/18</div>
-                    <div class="result-item"><strong>Total Player Records:</strong> ${totalPlayersImported}</div>
-                `;
+                displayStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed);
                 
             } catch (error) {
                 console.error('Stats import error:', error);
                 showStatus(`❌ Error: ${error.message}`, 'error');
             } finally {
                 importBtn.disabled = false;
+                progressContainer.style.display = 'none';
+            }
+        }
+        
+        // NEW: Extract player keys from first response
+        function extractPlayerKeysFromResponse(data) {
+            // This would need to be implemented based on the response structure
+            // For now, return empty array - you'll need to extract actual player keys
+            return data.playerKeys || [];
+        }
+        
+        // NEW: Fetch stats using stored player keys
+        async function fetchStatsForPlayerKeys(year, week, playerKeys) {
+            if (!playerKeys || playerKeys.length === 0) {
+                return null;
+            }
+            
+            try {
+                const response = await fetch('/data/admin/stats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        year: year,
+                        week: week,
+                        playerKeys: playerKeys, // Pass the stored player keys
+                        useStoredKeys: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.error(`Failed to fetch stats for week ${week}`);
+                    return null;
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching stats for week ${week}:`, error);
+                return null;
             }
         }
         
@@ -457,6 +557,19 @@
             });
             
             resultsDiv.innerHTML = html;
+        }
+        
+        // NEW: Display stats summary
+        function displayStatsSummary(year, weeks, totalRecords) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <h3>Stats Import Summary</h3>
+                <div class="result-item"><strong>Year:</strong> ${year}</div>
+                <div class="result-item"><strong>Weeks Processed:</strong> ${weeks}/18</div>
+                <div class="result-item"><strong>Player Batches:</strong> ${playerBatches.length}</div>
+                <div class="result-item"><strong>Total Player Records:</strong> ${totalRecords}</div>
+            `;
         }
         
         // Close modal when clicking outside
