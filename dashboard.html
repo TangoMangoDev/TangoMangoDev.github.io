@@ -436,9 +436,22 @@
                 <div id="import-results-container" class="import-results"></div>
             </div>
 
-            <!-- Add this after the import-results-section -->
+      <!-- Stats Section - Add this after import-results-section -->
 <div id="stats-section" class="hidden">
-    <h3>📊 Player Statistics</h3>
+    <div class="stats-header">
+        <h3>📊 Player Statistics</h3>
+        <div class="stats-actions">
+            <button id="refresh-stats-btn" class="btn btn-small" onclick="window.fantasyDashboard.loadStatsData(true)">
+                🔄 Refresh
+            </button>
+            <button id="clear-cache-btn" class="btn btn-small" onclick="window.clearCache()">
+                🗑️ Clear Cache
+            </button>
+            <button id="export-stats-btn" class="btn btn-small" onclick="window.exportStats()">
+                📥 Export CSV
+            </button>
+        </div>
+    </div>
     
     <!-- Stats Controls -->
     <div class="stats-controls">
@@ -446,47 +459,20 @@
             <label for="year-select">Year:</label>
             <select id="year-select">
                 <option value="2024" selected>2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
             </select>
         </div>
         
         <div class="control-group">
             <label for="week-select">Week:</label>
-<select id="week-select">
-  <option value="total" selected>Season Total</option>
-  <option value="week1">Week 1</option>
-  <option value="week2">Week 2</option>
-  <option value="week3">Week 3</option>
-  <option value="week4">Week 4</option>
-  <option value="week5">Week 5</option>
-  <option value="week6">Week 6</option>
-  <option value="week7">Week 7</option>
-  <option value="week8">Week 8</option>
-  <option value="week9">Week 9</option>
-  <option value="week10">Week 10</option>
-  <option value="week11">Week 11</option>
-  <option value="week12">Week 12</option>
-  <option value="week13">Week 13</option>
-  <option value="week14">Week 14</option>
-  <option value="week15">Week 15</option>
-  <option value="week16">Week 16</option>
-  <option value="week17">Week 17</option>
-  <option value="week18">Week 18</option>
-</select>
-
+            <select id="week-select">
+                <option value="total" selected>Season Total</option>
+            </select>
         </div>
         
         <div class="control-group">
             <label for="position-select">Position:</label>
             <select id="position-select">
                 <option value="ALL" selected>All Positions</option>
-                <option value="QB">QB</option>
-                <option value="RB">RB</option>
-                <option value="WR">WR</option>
-                <option value="TE">TE</option>
-                <option value="K">K</option>
-                <option value="DEF">DEF</option>
             </select>
         </div>
     </div>
@@ -497,7 +483,7 @@
         <p>Loading player statistics...</p>
     </div>
     
-    <!-- Stats Count and Cache Info -->
+    <!-- Stats Info -->
     <div class="stats-info">
         <div id="stats-count" class="stats-count"></div>
         <div id="cache-info" class="cache-info"></div>
