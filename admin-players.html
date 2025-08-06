@@ -279,12 +279,13 @@
         </div>
     </div>
 
-    <script>
+<script>
 // Global variables for player key management
 let playerBatches = [];
 let currentBatchIndex = 0;
 let totalPlayersProcessed = 0;
 let totalWeeksCompleted = 0;
+let totalSeasonTotalsProcessed = 0;
 let performanceMetrics = {
     totalTimeMs: 0,
     totalApiCalls: 0,
@@ -384,7 +385,7 @@ function closeModal() {
     document.getElementById('confirmModal').style.display = 'none';
 }
 
-// FIXED: Confirm and import stats with enhanced performance tracking
+// COMPLETE: Confirm and import stats with season totals
 async function confirmStatsImport() {
     closeModal();
     
@@ -399,6 +400,7 @@ async function confirmStatsImport() {
     currentBatchIndex = 0;
     totalPlayersProcessed = 0;
     totalWeeksCompleted = 0;
+    totalSeasonTotalsProcessed = 0;
     performanceMetrics = {
         totalTimeMs: 0,
         totalApiCalls: 0,
@@ -562,6 +564,42 @@ async function confirmStatsImport() {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
         
+        // STEP 3: Fetch season totals for all player batches
+        showStatus(`Step 3: Fetching season totals...`, 'info');
+        
+        for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
+            const batch = playerBatches[batchIndex];
+            
+            console.log(`Fetching season totals for batch ${batchIndex + 1}/${playerBatches.length}`);
+            
+            const response = await fetch('/data/admin/stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    year: year,
+                    playerKeys: batch.playerKeys,
+                    playerInfoData: batch.playerInfoData,
+                    fetchTotals: true // Flag to fetch season totals
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                totalSeasonTotalsProcessed += data.totalsImported || 0;
+                
+                console.log(`Season totals batch ${batchIndex + 1} complete: ${data.totalsImported} players`);
+            } else {
+                console.error(`Failed to fetch season totals for batch ${batchIndex + 1}:`, response.status);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        showStatus(`✅ Season totals complete: ${totalSeasonTotalsProcessed} players`, 'success');
+        
         const overallDuration = Date.now() - overallStartTime;
         performanceMetrics.totalTimeMs = overallDuration;
         performanceMetrics.avgPlayersPerSecond = Math.round(totalPlayersProcessed / (overallDuration / 1000));
@@ -569,7 +607,7 @@ async function confirmStatsImport() {
         showStatus(`🎉 ALL DONE! Imported ${totalPlayersProcessed.toLocaleString()} weekly records + ${totalSeasonTotalsProcessed.toLocaleString()} season totals!`, 'success');
         
         // Display enhanced summary with performance metrics
-        displayEnhancedStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed, performanceMetrics);
+        displayEnhancedStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed, performanceMetrics, totalSeasonTotalsProcessed);
         
     } catch (error) {
         console.error('Stats import error:', error);
@@ -580,46 +618,8 @@ async function confirmStatsImport() {
     }
 }
 
-        // STEP 3: Fetch season totals for all player batches
-showStatus(`Step 3: Fetching season totals...`, 'info');
-
-let totalSeasonTotalsProcessed = 0;
-
-for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
-    const batch = playerBatches[batchIndex];
-    
-    console.log(`Fetching season totals for batch ${batchIndex + 1}/${playerBatches.length}`);
-    
-    const response = await fetch('/data/admin/stats', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-            year: year,
-            playerKeys: batch.playerKeys,
-            playerInfoData: batch.playerInfoData,
-            fetchTotals: true // ✅ NEW: Flag to fetch season totals
-        })
-    });
-    
-    if (response.ok) {
-        const data = await response.json();
-        totalSeasonTotalsProcessed += data.totalsImported || 0;
-        
-        console.log(`Season totals batch ${batchIndex + 1} complete: ${data.totalsImported} players`);
-    } else {
-        console.error(`Failed to fetch season totals for batch ${batchIndex + 1}:`, response.status);
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-}
-
-showStatus(`✅ Season totals complete: ${totalSeasonTotalsProcessed} players`, 'success');
-
 // Enhanced stats summary with detailed performance metrics
-function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics) {
+function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics, seasonTotals) {
     const resultsDiv = document.getElementById('results');
     resultsDiv.style.display = 'block';
     
@@ -645,7 +645,8 @@ function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics) {
                 <div class="result-item"><strong>Year:</strong> ${year}</div>
                 <div class="result-item"><strong>Weeks Processed:</strong> ${weeks}/18</div>
                 <div class="result-item"><strong>Player Batches:</strong> ${playerBatches.length}</div>
-                <div class="result-item"><strong>Total Player Records:</strong> ${totalRecords.toLocaleString()}</div>
+                <div class="result-item"><strong>Weekly Records:</strong> ${totalRecords.toLocaleString()}</div>
+                <div class="result-item"><strong>Season Totals:</strong> ${seasonTotals.toLocaleString()}</div>
                 <div class="result-item"><strong>Total API Calls:</strong> ${metrics.totalApiCalls}</div>
             </div>
             
