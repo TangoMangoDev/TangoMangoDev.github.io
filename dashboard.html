@@ -347,6 +347,61 @@
                 <h3>📋 Import Results</h3>
                 <div id="import-results-container" class="import-results"></div>
             </div>
+
+            <!-- Add this after the import-results-section -->
+<div id="stats-section" class="hidden">
+    <h3>📊 Player Statistics</h3>
+    
+    <!-- Stats Controls -->
+    <div class="stats-controls">
+        <div class="control-group">
+            <label for="year-select">Year:</label>
+            <select id="year-select">
+                <option value="2024" selected>2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="week-select">Week:</label>
+            <select id="week-select">
+                <option value="total" selected>Season Total</option>
+                <option value="week1">Week 1</option>
+                <option value="week2">Week 2</option>
+                <!-- Add more weeks as needed -->
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="position-select">Position:</label>
+            <select id="position-select">
+                <option value="ALL" selected>All Positions</option>
+                <option value="QB">QB</option>
+                <option value="RB">RB</option>
+                <option value="WR">WR</option>
+                <option value="TE">TE</option>
+                <option value="K">K</option>
+                <option value="DEF">DEF</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Stats Loading -->
+    <div id="stats-loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Loading player statistics...</p>
+    </div>
+    
+    <!-- Stats Count and Cache Info -->
+    <div class="stats-info">
+        <div id="stats-count" class="stats-count"></div>
+        <div id="cache-info" class="cache-info"></div>
+    </div>
+    
+    <!-- Stats Container -->
+    <div id="stats-container" class="stats-container"></div>
+</div>
             
             <!-- No Leagues Section -->
             <div id="no-leagues" class="no-leagues hidden">
