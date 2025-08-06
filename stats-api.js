@@ -205,39 +205,41 @@ class StatsAPI {
         }
     }
 
-    async fetchFromAPI(year, week, position, page) {
-        const params = new URLSearchParams({
-            year,
-            week,
-            position,
-            page: page.toString(),
-            limit: '50'
-        });
 
-        const url = `${this.baseUrl}?${params}`;
-        console.log(`🌐 Fetching from API: ${url}`);
+async fetchFromAPI(year, week, position, page) {
+    const params = new URLSearchParams({
+        year,
+        week,
+        position,
+        page: page.toString()
+    });
 
-        const response = await fetch(url, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+    const url = `${this.baseUrl}?${params}`;
+    console.log(`🌐 Fetching from API: ${url}`);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
         }
+    });
 
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error(data.error || 'API request failed');
-        }
-
-        console.log(`✅ Fetched ${data.count} players from API`);
-        return data; // Return RAW data with Yahoo stat IDs intact
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    
+    if (!data.success) {
+        throw new Error(data.error || 'API request failed');
+    }
+
+    console.log(`✅ Fetched ${data.count} players from API`);
+    return data; // Return RAW data with Yahoo stat IDs intact
+}
+
+    
 
     async clearCache(year = null) {
         if (year) {
