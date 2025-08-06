@@ -1,80 +1,179 @@
-// stats-api.js - API layer with caching
+// stats-api.js - Pure API layer with IndexedDB caching
+class StatsCache {
+    constructor() {
+        this.dbName = 'nfl_stats_cache';
+        this.version = 1;
+        this.storeName = 'stats';
+        this.db = null;
+        this.cacheExpiryMinutes = 60; // 1 hour cache for stats data
+    }
+
+    async init() {
+        if (this.db) return this.db;
+
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve(this.db);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains(this.storeName)) {
+                    const store = db.createObjectStore(this.storeName, { keyPath: 'cacheKey' });
+                    store.createIndex('timestamp', 'timestamp', { unique: false });
+                    store.createIndex('year', 'year', { unique: false });
+                    store.createIndex('week', 'week', { unique: false });
+                    store.createIndex('position', 'position', { unique: false });
+                }
+            };
+        });
+    }
+
+    generateCacheKey(year, week, position, page) {
+        return `${year}_${week}_${position}_${page}`;
+    }
+
+    async get(year, week, position, page) {
+        try {
+            await this.init();
+            
+            const cacheKey = this.generateCacheKey(year, week, position, page);
+            const transaction = this.db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.get(cacheKey);
+                
+                request.onsuccess = () => {
+                    const result = request.result;
+                    
+                    if (!result) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const now = new Date();
+                    const cachedTime = new Date(result.timestamp);
+                    const diffMinutes = (now - cachedTime) / (1000 * 60);
+                    
+                    if (diffMinutes > this.cacheExpiryMinutes) {
+                        console.log(`Cache expired for ${cacheKey}, age: ${diffMinutes.toFixed(2)} minutes`);
+                        resolve(null);
+                        return;
+                    }
+                    
+                    console.log(`✅ Cache hit for ${cacheKey}, age: ${diffMinutes.toFixed(2)} minutes`);
+                    resolve(result.data);
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Cache get error:', error);
+            return null;
+        }
+    }
+
+    async set(year, week, position, page, data) {
+        try {
+            await this.init();
+            
+            const cacheKey = this.generateCacheKey(year, week, position, page);
+            const cacheEntry = {
+                cacheKey,
+                year,
+                week, 
+                position,
+                page,
+                data,
+                timestamp: new Date().toISOString()
+            };
+            
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(cacheEntry);
+                
+                request.onsuccess = () => {
+                    console.log(`✅ Cached data for ${cacheKey}`);
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Cache set error:', error);
+        }
+    }
+
+    async clear(year) {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const index = store.index('year');
+            
+            return new Promise((resolve, reject) => {
+                const request = index.openCursor(IDBKeyRange.only(year));
+                
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        cursor.delete();
+                        cursor.continue();
+                    } else {
+                        console.log(`🗑️ Cleared cache for year ${year}`);
+                        resolve();
+                    }
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Cache clear error:', error);
+        }
+    }
+
+    async clearAll() {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.clear();
+                
+                request.onsuccess = () => {
+                    console.log('🗑️ Cleared all cached data');
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Cache clear all error:', error);
+        }
+    }
+}
+
 class StatsAPI {
     constructor() {
-        this.baseUrl = '/data/stats/data'; // Your Cloudflare Worker endpoint
+        this.baseUrl = '/data/stats';
         this.cache = new StatsCache();
-        this.currentRequests = new Map(); // Prevent duplicate requests
-        
-        // Yahoo stat ID mapping - done on FRONTEND
-        this.statIdMapping = {
-            "0": "Games Played",
-            "1": "Pass Att",
-            "2": "Comp",
-            "3": "Inc", 
-            "4": "Pass Yds",
-            "5": "Pass TD",
-            "6": "Int",
-            "7": "Sack",
-            "8": "Rush Att",
-            "9": "Rush Yds", 
-            "10": "Rush TD",
-            "11": "Rec",
-            "12": "Rec Yds",
-            "13": "Rec TD",
-            "14": "Ret Yds",
-            "15": "Ret TD",
-            "16": "Off Fum Ret TD",
-            "17": "2-PT",
-            "18": "Fum",
-            "19": "Fum Lost",
-            "20": "FG",
-            "21": "FGM",
-            "22": "Pts Allow",
-            "23": "Tack Solo",
-            "24": "Tack Ast",
-            "25": "Pass Def",
-            "26": "Sack",
-            "27": "Int",
-            "28": "Fum Rec",
-            "29": "Fum Force",
-            "30": "TD",
-            "31": "Safe",
-            "32": "Blk Kick",
-            "33": "Ret Yds",
-            "34": "Ret TD",
-            "57": "Off Snaps",
-            "58": "Off Snap %",
-            "59": "Def Snaps", 
-            "60": "Def Snap %",
-            "61": "ST Snaps",
-            "62": "ST Snap %",
-            "63": "Games Started",
-            "64": "Off Plays",
-            "78": "Tack Total",
-            "79": "Tack Loss",
-            "80": "QB Hits",
-            "81": "Hurries"
-        };
+        this.currentRequests = new Map();
     }
 
-    // Convert Yahoo stat IDs to readable names - FRONTEND ONLY
-    convertYahooStatsToReadable(rawStats, position) {
-        const readableStats = {};
-        
-        Object.entries(rawStats).forEach(([statId, value]) => {
-            const readableName = this.statIdMapping[statId];
-            if (readableName && value != null && value !== 0) {
-                readableStats[readableName] = value;
-            }
-        });
-
-        return readableStats;
-    }
-
-    async fetchStats(year = '2024', week = 'total', position = 'ALL', page = 1) {
+    async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
         const requestKey = `${year}_${week}_${position}_${page}`;
         
-        // Check if we already have a pending request for this data
         if (this.currentRequests.has(requestKey)) {
             console.log(`⏳ Waiting for pending request: ${requestKey}`);
             return await this.currentRequests.get(requestKey);
@@ -86,14 +185,13 @@ class StatsAPI {
             return cachedData;
         }
 
-        // Create the fetch promise
+        // Fetch from API
         const fetchPromise = this.fetchFromAPI(year, week, position, page);
         this.currentRequests.set(requestKey, fetchPromise);
 
         try {
             const data = await fetchPromise;
             
-            // Cache the successful response
             if (data.success) {
                 await this.cache.set(year, week, position, page, data);
             }
@@ -103,7 +201,6 @@ class StatsAPI {
             console.error('Stats fetch error:', error);
             throw error;
         } finally {
-            // Clean up the pending request
             this.currentRequests.delete(requestKey);
         }
     }
@@ -122,7 +219,7 @@ class StatsAPI {
 
         const response = await fetch(url, {
             method: 'GET',
-            credentials: 'include', // Include cookies for auth
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -138,14 +235,8 @@ class StatsAPI {
             throw new Error(data.error || 'API request failed');
         }
 
-        // Convert raw Yahoo stat IDs to readable names HERE on frontend
-        data.data = data.data.map(player => ({
-            ...player,
-            stats: this.convertYahooStatsToReadable(player.stats, player.position)
-        }));
-
-        console.log(`✅ Fetched and converted ${data.count} players from API`);
-        return data;
+        console.log(`✅ Fetched ${data.count} players from API`);
+        return data; // Return RAW data with Yahoo stat IDs intact
     }
 
     async clearCache(year = null) {
@@ -155,8 +246,7 @@ class StatsAPI {
             await this.cache.clearAll();
         }
     }
-
-    async getCacheStats() {
-        return await this.cache.getStats();
-    }
 }
+
+// Global API instance
+window.statsAPI = new StatsAPI();
