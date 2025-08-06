@@ -566,7 +566,7 @@ async function confirmStatsImport() {
         performanceMetrics.totalTimeMs = overallDuration;
         performanceMetrics.avgPlayersPerSecond = Math.round(totalPlayersProcessed / (overallDuration / 1000));
         
-        showStatus(`🎉 ALL DONE! Imported stats for ${totalPlayersProcessed.toLocaleString()} total player-week records!`, 'success');
+        showStatus(`🎉 ALL DONE! Imported ${totalPlayersProcessed.toLocaleString()} weekly records + ${totalSeasonTotalsProcessed.toLocaleString()} season totals!`, 'success');
         
         // Display enhanced summary with performance metrics
         displayEnhancedStatsSummary(year, totalWeeksCompleted, totalPlayersProcessed, performanceMetrics);
@@ -579,6 +579,44 @@ async function confirmStatsImport() {
         progressContainer.style.display = 'none';
     }
 }
+
+        // STEP 3: Fetch season totals for all player batches
+showStatus(`Step 3: Fetching season totals...`, 'info');
+
+let totalSeasonTotalsProcessed = 0;
+
+for (let batchIndex = 0; batchIndex < playerBatches.length; batchIndex++) {
+    const batch = playerBatches[batchIndex];
+    
+    console.log(`Fetching season totals for batch ${batchIndex + 1}/${playerBatches.length}`);
+    
+    const response = await fetch('/data/admin/stats', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+            year: year,
+            playerKeys: batch.playerKeys,
+            playerInfoData: batch.playerInfoData,
+            fetchTotals: true // ✅ NEW: Flag to fetch season totals
+        })
+    });
+    
+    if (response.ok) {
+        const data = await response.json();
+        totalSeasonTotalsProcessed += data.totalsImported || 0;
+        
+        console.log(`Season totals batch ${batchIndex + 1} complete: ${data.totalsImported} players`);
+    } else {
+        console.error(`Failed to fetch season totals for batch ${batchIndex + 1}:`, response.status);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+}
+
+showStatus(`✅ Season totals complete: ${totalSeasonTotalsProcessed} players`, 'success');
 
 // Enhanced stats summary with detailed performance metrics
 function displayEnhancedStatsSummary(year, weeks, totalRecords, metrics) {
