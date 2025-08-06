@@ -1,6 +1,268 @@
-// Enhanced dashboard.js with stats integration
-import statsAPI from './stats-api-client.js';
-import statsDB from './indexeddb-manager.js';
+// IndexedDB Manager
+class StatsIndexedDB {
+    constructor() {
+        this.dbName = 'FantasyStatsDB';
+        this.version = 1;
+        this.db = null;
+        this.loadTracker = new Map(); // In-memory tracker for loaded data
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                this.loadStoredTracker();
+                resolve(this.db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create stats store
+                if (!db.objectStoreNames.contains('stats')) {
+                    const statsStore = db.createObjectStore('stats', { keyPath: 'id' });
+                    statsStore.createIndex('year', 'year', { unique: false });
+                    statsStore.createIndex('week', 'week', { unique: false });
+                    statsStore.createIndex('position', 'position', { unique: false });
+                    statsStore.createIndex('playerKey', 'playerKey', { unique: false });
+                }
+
+                // Create metadata store for tracking loaded data
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.createObjectStore('metadata', { keyPath: 'key' });
+                }
+            };
+        });
+    }
+
+    // Generate unique key for tracking loaded data
+    generateLoadKey(year, week, position = 'ALL') {
+        return `${year}_${week}_${position}`;
+    }
+
+    // Check if data is already loaded
+    isDataLoaded(year, week, position = 'ALL') {
+        const key = this.generateLoadKey(year, week, position);
+        return this.loadTracker.has(key) || localStorage.getItem(`loaded_${key}`) === 'true';
+    }
+
+    // Mark data as loaded
+    markAsLoaded(year, week, position = 'ALL') {
+        const key = this.generateLoadKey(year, week, position);
+        this.loadTracker.set(key, true);
+        localStorage.setItem(`loaded_${key}`, 'true');
+        
+        // Also store in IndexedDB metadata
+        this.storeMetadata(key, {
+            year,
+            week, 
+            position,
+            loadedAt: new Date().toISOString()
+        });
+    }
+
+    // Store metadata in IndexedDB
+    async storeMetadata(key, data) {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['metadata'], 'readwrite');
+        const store = transaction.objectStore('metadata');
+        
+        await store.put({ key, ...data });
+    }
+
+    // Load stored tracker from localStorage
+    loadStoredTracker() {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('loaded_') && localStorage.getItem(key) === 'true') {
+                const loadKey = key.replace('loaded_', '');
+                this.loadTracker.set(loadKey, true);
+            }
+        }
+    }
+
+    // Store stats data in IndexedDB
+    async storeStats(statsArray, year, week, position = 'ALL') {
+        if (!this.db) await this.init();
+
+        const transaction = this.db.transaction(['stats'], 'readwrite');
+        const store = transaction.objectStore('stats');
+
+        // Store each player's stats with metadata
+        for (const player of statsArray) {
+            const record = {
+                id: `${player.playerKey}_${year}_${week}`,
+                playerKey: player.playerKey,
+                playerName: player.playerName,
+                position: player.position,
+                year: year,
+                week: week,
+                stats: player.stats,
+                storedAt: new Date().toISOString()
+            };
+
+            await store.put(record);
+        }
+
+        // Mark as loaded
+        this.markAsLoaded(year, week, position);
+    }
+
+    // Retrieve stats from IndexedDB
+    async getStats(year, week, position = 'ALL') {
+        if (!this.db) await this.init();
+
+        const transaction = this.db.transaction(['stats'], 'readonly');
+        const store = transaction.objectStore('stats');
+
+        let results = [];
+
+        if (position === 'ALL') {
+            // Get all records for year/week
+            const yearIndex = store.index('year');
+            const request = yearIndex.getAll(year);
+            
+            const allRecords = await new Promise((resolve) => {
+                request.onsuccess = () => resolve(request.result || []);
+            });
+
+            results = allRecords.filter(record => record.week === week);
+        } else {
+            // Get records for specific position
+            const positionIndex = store.index('position');
+            const request = positionIndex.getAll(position);
+            
+            const positionRecords = await new Promise((resolve) => {
+                request.onsuccess = () => resolve(request.result || []);
+            });
+
+            results = positionRecords.filter(record => 
+                record.year === year && record.week === week
+            );
+        }
+
+        return results;
+    }
+
+    // Get storage info for debugging
+    async getStorageInfo() {
+        if (!this.db) await this.init();
+        
+        const transaction = this.db.transaction(['stats', 'metadata'], 'readonly');
+        const statsStore = transaction.objectStore('stats');
+        const metadataStore = transaction.objectStore('metadata');
+
+        const statsCount = await new Promise((resolve) => {
+            const request = statsStore.count();
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        const metadataCount = await new Promise((resolve) => {
+            const request = metadataStore.count();
+            request.onsuccess = () => resolve(request.result);
+        });
+
+        return {
+            statsRecords: statsCount,
+            metadataRecords: metadataCount,
+            loadedKeys: Array.from(this.loadTracker.keys()),
+            localStorageKeys: Object.keys(localStorage).filter(k => k.startsWith('loaded_'))
+        };
+    }
+}
+
+// Stats API Client
+class StatsAPIClient {
+    constructor() {
+        this.baseUrl = '/data/stats';
+        this.cache = new Map(); // Additional in-memory cache for quick access
+    }
+
+    async getStats(year, week = 'total', position = 'ALL', forceRefresh = false) {
+        const cacheKey = `${year}_${week}_${position}`;
+        
+        // Check in-memory cache first (fastest)
+        if (!forceRefresh && this.cache.has(cacheKey)) {
+            console.log(`📦 Serving from memory cache: ${cacheKey}`);
+            return this.cache.get(cacheKey);
+        }
+
+        // Check if data is already loaded in IndexedDB
+        if (!forceRefresh && window.statsDB && window.statsDB.isDataLoaded(year, week, position)) {
+            console.log(`📦 Serving from IndexedDB: ${cacheKey}`);
+            const data = await window.statsDB.getStats(year, week, position);
+            this.cache.set(cacheKey, data); // Store in memory cache too
+            return data;
+        }
+
+        // Fetch from backend
+        console.log(`🌐 Fetching from backend: ${cacheKey}`);
+        try {
+            const response = await fetch(this.baseUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ year, week, position })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch stats');
+            }
+
+            const data = result.data;
+
+            // Store in IndexedDB
+            if (window.statsDB) {
+                await window.statsDB.storeStats(data, year, week, position);
+            }
+
+            // Store in memory cache
+            this.cache.set(cacheKey, data);
+
+            console.log(`✅ Fetched and cached ${data.length} records for ${cacheKey}`);
+            return data;
+
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+            throw error;
+        }
+    }
+
+    // Clear cache
+    clearCache(year = null, week = null, position = null) {
+        if (year || week || position) {
+            const pattern = `${year || '[^_]+'}_${week || '[^_]+'}_${position || '[^_]+'}`;
+            const regex = new RegExp(pattern);
+            
+            for (const key of this.cache.keys()) {
+                if (regex.test(key)) {
+                    this.cache.delete(key);
+                }
+            }
+        } else {
+            this.cache.clear();
+        }
+    }
+
+    // Get cache info for debugging
+    getCacheInfo() {
+        return {
+            memoryCacheSize: this.cache.size,
+            memoryCacheKeys: Array.from(this.cache.keys())
+        };
+    }
+}
 
 // Main Fantasy Dashboard Class
 class FantasyDashboard {
@@ -604,7 +866,6 @@ class FantasyDashboard {
     hideLoading() {
         this.elements.loading.classList.add('hidden');
     }
-
     hideImportResults() {
         this.elements.importResultsSection.classList.add('hidden');
     }
