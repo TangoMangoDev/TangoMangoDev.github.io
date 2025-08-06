@@ -303,6 +303,94 @@
             font-size: 0.9rem;
             color: #7f8c8d;
         }
+        /* Add to your existing styles */
+.stats-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.control-group select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+}
+
+.stats-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.stats-count {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.cache-info {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+}
+
+.stats-table-container {
+    overflow-x: auto;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.stats-table th,
+.stats-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.stats-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.player-row:hover {
+    background: #f8f9fa;
+}
+
+.player-name {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.player-position {
+    font-weight: 600;
+    color: #3498db;
+}
+
+.no-stats {
+    text-align: center;
+    padding: 3rem;
+    color: #7f8c8d;
+}
     </style>
 </head>
 <body>
