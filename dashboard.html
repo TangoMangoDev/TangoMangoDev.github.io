@@ -104,6 +104,7 @@
         .btn:disabled {
             background: #bdc3c7;
             cursor: not-allowed;
+            opacity: 0.5;
         }
         
         .btn-success {
@@ -117,6 +118,11 @@
         .btn-large {
             padding: 1rem 2rem;
             font-size: 1.2rem;
+        }
+        
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
         }
         
         .welcome-section {
@@ -303,94 +309,218 @@
             font-size: 0.9rem;
             color: #7f8c8d;
         }
-        /* Add to your existing styles */
-.stats-controls {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-}
 
-.control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
+        /* Stats Section Styles */
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e9ecef;
+        }
 
-.control-group label {
-    font-weight: 600;
-    color: #2c3e50;
-    font-size: 0.9rem;
-}
+        .stats-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
 
-.control-group select {
-    padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: white;
-}
+        .stats-controls {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
 
-.stats-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
-}
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 120px;
+        }
 
-.stats-count {
-    font-weight: 600;
-    color: #2c3e50;
-}
+        .control-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
 
-.cache-info {
-    color: #7f8c8d;
-    font-size: 0.8rem;
-}
+        .control-group select {
+            padding: 0.75rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
 
-.stats-table-container {
-    overflow-x: auto;
-}
+        .control-group select:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
 
-.stats-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-}
+        .stats-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
 
-.stats-table th,
-.stats-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #eee;
-}
+        .stats-count {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
 
-.stats-table th {
-    background: #f8f9fa;
-    font-weight: 600;
-    color: #2c3e50;
-}
+        .cache-info {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+            text-align: right;
+        }
 
-.player-row:hover {
-    background: #f8f9fa;
-}
+        .stats-table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
 
-.player-name {
-    font-weight: 600;
-    color: #2c3e50;
-}
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
 
-.player-position {
-    font-weight: 600;
-    color: #3498db;
-}
+        .stats-table th,
+        .stats-table td {
+            padding: 1rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
 
-.no-stats {
-    text-align: center;
-    padding: 3rem;
-    color: #7f8c8d;
-}
+        .stats-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .stats-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .player-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .player-name {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 150px;
+        }
+
+        .player-position {
+            font-weight: 600;
+            color: #3498db;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .player-team {
+            color: #7f8c8d;
+            font-weight: 500;
+            min-width: 60px;
+        }
+
+        .player-stats {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #2c3e50;
+            min-width: 200px;
+        }
+
+        .no-stats {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #7f8c8d;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #ddd;
+        }
+
+        .no-stats h3 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+
+        /* Pagination Styles */
+        .pagination-container {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .page-info {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .stats-controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .stats-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+            
+            .stats-actions {
+                justify-content: center;
+            }
+            
+            .stats-info {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+            
+            .stats-table th,
+            .stats-table td {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -416,93 +546,100 @@
             
             <!-- Messages -->
             <div id="error" class="hidden"></div>
-            <div id="success" class="hidden"></div>
-            
-            <!-- Leagues Section -->
-            <div id="leagues-section" class="hidden">
+           <div id="success" class="hidden"></div>
+           
+           <!-- Leagues Section -->
+           <div id="leagues-section" class="hidden">
+               <div id="leagues-container" class="leagues-container"></div>
+               
+               <div id="submit-section" class="import-section hidden">
+                   <div id="selected-count" class="selected-count"></div>
+                   <button id="submit-btn" class="btn btn-success btn-large">📤 Submit Selected Leagues</button>
+               </div>
+           </div>
+           
+           <!-- Import Results Section -->
+           <div id="import-results-section" class="hidden">
+               <h3>📋 Import Results</h3>
+               <div id="import-results-container" class="import-results"></div>
+           </div>
 
-                
-                <div id="leagues-container" class="leagues-container"></div>
-                
-                <div id="submit-section" class="import-section hidden">
-                    <div id="selected-count" class="selected-count"></div>
-                    <button id="submit-btn" class="btn btn-success btn-large">📤 Submit Selected Leagues</button>
-                </div>
-            </div>
-            
-            <!-- Import Results Section -->
-            <div id="import-results-section" class="hidden">
-                <h3>📋 Import Results</h3>
-                <div id="import-results-container" class="import-results"></div>
-            </div>
+           <!-- Stats Section -->
+           <div id="stats-section" class="hidden">
+               <div class="stats-header">
+                   <h3>📊 Player Statistics</h3>
+                   <div class="stats-actions">
+                       <button id="refresh-stats-btn" class="btn btn-small" onclick="window.fantasyDashboard.loadStatsData(true)">
+                           🔄 Refresh
+                       </button>
+                       <button id="clear-cache-btn" class="btn btn-small" onclick="window.clearCache()">
+                           🗑️ Clear Cache
+                       </button>
+                       <button id="export-stats-btn" class="btn btn-small" onclick="window.exportStats()">
+                           📥 Export CSV
+                       </button>
+                   </div>
+               </div>
+               
+               <!-- Stats Controls -->
+               <div class="stats-controls">
+                   <div class="control-group">
+                       <label for="year-select">Year:</label>
+                       <select id="year-select">
+                           <option value="2024" selected>2024</option>
+                       </select>
+                   </div>
+                   
+                   <div class="control-group">
+                       <label for="week-select">Week:</label>
+                       <select id="week-select">
+                           <option value="total" selected>Season Total</option>
+                       </select>
+                   </div>
+                   
+                   <div class="control-group">
+                       <label for="position-select">Position:</label>
+                       <select id="position-select">
+                           <option value="ALL" selected>All Positions</option>
+                       </select>
+                   </div>
+               </div>
+               
+               <!-- Stats Loading -->
+               <div id="stats-loading" class="loading hidden">
+                   <div class="spinner"></div>
+                   <p>Loading player statistics...</p>
+               </div>
+               
+               <!-- Stats Info -->
+               <div class="stats-info">
+                   <div id="stats-count" class="stats-count"></div>
+                   <div id="cache-info" class="cache-info"></div>
+               </div>
+               
+               <!-- Stats Container -->
+               <div id="stats-container" class="stats-container"></div>
 
-      <!-- Stats Section - Add this after import-results-section -->
-<div id="stats-section" class="hidden">
-    <div class="stats-header">
-        <h3>📊 Player Statistics</h3>
-        <div class="stats-actions">
-            <button id="refresh-stats-btn" class="btn btn-small" onclick="window.fantasyDashboard.loadStatsData(true)">
-                🔄 Refresh
-            </button>
-            <button id="clear-cache-btn" class="btn btn-small" onclick="window.clearCache()">
-                🗑️ Clear Cache
-            </button>
-            <button id="export-stats-btn" class="btn btn-small" onclick="window.exportStats()">
-                📥 Export CSV
-            </button>
-        </div>
-    </div>
-    
-    <!-- Stats Controls -->
-    <div class="stats-controls">
-        <div class="control-group">
-            <label for="year-select">Year:</label>
-            <select id="year-select">
-                <option value="2024" selected>2024</option>
-            </select>
-        </div>
-        
-        <div class="control-group">
-            <label for="week-select">Week:</label>
-            <select id="week-select">
-                <option value="total" selected>Season Total</option>
-            </select>
-        </div>
-        
-        <div class="control-group">
-            <label for="position-select">Position:</label>
-            <select id="position-select">
-                <option value="ALL" selected>All Positions</option>
-            </select>
-        </div>
-    </div>
-    
-    <!-- Stats Loading -->
-    <div id="stats-loading" class="loading hidden">
-        <div class="spinner"></div>
-        <p>Loading player statistics...</p>
-    </div>
-    
-    <!-- Stats Info -->
-    <div class="stats-info">
-        <div id="stats-count" class="stats-count"></div>
-        <div id="cache-info" class="cache-info"></div>
-    </div>
-    
-    <!-- Stats Container -->
-    <div id="stats-container" class="stats-container"></div>
-</div>
-            
-            <!-- No Leagues Section -->
-            <div id="no-leagues" class="no-leagues hidden">
-                <h3>No Fantasy Leagues Found</h3>
-                <p>It looks like you don't have any Yahoo Fantasy Football leagues for this season.</p>
-                <p>Make sure you're logged in with the correct Yahoo account and have joined at least one league.</p>
-                <button id="retry-btn" class="btn">🔄 Try Again</button>
-            </div>
-        </div>
-    </div>
+               <!-- Pagination Container -->
+               <div id="pagination-container" class="pagination-container hidden">
+                   <div class="pagination-controls">
+                       <button id="prev-page-btn" class="btn btn-small">← Previous</button>
+                       <div id="page-info" class="page-info"></div>
+                       <button id="next-page-btn" class="btn btn-small">Next →</button>
+                   </div>
+               </div>
+           </div>
+           
+           <!-- No Leagues Section -->
+           <div id="no-leagues" class="no-leagues hidden">
+               <h3>No Fantasy Leagues Found</h3>
+               <p>It looks like you don't have any Yahoo Fantasy Football leagues for this season.</p>
+               <p>Make sure you're logged in with the correct Yahoo account and have joined at least one league.</p>
+               <button id="retry-btn" class="btn">🔄 Try Again</button>
+           </div>
+       </div>
+   </div>
 
-    <script src="dashboard.js"></script>
+   <script src="dashboard.js"></script>
 </body>
 </html>
