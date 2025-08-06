@@ -166,7 +166,7 @@ class StatsCache {
 
 class StatsAPI {
     constructor() {
-        this.baseUrl = '/data/stats';
+        this.baseUrl = '/data/stats/stats';
         this.cache = new StatsCache();
         this.currentRequests = new Map();
     }
