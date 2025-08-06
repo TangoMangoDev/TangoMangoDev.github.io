@@ -251,7 +251,7 @@
                 </div>
                 <div class="input-group">
                     <label for="maxPlayers">Max Players:</label>
-                    <input type="number" id="maxPlayers" min="25" max="1000" value="450" placeholder="e.g., 450">
+                    <input type="number" id="maxPlayers" min="10" max="1000" value="450" placeholder="e.g., 450">
                 </div>
                 <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import All Season Stats</button>
             </div>
@@ -328,7 +328,7 @@ async function importPlayers() {
         showStatus(`Importing offense players...`, 'info');
         
         while (offenseImported < offenseCount) {
-            const batchSize = Math.min(25, offenseCount - offenseImported);
+            const batchSize = Math.min(10, offenseCount - offenseImported);
             
             const response = await fetch('/data/admin/import', {
                 method: 'POST',
@@ -418,12 +418,12 @@ async function confirmStatsImport() {
     const overallStartTime = Date.now();
     
     try {
-        // STEP 1: Collect all player batches (25 players each) with REAL player info
+        // STEP 1: Collect all player batches (10 players each) with REAL player info
         showStatus(`Step 1: Collecting player keys and info...`, 'info');
         
         let start = 0;
         while (start < maxPlayers) {
-            const batchSize = Math.min(25, maxPlayers - start);
+            const batchSize = Math.min(10, maxPlayers - start);
             
             console.log(`Fetching player batch: start=${start}, count=${batchSize}`);
             
