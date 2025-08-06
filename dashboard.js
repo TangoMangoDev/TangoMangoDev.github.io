@@ -1103,63 +1103,6 @@ class FantasyDashboard {
        }
    }
 
-   exportStatsAsCSV() {
-       if (!this.statsData || this.statsData.length === 0) {
-           this.showError('No stats data to export');
-           return;
-       }
-
-       try {
-           // Create CSV headers
-           const headers = ['Player Name', 'Position', 'Team', 'Player Key'];
-           
-           // Add stat headers based on available stats
-           const sampleStats = this.statsData[0]?.stats || {};
-           const statKeys = Object.keys(sampleStats);
-           headers.push(...statKeys.map(key => `Stat_${key}`));
-
-           // Create CSV rows
-           const csvRows = [headers.join(',')];
-           
-           this.statsData.forEach(player => {
-               const row = [
-                   `"${player.playerName || ''}"`,
-                   `"${player.position || ''}"`,
-                   `"${player.team || ''}"`,
-                   `"${player.playerKey || ''}"`
-               ];
-
-               // Add stat values
-               statKeys.forEach(key => {
-                   row.push(player.stats?.[key] || '0');
-               });
-
-               csvRows.push(row.join(','));
-           });
-
-           // Create and download CSV file
-           const csvContent = csvRows.join('\n');
-           const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-           const link = document.createElement('a');
-           
-           if (link.download !== undefined) {
-               const url = URL.createObjectURL(blob);
-               link.setAttribute('href', url);
-               link.setAttribute('download', `fantasy-stats-${this.currentYear}-${this.currentWeek}-${this.currentPosition}.csv`);
-               link.style.visibility = 'hidden';
-               document.body.appendChild(link);
-               link.click();
-               document.body.removeChild(link);
-           }
-
-           this.showSuccess(`Exported ${this.statsData.length} player stats to CSV`);
-
-       } catch (error) {
-           console.error('Error exporting CSV:', error);
-           this.showError('Failed to export stats data');
-       }
-   }
-
    async getDetailedCacheStats() {
        try {
            const memoryInfo = window.statsAPI ? window.statsAPI.getCacheInfo() : { memoryCacheSize: 0, memoryCacheKeys: [] };
