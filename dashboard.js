@@ -1,3 +1,8 @@
+// Enhanced dashboard.js with stats integration
+import statsAPI from './stats-api-client.js';
+import statsDB from './indexeddb-manager.js';
+
+// Main Fantasy Dashboard Class
 class FantasyDashboard {
     constructor() {
         this.leagues = [];
@@ -5,12 +10,40 @@ class FantasyDashboard {
         this.isLoading = false;
         this.isSubmitting = false;
         
+        // Stats-related properties
+        this.currentYear = '2024';
+        this.currentWeek = 'total';
+        this.currentPosition = 'ALL';
+        this.statsData = [];
+        this.isStatsLoading = false;
+        
         this.initializeElements();
         this.bindEvents();
+        this.initializeStats();
+    }
+    
+    async initializeStats() {
+        try {
+            // Initialize IndexedDB
+            window.statsDB = new StatsIndexedDB();
+            await window.statsDB.init();
+            console.log('✅ IndexedDB initialized');
+            
+            // Initialize API client
+            window.statsAPI = new StatsAPIClient();
+            
+            // Load initial stats data
+            await this.loadStatsData();
+            
+        } catch (error) {
+            console.error('Error initializing stats:', error);
+            this.showError('Failed to initialize stats database');
+        }
     }
     
     initializeElements() {
         this.elements = {
+            // Existing elements
             welcomeSection: document.getElementById('welcome-section'),
             importDataBtn: document.getElementById('import-data-btn'),
             loading: document.getElementById('loading'),
@@ -24,12 +57,22 @@ class FantasyDashboard {
             submitBtn: document.getElementById('submit-btn'),
             retryBtn: document.getElementById('retry-btn'),
             importResultsSection: document.getElementById('import-results-section'),
-            importResultsContainer: document.getElementById('import-results-container')
+            importResultsContainer: document.getElementById('import-results-container'),
+            
+            // New stats elements
+            statsSection: document.getElementById('stats-section'),
+            statsLoading: document.getElementById('stats-loading'),
+            statsContainer: document.getElementById('stats-container'),
+            yearSelect: document.getElementById('year-select'),
+            weekSelect: document.getElementById('week-select'),
+            positionSelect: document.getElementById('position-select'),
+            statsCount: document.getElementById('stats-count'),
+            cacheInfo: document.getElementById('cache-info')
         };
     }
     
     bindEvents() {
-        // Bind events that exist at page load
+        // Existing events
         if (this.elements.importDataBtn) {
             this.elements.importDataBtn.addEventListener('click', () => this.loadLeagues());
         }
@@ -44,8 +87,171 @@ class FantasyDashboard {
                 this.submitSelectedLeagues();
             });
         }
+        
+        // New stats events
+        if (this.elements.yearSelect) {
+            this.elements.yearSelect.addEventListener('change', (e) => {
+                this.currentYear = e.target.value;
+                this.loadStatsData();
+            });
+        }
+        
+        if (this.elements.weekSelect) {
+            this.elements.weekSelect.addEventListener('change', (e) => {
+                this.currentWeek = e.target.value;
+                this.loadStatsData();
+            });
+        }
+        
+        if (this.elements.positionSelect) {
+            this.elements.positionSelect.addEventListener('change', (e) => {
+                this.currentPosition = e.target.value;
+                this.loadStatsData();
+            });
+        }
     }
     
+    async loadStatsData(forceRefresh = false) {
+        if (this.isStatsLoading) return;
+        
+        this.isStatsLoading = true;
+        this.showStatsLoading();
+        
+        try {
+            console.log(`Loading stats: ${this.currentYear}/${this.currentWeek}/${this.currentPosition}`);
+            
+            const data = await window.statsAPI.getStats(
+                this.currentYear, 
+                this.currentWeek, 
+                this.currentPosition, 
+                forceRefresh
+            );
+            
+            this.statsData = data;
+            this.renderStatsData();
+            this.updateStatsCount();
+            this.updateCacheInfo();
+            
+        } catch (error) {
+            console.error('Error loading stats data:', error);
+            this.showError(`Failed to load stats: ${error.message}`);
+        } finally {
+            this.isStatsLoading = false;
+            this.hideStatsLoading();
+        }
+    }
+    
+    renderStatsData() {
+        if (!this.elements.statsContainer || !this.statsData) return;
+        
+        if (this.statsData.length === 0) {
+            this.elements.statsContainer.innerHTML = `
+                <div class="no-stats">
+                    <h3>No Stats Found</h3>
+                    <p>No stats available for ${this.currentYear} ${this.currentWeek} ${this.currentPosition}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Create stats table
+        const tableHtml = `
+            <div class="stats-table-container">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Position</th>
+                            <th>Team</th>
+                            <th>Key Stats</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.statsData.map(player => this.createPlayerRow(player)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        this.elements.statsContainer.innerHTML = tableHtml;
+        this.elements.statsSection.classList.remove('hidden');
+    }
+    
+    createPlayerRow(player) {
+        const statsPreview = this.formatStatsPreview(player.stats);
+        
+        return `
+            <tr class="player-row" data-player-key="${player.playerKey}">
+                <td class="player-name">${player.playerName || 'Unknown'}</td>
+                <td class="player-position">${player.position || ''}</td>
+                <td class="player-team">${this.getPlayerTeam(player) || ''}</td>
+                <td class="player-stats">${statsPreview}</td>
+            </tr>
+        `;
+    }
+    
+    formatStatsPreview(stats) {
+        if (!stats || typeof stats !== 'object') return 'No stats';
+        
+        // Show key fantasy stats based on common Yahoo stat IDs
+        const keyStats = [];
+        
+        // Common stat mappings (based on the provided JSON example)
+        if (stats['0']) keyStats.push(`GP: ${stats['0']}`);
+        if (stats['8']) keyStats.push(`Att: ${stats['8']}`);
+        if (stats['9']) keyStats.push(`Rush Yds: ${stats['9']}`);
+        if (stats['11']) keyStats.push(`Rec: ${stats['11']}`);
+        if (stats['12']) keyStats.push(`Rec Yds: ${stats['12']}`);
+        if (stats['13']) keyStats.push(`TD: ${stats['13']}`);
+        if (stats['78']) keyStats.push(`Fantasy Pts: ${stats['78']}`);
+        
+        return keyStats.length > 0 ? keyStats.slice(0, 4).join(', ') : 'Various stats available';
+    }
+    
+    getPlayerTeam(player) {
+        // Extract team from player data or stats
+        return player.team || '';
+    }
+    
+    updateStatsCount() {
+        if (this.elements.statsCount) {
+            const count = this.statsData.length;
+            this.elements.statsCount.textContent = 
+                `${count} player${count === 1 ? '' : 's'} • ${this.currentYear} ${this.currentWeek} • ${this.currentPosition}`;
+        }
+    }
+    
+    async updateCacheInfo() {
+        if (this.elements.cacheInfo) {
+            try {
+                const cacheInfo = window.statsAPI.getCacheInfo();
+                const storageInfo = await window.statsDB.getStorageInfo();
+                
+                this.elements.cacheInfo.innerHTML = `
+                    <small>
+                        Cache: ${cacheInfo.memoryCacheSize} in memory, 
+                        ${storageInfo.statsRecords} in IndexedDB
+                    </small>
+                `;
+            } catch (error) {
+                console.error('Error updating cache info:', error);
+            }
+        }
+    }
+    
+    showStatsLoading() {
+        if (this.elements.statsLoading) {
+            this.elements.statsLoading.classList.remove('hidden');
+        }
+    }
+    
+    hideStatsLoading() {
+        if (this.elements.statsLoading) {
+            this.elements.statsLoading.classList.add('hidden');
+        }
+    }
+
+    // Existing methods below - unchanged
     async loadLeagues() {
         if (this.isLoading) return;
         
@@ -398,7 +604,7 @@ class FantasyDashboard {
     hideLoading() {
         this.elements.loading.classList.add('hidden');
     }
-    
+
     hideImportResults() {
         this.elements.importResultsSection.classList.add('hidden');
     }
@@ -459,9 +665,236 @@ class FantasyDashboard {
         this.elements.error.classList.add('hidden');
         this.elements.success.classList.add('hidden');
     }
+
+    // Additional utility methods for stats functionality
+    async clearStatsCache() {
+        try {
+            if (window.statsAPI) {
+                window.statsAPI.clearCache();
+            }
+            if (window.statsDB) {
+                // Clear specific data for current selection
+                const key = window.statsDB.generateLoadKey(this.currentYear, this.currentWeek, this.currentPosition);
+                window.statsDB.loadTracker.delete(key);
+                localStorage.removeItem(`loaded_${key}`);
+            }
+            this.showSuccess('Stats cache cleared');
+            await this.loadStatsData(true); // Force refresh
+        } catch (error) {
+            console.error('Error clearing cache:', error);
+            this.showError('Failed to clear cache');
+        }
+    }
+
+    // Method to populate year/week/position selects dynamically
+    async populateStatsSelects() {
+        try {
+            // Populate years (could be made dynamic based on available data)
+            const years = ['2024', '2023', '2022'];
+            if (this.elements.yearSelect) {
+                this.elements.yearSelect.innerHTML = years.map(year => 
+                    `<option value="${year}" ${year === this.currentYear ? 'selected' : ''}>${year}</option>`
+                ).join('');
+            }
+
+            // Populate weeks
+            const weeks = [
+                { value: 'total', label: 'Season Total' },
+                { value: 'week1', label: 'Week 1' },
+                { value: 'week2', label: 'Week 2' },
+                { value: 'week3', label: 'Week 3' },
+                { value: 'week4', label: 'Week 4' },
+                { value: 'week5', label: 'Week 5' },
+                { value: 'week6', label: 'Week 6' },
+                { value: 'week7', label: 'Week 7' },
+                { value: 'week8', label: 'Week 8' },
+                { value: 'week9', label: 'Week 9' },
+                { value: 'week10', label: 'Week 10' },
+                { value: 'week11', label: 'Week 11' },
+                { value: 'week12', label: 'Week 12' },
+                { value: 'week13', label: 'Week 13' },
+                { value: 'week14', label: 'Week 14' },
+                { value: 'week15', label: 'Week 15' },
+                { value: 'week16', label: 'Week 16' },
+                { value: 'week17', label: 'Week 17' },
+                { value: 'week18', label: 'Week 18' }
+            ];
+
+            if (this.elements.weekSelect) {
+                this.elements.weekSelect.innerHTML = weeks.map(week => 
+                    `<option value="${week.value}" ${week.value === this.currentWeek ? 'selected' : ''}>${week.label}</option>`
+                ).join('');
+            }
+
+            // Populate positions
+            const positions = [
+                { value: 'ALL', label: 'All Positions' },
+                { value: 'QB', label: 'Quarterback' },
+                { value: 'RB', label: 'Running Back' },
+                { value: 'WR', label: 'Wide Receiver' },
+                { value: 'TE', label: 'Tight End' },
+                { value: 'K', label: 'Kicker' },
+                { value: 'DEF', label: 'Defense' }
+            ];
+
+            if (this.elements.positionSelect) {
+                this.elements.positionSelect.innerHTML = positions.map(pos => 
+                    `<option value="${pos.value}" ${pos.value === this.currentPosition ? 'selected' : ''}>${pos.label}</option>`
+                ).join('');
+            }
+
+        } catch (error) {
+            console.error('Error populating stats selects:', error);
+        }
+    }
+
+    // Method to handle keyboard shortcuts for stats navigation
+    handleStatsKeyboardShortcuts(event) {
+        // Only handle shortcuts when stats section is visible
+        if (this.elements.statsSection && this.elements.statsSection.classList.contains('hidden')) {
+            return;
+        }
+
+        // Ctrl/Cmd + R: Refresh stats
+        if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+            event.preventDefault();
+            this.loadStatsData(true);
+        }
+
+        // Ctrl/Cmd + Shift + C: Clear cache
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'C') {
+            event.preventDefault();
+            this.clearStatsCache();
+        }
+    }
+
+    // Method to export stats data as CSV
+    exportStatsAsCSV() {
+        if (!this.statsData || this.statsData.length === 0) {
+            this.showError('No stats data to export');
+            return;
+        }
+
+        try {
+            // Create CSV headers
+            const headers = ['Player Name', 'Position', 'Team', 'Player Key'];
+            
+            // Add stat headers based on available stats
+            const sampleStats = this.statsData[0]?.stats || {};
+            const statKeys = Object.keys(sampleStats);
+            headers.push(...statKeys.map(key => `Stat_${key}`));
+
+            // Create CSV rows
+            const csvRows = [headers.join(',')];
+            
+            this.statsData.forEach(player => {
+                const row = [
+                    `"${player.playerName || ''}"`,
+                    `"${player.position || ''}"`,
+                    `"${this.getPlayerTeam(player) || ''}"`,
+                    `"${player.playerKey || ''}"`
+                ];
+
+                // Add stat values
+                statKeys.forEach(key => {
+                    row.push(player.stats?.[key] || '0');
+                });
+
+                csvRows.push(row.join(','));
+            });
+
+            // Create and download CSV file
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `fantasy-stats-${this.currentYear}-${this.currentWeek}-${this.currentPosition}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            this.showSuccess(`Exported ${this.statsData.length} player stats to CSV`);
+
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            this.showError('Failed to export stats data');
+        }
+    }
+
+    // Method to get detailed cache statistics
+    async getDetailedCacheStats() {
+        try {
+            const memoryInfo = window.statsAPI ? window.statsAPI.getCacheInfo() : { memoryCacheSize: 0, memoryCacheKeys: [] };
+            const storageInfo = window.statsDB ? await window.statsDB.getStorageInfo() : { statsRecords: 0, loadedKeys: [] };
+
+            return {
+                memory: memoryInfo,
+                indexedDB: storageInfo,
+                localStorage: {
+                    fantasyLeagueData: localStorage.getItem('fantasyLeagueData') ? 'Present' : 'Not found',
+                    fantasyLeagueQuickAccess: localStorage.getItem('fantasyLeagueQuickAccess') ? 'Present' : 'Not found',
+                    loadedStatsKeys: Object.keys(localStorage).filter(k => k.startsWith('loaded_')).length
+                }
+            };
+        } catch (error) {
+            console.error('Error getting cache stats:', error);
+            return null;
+        }
+    }
+
+    // Debug method to log all cache information
+    async logCacheDebugInfo() {
+        const stats = await this.getDetailedCacheStats();
+        console.group('🔍 Fantasy Dashboard Cache Debug Info');
+        console.log('Memory Cache:', stats?.memory);
+        console.log('IndexedDB Cache:', stats?.indexedDB);
+        console.log('LocalStorage Cache:', stats?.localStorage);
+        console.log('Current State:', {
+            year: this.currentYear,
+            week: this.currentWeek,
+            position: this.currentPosition,
+            statsDataCount: this.statsData.length
+        });
+        console.groupEnd();
+    }
+
+    // Enhanced initialization that includes populating selects
+    async initializeStatsExtended() {
+        try {
+            await this.initializeStats();
+            await this.populateStatsSelects();
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => this.handleStatsKeyboardShortcuts(e));
+
+            console.log('✅ Extended stats initialization complete');
+        } catch (error) {
+            console.error('Error in extended stats initialization:', error);
+        }
+    }
 }
 
 // Initialize dashboard when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new FantasyDashboard();
+    const dashboard = new FantasyDashboard();
+    
+    // Make dashboard available globally for debugging
+    window.fantasyDashboard = dashboard;
+    
+    // Add some helpful global debug functions
+    window.debugCache = () => dashboard.logCacheDebugInfo();
+    window.clearCache = () => dashboard.clearStatsCache();
+    window.exportStats = () => dashboard.exportStatsAsCSV();
+    
+    console.log('🏈 Fantasy Dashboard initialized! Available debug commands:');
+    console.log('- window.debugCache() - Show cache information');
+    console.log('- window.clearCache() - Clear current stats cache');
+    console.log('- window.exportStats() - Export current stats as CSV');
+    console.log('- Ctrl/Cmd + R - Refresh stats data');
+    console.log('- Ctrl/Cmd + Shift + C - Clear cache');
 });
