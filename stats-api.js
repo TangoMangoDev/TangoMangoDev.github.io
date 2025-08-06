@@ -1,7 +1,7 @@
 // stats-api.js - API layer with caching
 class StatsAPI {
     constructor() {
-        this.baseUrl = '/data/stats'; // Your Cloudflare Worker endpoint
+        this.baseUrl = '/data/stats/stats'; // Your Cloudflare Worker endpoint
         this.cache = new StatsCache();
         this.currentRequests = new Map(); // Prevent duplicate requests
         
