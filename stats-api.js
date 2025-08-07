@@ -174,6 +174,7 @@ class StatsAPI {
     async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
         const requestKey = `${year}_${week}_${position}_${page}`;
         
+        // Check if there's already a pending request for the same parameters
         if (this.currentRequests.has(requestKey)) {
             console.log(`⏳ Waiting for pending request: ${requestKey}`);
             return await this.currentRequests.get(requestKey);
@@ -185,7 +186,7 @@ class StatsAPI {
             return cachedData;
         }
 
-        // Fetch from API
+        // Create the fetch promise and store it to prevent duplicates
         const fetchPromise = this.fetchFromAPI(year, week, position, page);
         this.currentRequests.set(requestKey, fetchPromise);
 
@@ -201,45 +202,43 @@ class StatsAPI {
             console.error('Stats fetch error:', error);
             throw error;
         } finally {
+            // Always clean up the request tracker
             this.currentRequests.delete(requestKey);
         }
     }
 
+    async fetchFromAPI(year, week, position, page) {
+        const params = new URLSearchParams({
+            year,
+            week,
+            position,
+            page: page.toString()
+        });
 
-async fetchFromAPI(year, week, position, page) {
-    const params = new URLSearchParams({
-        year,
-        week,
-        position,
-        page: page.toString()
-    });
+        const url = `${this.baseUrl}?${params}`;
+        console.log(`🌐 Fetching from API: ${url}`);
 
-    const url = `${this.baseUrl}?${params}`;
-    console.log(`🌐 Fetching from API: ${url}`);
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
 
-    const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json'
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'API request failed');
+        }
+
+        console.log(`✅ Fetched ${data.count} players from API`);
+        return data; // Return RAW data with Yahoo stat IDs intact
     }
-
-    const data = await response.json();
-    
-    if (!data.success) {
-        throw new Error(data.error || 'API request failed');
-    }
-
-    console.log(`✅ Fetched ${data.count} players from API`);
-    return data; // Return RAW data with Yahoo stat IDs intact
-}
-
-    
 
     async clearCache(year = null) {
         if (year) {
