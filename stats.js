@@ -164,6 +164,7 @@ const keyStats = {
 };
 
 // Backend API functions
+
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading user leagues...');
@@ -187,9 +188,24 @@ async function loadUserLeagues() {
         if (data.leagues && data.defaultLeagueId && data.scoringRules) {
             userLeagues = data.leagues;
             
-            // Set the default league and its scoring rules immediately
+            // STORE SCORING RULES IN INDEXEDDB IMMEDIATELY
             const defaultLeagueId = data.defaultLeagueId;
-            currentScoringRules = data.scoringRules[defaultLeagueId] || {};
+            const rulesForDefault = data.scoringRules[defaultLeagueId];
+            
+            if (rulesForDefault && Object.keys(rulesForDefault).length > 0) {
+                console.log(`💾 STORING ${Object.keys(rulesForDefault).length} scoring rules in IndexedDB for default league ${defaultLeagueId}`);
+                
+                // Store in IndexedDB using the cache
+                await window.statsAPI.cache.setScoringRules(defaultLeagueId, rulesForDefault);
+                
+                // Set current rules from what we just stored
+                currentScoringRules = rulesForDefault;
+                
+                console.log(`✅ Stored and set scoring rules for league ${defaultLeagueId}`);
+            } else {
+                console.log(`⚠️ No scoring rules to store for league ${defaultLeagueId}`);
+                currentScoringRules = {};
+            }
             
             // Store active league in localStorage
             localStorage.setItem('activeLeagueId', defaultLeagueId);
@@ -203,9 +219,6 @@ async function loadUserLeagues() {
                 leagues: userLeagues,
                 timestamp: Date.now()
             }));
-            
-            // BACKGROUND: Preload scoring rules into IndexedDB
-            preloadScoringRulesInBackground(defaultLeagueId);
             
             return userLeagues;
         }
@@ -226,6 +239,7 @@ async function loadUserLeagues() {
         return setEmptyDefaults();
     }
 }
+
 function setEmptyDefaults() {
     userLeagues = {};
     currentScoringRules = {};
@@ -242,21 +256,6 @@ function setEmptyDefaults() {
     return {};
 }
 
-async function preloadScoringRulesInBackground(defaultLeagueId) {
-    try {
-        console.log(`🔄 Preloading scoring rules for ${defaultLeagueId} into IndexedDB...`);
-        
-        // This will cache the rules in IndexedDB for future use
-        const rules = await window.statsAPI.getScoringRules(defaultLeagueId);
-        
-        if (rules && rules[defaultLeagueId]) {
-            console.log(`✅ Preloaded ${Object.keys(rules[defaultLeagueId]).length} scoring rules into IndexedDB`);
-        }
-    } catch (error) {
-        console.warn(`⚠️ Failed to preload scoring rules: ${error.message}`);
-        // Don't block anything, just log the warning
-    }
-}
 
 // FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
@@ -266,34 +265,31 @@ async function loadScoringRulesForActiveLeague(leagueId) {
         return;
     }
     
+    console.log(`🔄 Loading scoring rules for league: ${leagueId}`);
+    
     try {
-        console.log(`🔄 Loading scoring rules for league: ${leagueId}`);
-        
+        // Get from IndexedDB via StatsAPI (which checks cache first)
         const rulesData = await window.statsAPI.getScoringRules(leagueId);
         
-        if (rulesData && typeof rulesData === 'object') {
-            // Extract the correct structure - rules are nested by leagueId
-            if (rulesData[leagueId]) {
-                currentScoringRules = rulesData[leagueId];
-                console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules for league ${leagueId}`);
-                
-                // Re-render with new scoring rules
-                render();
-            } else {
-                console.log(`⚠️ No scoring rules found for league ${leagueId}`);
-                currentScoringRules = {};
-            }
+        console.log(`📊 Received rules data:`, rulesData);
+        
+        if (rulesData && rulesData[leagueId]) {
+            currentScoringRules = rulesData[leagueId];
+            console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules from IndexedDB for league ${leagueId}`);
+            
+            // Re-render with new scoring rules
+            render();
         } else {
-            console.log(`⚠️ No scoring rules data found for league ${leagueId}`);
+            console.log(`⚠️ No scoring rules found for league ${leagueId}`);
             currentScoringRules = {};
         }
         
     } catch (error) {
         console.error(`❌ Error loading scoring rules for league ${leagueId}:`, error);
         currentScoringRules = {};
-        // Don't block the UI, just show raw stats
     }
 }
+
 
 function getSavedWeek() {
     const savedWeek = localStorage.getItem('selectedWeek');
@@ -1097,12 +1093,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Clear any old localStorage scoring rules
     localStorage.removeItem('allScoringRules');
     
-    // NON-BLOCKING: Load leagues in background
-    const leaguesPromise = loadUserLeagues();
-    
-    // Initialize filters with defaults first
-    currentFilters.week = getSavedWeek();
-    
     // Set up UI immediately
     const header = document.querySelector('.header');
     const filterControlsHtml = createFilterControls();
@@ -1116,14 +1106,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     
     console.log('📊 Loading initial stats data...');
-    // Load stats immediately - don't wait for leagues
+    // Load stats immediately
     await loadStats(true);
     
-    // Wait for leagues to load in background, then update UI
+    console.log('🔄 Loading leagues and scoring rules...');
+    // Load leagues (which will store scoring rules in IndexedDB)
     try {
-        await leaguesPromise;
-        console.log('✅ Leagues loaded, updating UI...');
+        await loadUserLeagues();
+        console.log('✅ Leagues and scoring rules loaded, updating UI...');
         updateFilterControlsUI();
+        render(); // Re-render with scoring rules
     } catch (error) {
         console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
     }
