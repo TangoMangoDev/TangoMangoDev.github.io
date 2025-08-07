@@ -21,9 +21,8 @@ let currentPlayers = [];
 let currentView = 'cards';
 let searchQuery = '';
 let showFantasyStats = false;
-let currentScoringRules = {};
+let currentScoringRules = {}; // ONLY store the active league's rules
 let userLeagues = {};
-let allScoringRules = {};
 let tableSort = {
     column: null,
     direction: 'asc'
@@ -193,35 +192,31 @@ async function loadUserLeagues() {
     }
 }
 
-async function loadAllScoringRules() {
-    const leagueIds = Object.keys(userLeagues);
-    if (leagueIds.length === 0) return;
-    
-    console.log('🔄 Loading scoring rules for leagues:', leagueIds);
+// FIXED: Load ONLY the active league's scoring rules from IndexedDB
+async function loadScoringRulesForActiveLeague(leagueId) {
+    if (!leagueId) {
+        console.log('❌ No league ID provided for scoring rules');
+        currentScoringRules = {};
+        return;
+    }
     
     try {
-        // Clear old localStorage format
-        localStorage.removeItem('allScoringRules');
+        console.log(`🔄 Loading scoring rules for league: ${leagueId}`);
         
-        // Load each league's scoring rules individually using IndexedDB
-        const promises = leagueIds.map(async (leagueId) => {
-            try {
-                const rules = await window.statsAPI.getScoringRules(leagueId);
-                allScoringRules[leagueId] = rules;
-                console.log(`✅ Loaded scoring rules for league ${leagueId}:`, Object.keys(rules).length, 'stats');
-                return { leagueId, success: true };
-            } catch (error) {
-                console.error(`❌ Error loading rules for league ${leagueId}:`, error);
-                allScoringRules[leagueId] = {};
-                return { leagueId, success: false };
-            }
-        });
+        // Use IndexedDB via StatsAPI - check cache first, then API if needed
+        const rules = await window.statsAPI.getScoringRules(leagueId);
         
-        await Promise.all(promises);
-        console.log('🎉 Completed loading all scoring rules');
+        if (rules && Object.keys(rules).length > 0) {
+            currentScoringRules = rules;
+            console.log(`✅ Loaded ${Object.keys(rules).length} scoring rules for league ${leagueId}`);
+        } else {
+            console.log(`⚠️ No scoring rules found for league ${leagueId}`);
+            currentScoringRules = {};
+        }
         
     } catch (error) {
-        console.error('Error in loadAllScoringRules:', error);
+        console.error(`❌ Error loading scoring rules for league ${leagueId}:`, error);
+        currentScoringRules = {};
     }
 }
 
@@ -321,7 +316,7 @@ function createFilterControls() {
             <div class="api-info">
                 ${apiState.loading ? 
                     '<span class="loading">Loading...</span>' : 
-                    `<span class="record-count">${apiState.totalRecords} total records | ${showFantasyStats ? 'Fantasy Mode' : 'Raw Stats'}</span>`
+                    `<span class="record-count">${apiState.totalRecords} total records | ${showFantasyStats ? 'Fantasy Mode (' + Object.keys(currentScoringRules).length + ' rules)' : 'Raw Stats'}</span>`
                 }
                 ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
             </div>
@@ -378,11 +373,6 @@ async function loadStats(resetPage = true) {
         apiState.hasMore = data.pagination.hasNext;
         apiState.loading = false;
         
-        if (currentFilters.league && allScoringRules[currentFilters.league]) {
-            currentScoringRules = allScoringRules[currentFilters.league];
-            console.log(`📋 Using scoring rules for ${currentFilters.league}:`, Object.keys(currentScoringRules).length, 'stats');
-        }
-        
         console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
         
     } catch (error) {
@@ -403,362 +393,356 @@ function setupEventListeners() {
 
     const yearSelect = document.getElementById('year-select');
     if (yearSelect) {
-       yearSelect.addEventListener('change', async (e) => {
-           currentFilters.year = e.target.value;
-           currentFilters.week = 'total';
-           await loadStats(true);
-       });
-   }
-   
-   const weekSelect = document.getElementById('week-select');
-   if (weekSelect) {
-       weekSelect.addEventListener('change', async (e) => {
-           currentFilters.week = e.target.value;
-           saveWeekPreference(e.target.value);
-           await loadStats(true);
-       });
-   }
-   
-   const leagueSelect = document.getElementById('league-select');
-   if (leagueSelect) {
-       leagueSelect.addEventListener('change', async (e) => {
-           currentFilters.league = e.target.value;
-           localStorage.setItem('activeLeagueId', e.target.value);
-           
-           if (allScoringRules[e.target.value]) {
-               currentScoringRules = allScoringRules[e.target.value];
-               console.log(`🔄 Switched to league ${e.target.value} with ${Object.keys(currentScoringRules).length} scoring rules`);
-           }
-           
-           updateFilterControlsUI();
-           render();
-       });
-   }
-   
-   const teamSelect = document.getElementById('team-select');
-   if (teamSelect) {
-       teamSelect.addEventListener('change', (e) => {
-           currentFilters.team = e.target.value;
-           render();
-       });
-   }
-   
-   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-       btn.addEventListener('click', (e) => {
-           document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-           e.target.classList.add('active');
-           showFantasyStats = e.target.dataset.mode === 'fantasy';
-           console.log(`🔄 Switched to ${showFantasyStats ? 'Fantasy' : 'Raw'} stats mode`);
-           render();
-       });
-   });
-   
-   const loadMoreBtn = document.getElementById('load-more-btn');
-   if (loadMoreBtn) {
-       loadMoreBtn.addEventListener('click', async () => {
-           if (apiState.hasMore && !apiState.loading) {
-               apiState.currentPage++;
-               await loadStats(false);
-           }
-       });
-   }
-   
-   document.querySelectorAll('.view-btn').forEach(btn => {
-       btn.addEventListener('click', (e) => {
-           document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-           e.target.classList.add('active');
-           currentView = e.target.dataset.view;
-           render();
-       });
-   });
+        yearSelect.addEventListener('change', async (e) => {
+            currentFilters.year = e.target.value;
+            currentFilters.week = 'total';
+            await loadStats(true);
+        });
+    }
+    
+    const weekSelect = document.getElementById('week-select');
+    if (weekSelect) {
+        weekSelect.addEventListener('change', async (e) => {
+            currentFilters.week = e.target.value;
+            saveWeekPreference(e.target.value);
+            await loadStats(true);
+        });
+    }
+    
+    const leagueSelect = document.getElementById('league-select');
+    if (leagueSelect) {
+        leagueSelect.addEventListener('change', async (e) => {
+            currentFilters.league = e.target.value;
+            localStorage.setItem('activeLeagueId', e.target.value);
+            
+            // Load scoring rules for the new league ONLY
+            await loadScoringRulesForActiveLeague(e.target.value);
+            
+            updateFilterControlsUI();
+            render();
+        });
+    }
+    
+    const teamSelect = document.getElementById('team-select');
+    if (teamSelect) {
+        teamSelect.addEventListener('change', (e) => {
+            currentFilters.team = e.target.value;
+            render();
+        });
+    }
+    
+    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            showFantasyStats = e.target.dataset.mode === 'fantasy';
+            console.log(`🔄 Switched to ${showFantasyStats ? 'Fantasy' : 'Raw'} stats mode`);
+            render();
+        });
+    });
+    
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', async () => {
+            if (apiState.hasMore && !apiState.loading) {
+                apiState.currentPage++;
+                await loadStats(false);
+            }
+        });
+    }
+    
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentView = e.target.dataset.view;
+            render();
+        });
+    });
 
-   const searchInput = document.getElementById('searchInput');
-   if (searchInput) {
-       searchInput.addEventListener('input', (e) => {
-           searchQuery = e.target.value.toLowerCase();
-           render();
-       });
-   }
-   
-   const positionFilter = document.getElementById('positionFilter');
-   if (positionFilter) {
-       positionFilter.addEventListener('click', async (e) => {
-           if (e.target.classList.contains('position-btn')) {
-               if (e.target.classList.contains('active')) {
-                   return;
-               }
-               
-               document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-               e.target.classList.add('active');
-               currentFilters.position = e.target.dataset.position;
-               await loadStats(true);
-           }
-       });
-   }
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.toLowerCase();
+            render();
+        });
+    }
+    
+    const positionFilter = document.getElementById('positionFilter');
+    if (positionFilter) {
+        positionFilter.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('position-btn')) {
+                if (e.target.classList.contains('active')) {
+                    return;
+                }
+                
+                document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilters.position = e.target.dataset.position;
+                await loadStats(true);
+            }
+        });
+    }
 
-   eventListenersSetup = true;
+    eventListenersSetup = true;
 }
 
 function updateFilterControlsUI() {
-   const filterContainer = document.querySelector('.filter-controls-container');
-   if (filterContainer) {
-       filterContainer.innerHTML = createFilterControls();
-       eventListenersSetup = false;
-       setupEventListeners();
-   }
+    const filterContainer = document.querySelector('.filter-controls-container');
+    if (filterContainer) {
+        filterContainer.innerHTML = createFilterControls();
+        eventListenersSetup = false;
+        setupEventListeners();
+    }
 }
 
 function getFilteredPlayers() {
-   let filteredPlayers = currentPlayers;
-   
-   if (searchQuery) {
-       filteredPlayers = filteredPlayers.filter(player => {
-           return player.name.toLowerCase().includes(searchQuery) ||
-                  player.team.toLowerCase().includes(searchQuery);
-       });
-   }
-   
-   return filteredPlayers;
+    let filteredPlayers = currentPlayers;
+    
+    if (searchQuery) {
+        filteredPlayers = filteredPlayers.filter(player => {
+            return player.name.toLowerCase().includes(searchQuery) ||
+                   player.team.toLowerCase().includes(searchQuery);
+        });
+    }
+    
+    return filteredPlayers;
 }
 
 // FIXED Fantasy points calculation - PROPERLY USE RAW STATS
 function calculateFantasyPoints(statName, rawStatValue, rawStats) {
-   if (!currentScoringRules || !rawStatValue || rawStatValue === 0) {
-       return 0;
-   }
-   
-   // Find the stat ID for the given stat name
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
-   
-   if (!statId || !currentScoringRules[statId]) {
-       // Debug logging for missing mappings
-       if (rawStatValue > 0) {
-           console.log(`⚠️ No scoring rule found for stat: ${statName} (ID: ${statId})`);
-       }
-       return 0;
-   }
-   
-   const rule = currentScoringRules[statId];
-   let points = rawStatValue * parseFloat(rule.points || 0);
-   
-   // Add bonus points if applicable
-   if (rule.bonuses && Array.isArray(rule.bonuses)) {
-       rule.bonuses.forEach(bonusRule => {
-           if (rawStatValue >= parseFloat(bonusRule.bonus.target)) {
-               points += parseFloat(bonusRule.bonus.points);
-           }
-       });
-   }
-   
-   return Math.round(points * 100) / 100;
+    if (!currentScoringRules || !rawStatValue || rawStatValue === 0) {
+        return 0;
+    }
+    
+    // Find the stat ID for the given stat name
+    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+        STAT_ID_MAPPING[id] === statName
+    );
+    
+    if (!statId || !currentScoringRules[statId]) {
+        return 0;
+    }
+    
+    const rule = currentScoringRules[statId];
+    let points = rawStatValue * parseFloat(rule.points || 0);
+    
+    // Add bonus points if applicable
+    if (rule.bonuses && Array.isArray(rule.bonuses)) {
+        rule.bonuses.forEach(bonusRule => {
+            if (rawStatValue >= parseFloat(bonusRule.bonus.target)) {
+                points += parseFloat(bonusRule.bonus.points);
+            }
+        });
+    }
+    
+    return Math.round(points * 100) / 100;
 }
 
 // Calculate total fantasy points for a player
 function calculateTotalFantasyPoints(player) {
-   if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
-       return 0;
-   }
-   
-   let totalPoints = 0;
-   
-   // Use RAW stats for calculation
-   Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-       const statName = STAT_ID_MAPPING[statId];
-       if (statName && currentScoringRules[statId] && statValue > 0) {
-           const points = calculateFantasyPoints(statName, statValue, player.rawStats);
-           if (points !== 0) {
-               totalPoints += points;
-           }
-       }
-   });
-   
-   return Math.round(totalPoints * 100) / 100;
+    if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
+        return 0;
+    }
+    
+    let totalPoints = 0;
+    
+    // Use RAW stats for calculation
+    Object.entries(player.rawStats).forEach(([statId, statValue]) => {
+        const statName = STAT_ID_MAPPING[statId];
+        if (statName && currentScoringRules[statId] && statValue > 0) {
+            const points = calculateFantasyPoints(statName, statValue, player.rawStats);
+            if (points !== 0) {
+                totalPoints += points;
+            }
+        }
+    });
+    
+    return Math.round(totalPoints * 100) / 100;
 }
 
 // Get stat value for display - FIXED to properly calculate fantasy points
 function getStatValue(player, statName) {
-   if (showFantasyStats && currentScoringRules && player.rawStats) {
-       // Find the raw stat value using the stat ID
-       const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-           STAT_ID_MAPPING[id] === statName
-       );
-       
-       if (statId && player.rawStats[statId] !== undefined) {
-           const rawValue = player.rawStats[statId];
-           if (rawValue > 0) {
-               const fantasyPoints = calculateFantasyPoints(statName, rawValue, player.rawStats);
-               return fantasyPoints > 0 ? fantasyPoints : rawValue;
-           }
-           return rawValue;
-       }
-   }
-   
-   // Return display stat value (converted from raw)
-   return player.stats[statName] || 0;
+    if (showFantasyStats && currentScoringRules && player.rawStats) {
+        // Find the raw stat value using the stat ID
+        const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+            STAT_ID_MAPPING[id] === statName
+        );
+        
+        if (statId && player.rawStats[statId] !== undefined) {
+            const rawValue = player.rawStats[statId];
+            if (rawValue > 0) {
+                const fantasyPoints = calculateFantasyPoints(statName, rawValue, player.rawStats);
+                return fantasyPoints > 0 ? fantasyPoints : rawValue;
+            }
+            return rawValue;
+        }
+    }
+    
+    // Return display stat value (converted from raw)
+    return player.stats[statName] || 0;
 }
 
 // Research table functions
 function sortTable(column) {
-   if (tableSort.column === column) {
-       tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-   } else {
-       tableSort.column = column;
-       tableSort.direction = 'asc';
-   }
-   render();
+    if (tableSort.column === column) {
+        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'asc';
+    }
+    render();
 }
 
 function clearAllFilters() {
-   tableSort = { column: null, direction: 'asc' };
-   render();
+    tableSort = { column: null, direction: 'asc' };
+    render();
 }
 
 function getSortedPlayers(players) {
-   if (!tableSort.column) return players;
-   
-   return [...players].sort((a, b) => {
-       let aValue, bValue;
-       
-       if (tableSort.column === 'name') {
-           aValue = a.name;
-           bValue = b.name;
-       } else if (tableSort.column === 'position') {
-           aValue = a.position;
-           bValue = b.position;
-       } else if (tableSort.column === 'team') {
-           aValue = a.team;
-           bValue = b.team;
-       } else if (tableSort.column === 'totalPts') {
-           aValue = calculateTotalFantasyPoints(a);
-           bValue = calculateTotalFantasyPoints(b);
-       } else {
-           aValue = getStatValue(a, tableSort.column);
-           bValue = getStatValue(b, tableSort.column);
-       }
-       
-       if (typeof aValue === 'number' && typeof bValue === 'number') {
-           return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
-       } else {
-           aValue = aValue.toString().toLowerCase();
-           bValue = bValue.toString().toLowerCase();
-           if (tableSort.direction === 'asc') {
-               return aValue.localeCompare(bValue);
-           } else {
-               return bValue.localeCompare(aValue);
-           }
-       }
-   });
+    if (!tableSort.column) return players;
+    
+    return [...players].sort((a, b) => {
+        let aValue, bValue;
+        
+        if (tableSort.column === 'name') {
+            aValue = a.name;
+            bValue = b.name;
+        } else if (tableSort.column === 'position') {
+            aValue = a.position;
+            bValue = b.position;
+        } else if (tableSort.column === 'team') {
+            aValue = a.team;
+            bValue = b.team;
+        } else if (tableSort.column === 'totalPts') {
+            aValue = calculateTotalFantasyPoints(a);
+            bValue = calculateTotalFantasyPoints(b);
+        } else {
+            aValue = getStatValue(a, tableSort.column);
+            bValue = getStatValue(b, tableSort.column);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            aValue = aValue.toString().toLowerCase();
+            bValue = bValue.toString().toLowerCase();
+            if (tableSort.direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
 }
 
 // Render functions
 function render() {
-   const content = document.getElementById('content');
-   let filteredPlayers = getFilteredPlayers();
+    const content = document.getElementById('content');
+    let filteredPlayers = getFilteredPlayers();
 
-   if (filteredPlayers.length === 0) {
-       content.innerHTML = `
-           <div class="empty-state">
-               <div class="empty-state-icon">🏈</div>
-               <h3>No players found</h3>
-               <p>Try adjusting your filters or search terms</p>
-           </div>
-       `;
-       return;
-   }
+    if (filteredPlayers.length === 0) {
+        content.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🏈</div>
+                <h3>No players found</h3>
+                <p>Try adjusting your filters or search terms</p>
+            </div>
+        `;
+        return;
+    }
 
-   if (currentView === 'research') {
-       filteredPlayers = getSortedPlayers(filteredPlayers);
-   }
+    if (currentView === 'research') {
+        filteredPlayers = getSortedPlayers(filteredPlayers);
+    }
 
-   switch (currentView) {
-       case 'cards':
-           renderCardsView(filteredPlayers);
-           break;
-       case 'research':
-           renderResearchView(filteredPlayers);
-           break;
-       case 'stats':
-           renderStatsView(filteredPlayers);
-           break;
-   }
+    switch (currentView) {
+        case 'cards':
+            renderCardsView(filteredPlayers);
+            break;
+        case 'research':
+            renderResearchView(filteredPlayers);
+            break;
+        case 'stats':
+            renderStatsView(filteredPlayers);
+            break;
+    }
 }
 
 function renderCardsView(players) {
-   const content = document.getElementById('content');
-   content.innerHTML = `
-       <div class="player-grid">
-           ${players.map(player => renderPlayerCard(player)).join('')}
-       </div>
-   `;
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="player-grid">
+            ${players.map(player => renderPlayerCard(player)).join('')}
+        </div>
+    `;
 }
 
 function renderPlayerCard(player) {
-   const stats = keyStats[player.position] || [];
-   const totalFantasyPoints = calculateTotalFantasyPoints(player);
-   
-   return `
-       <div class="player-card fade-in">
-           <div class="player-header">
-               <div class="player-info">
-                   <h3>${player.name}</h3>
-                   <div class="player-meta">
-                       <span class="position-badge">${player.position}</span>
-                       <span>${player.team}</span>
-                       ${showFantasyStats && totalFantasyPoints > 0 ? `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''}
-                   </div>
-               </div>
-           </div>
-           <div class="stat-grid">
-               ${stats.map(stat => {
-                   const rawValue = player.stats[stat] || 0;
-                   const displayValue = getStatValue(player, stat);
-                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                   const isBest = checkIfBestStat(player, stat);
-                   
-                   return `
-                       <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                               ${formatStatValue(displayValue, stat, isFantasyMode)}
-                           </span>
-                           <span class="stat-label">${stat}</span>
-                       </div>
-                   `;
-               }).join('')}
-           </div>
-       </div>
-   `;
+    const stats = keyStats[player.position] || [];
+    const totalFantasyPoints = calculateTotalFantasyPoints(player);
+    
+    return `
+        <div class="player-card fade-in">
+            <div class="player-header">
+                <div class="player-info">
+                    <h3>${player.name}</h3>
+                    <div class="player-meta">
+                        <span class="position-badge">${player.position}</span>
+                        <span>${player.team}</span>
+                        ${showFantasyStats && totalFantasyPoints > 0 ? `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="stat-grid">
+                ${stats.map(stat => {
+                    const rawValue = player.stats[stat] || 0;
+                    const displayValue = getStatValue(player, stat);
+                    const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                    const isBest = checkIfBestStat(player, stat);
+                    
+                    return `
+                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
+                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                                ${formatStatValue(displayValue, stat, isFantasyMode)}
+                            </span>
+                            <span class="stat-label">${stat}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
 }
 
 function renderResearchView(players) {
-   const content = document.getElementById('content');
-   const stats = getStatsForPosition(currentFilters.position);
-   
-   content.innerHTML = `
-       <div class="research-container fade-in">
-           <div class="research-header">
-               <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
-               <div class="research-controls">
-                   <button class="clear-filters-btn" onclick="clearAllFilters()">
-                       Clear Sort
-                   </button>
-               </div>
-           </div>
-           <div class="research-table-wrapper">
-               <table class="research-table">
-                   <thead>
-                       <tr>
-                           <th class="sortable" onclick="sortTable('name')">
-                               Player
-                           </th>
-                           <th class="sortable" onclick="sortTable('position')">
-                               Pos
-                           </th>
-                           <th class="sortable" onclick="sortTable('team')">
-                               Team
-                           </th>
-                           ${showFantasyStats ? `
+    const content = document.getElementById('content');
+    const stats = getStatsForPosition(currentFilters.position);
+    
+    content.innerHTML = `
+        <div class="research-container fade-in">
+            <div class="research-header">
+                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
+                <div class="research-controls">
+                    <button class="clear-filters-btn" onclick="clearAllFilters()">
+                        Clear Sort
+                    </button>
+                </div>
+            </div>
+            <div class="research-table-wrapper">
+                <table class="research-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('name')">
+                                Player
+                            </th>
+                            <th class="sortable" onclick="sortTable('position')">
+                                Pos
+                            </th>
+                            <th class="sortable" onclick="sortTable('team')">
+                                Team
+                            </th>
+                            ${showFantasyStats ? `
                                <th class="sortable" onclick="sortTable('totalPts')">
                                    Total Pts
                                </th>
@@ -930,6 +914,9 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('🚀 Initializing Fantasy Football Dashboard...');
   
+  // Clear any old localStorage scoring rules
+  localStorage.removeItem('allScoringRules');
+  
   await loadUserLeagues();
   
   currentFilters.league = initializeActiveLeague();
@@ -937,12 +924,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   currentFilters.week = getSavedWeek();
   
-  console.log('⚖️ Loading scoring rules for all leagues...');
-  await loadAllScoringRules();
-  
-  if (currentFilters.league && allScoringRules[currentFilters.league]) {
-      currentScoringRules = allScoringRules[currentFilters.league];
-      console.log('✅ Scoring rules loaded for active league:', Object.keys(currentScoringRules).length, 'stats');
+  // Load scoring rules ONLY for the active league from IndexedDB
+  if (currentFilters.league) {
+      await loadScoringRulesForActiveLeague(currentFilters.league);
   }
   
   const header = document.querySelector('.header');
