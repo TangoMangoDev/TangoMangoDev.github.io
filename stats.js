@@ -1,4 +1,4 @@
-// stats.js - Dashboard rendering code
+// stats.js - Enhanced Dashboard with Research Table
 // Global state and variables
 let currentFilters = {
     league: null,
@@ -20,8 +20,15 @@ let apiState = {
 let currentPlayers = [];
 let currentView = 'cards';
 let searchQuery = '';
+let showFantasyStats = false;
+let currentScoringRules = {};
+let tableSort = {
+    column: null,
+    direction: 'asc'
+};
+let columnFilters = {};
 
-// Yahoo stat ID mapping - ONLY used during rendering
+// Yahoo stat ID mapping
 const STAT_ID_MAPPING = {
     "0": "Games Played",
     "1": "Pass Att",
@@ -72,7 +79,7 @@ const STAT_ID_MAPPING = {
     "81": "Hurries"
 };
 
-// Convert Yahoo stat IDs to readable names - ONLY used during rendering
+// Convert Yahoo stat IDs to readable names
 function convertStatsForDisplay(rawStats) {
     const readableStats = {};
     
@@ -115,6 +122,22 @@ const keyStats = {
     "DE": ["Tack Solo", "Sack", "Fum Force", "TD"],
     "DT": ["Tack Solo", "Sack", "Fum Force", "TD"]
 };
+
+// Scoring rules functions
+async function loadScoringRules(leagueId) {
+    if (!leagueId) return {};
+    
+    try {
+        const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
+        if (!response.ok) throw new Error('Failed to load scoring rules');
+        
+        const data = await response.json();
+        return data.scoringRules || {};
+    } catch (error) {
+        console.error('Error loading scoring rules:', error);
+        return {};
+    }
+}
 
 // Fantasy data functions
 function getFantasyDataFromLocalStorage() {
@@ -161,98 +184,99 @@ function saveWeekPreference(week) {
 
 // Filter controls
 function createFilterControls() {
-   const fantasyData = getFantasyDataFromLocalStorage();
-   const activeLeagueId = currentFilters.league || initializeActiveLeague();
-   const activeLeague = fantasyData?.leagues?.[activeLeagueId];
-   
-   return `
-       <div class="filter-controls">
-           <div class="filter-group">
-               <label for="year-select">Year:</label>
-               <select id="year-select" class="filter-dropdown">
-                   <option value="2024" ${currentFilters.year === '2024' ? 'selected' : ''}>2024</option>
-                   <option value="2023" ${currentFilters.year === '2023' ? 'selected' : ''}>2023</option>
-               </select>
-           </div>
-           
-           <div class="filter-group">
-               <label for="week-select">Week:</label>
-               <select id="week-select" class="filter-dropdown">
-                   <option value="total" ${currentFilters.week === 'total' ? 'selected' : ''}>Season Total</option>
-                   ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
-                       <option value="${week}" ${currentFilters.week === week.toString() ? 'selected' : ''}>
-                           Week ${week}
-                       </option>
-                   `).join('')}
-               </select>
-           </div>
-           
-           ${fantasyData?.leagues && Object.keys(fantasyData.leagues).length > 0 ? `
-               <div class="filter-group">
-                   <label for="league-select">League:</label>
-                   <select id="league-select" class="filter-dropdown">
-                       ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
-                           <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
-                               ${league.leagueName}
-                           </option>
-                       `).join('')}
-                   </select>
-               </div>
-               
-               <div class="filter-group">
-                   <label for="team-select">Team:</label>
-                   <select id="team-select" class="filter-dropdown">
-                       <option value="ALL">All Teams</option>
-                       ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
-                           <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
-                               ${team.teamName}
-                           </option>
-                       `).join('') : ''}
-                   </select>
-               </div>
-           ` : ''}
-       </div>
-       
-       <div class="api-status">
-           <div class="api-info">
-               ${apiState.loading ? 
-                   '<span class="loading">Loading...</span>' : 
-                   `<span class="record-count">${apiState.totalRecords} total records</span>`
-               }
-               ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
-           </div>
-           
-           ${apiState.totalPages > 1 ? `
-               <div class="pagination-info">
-                   Page ${apiState.currentPage} of ${apiState.totalPages}
-                   ${apiState.hasMore ? '<button id="load-more-btn" class="load-more-btn">Load More</button>' : ''}
-               </div>
-           ` : ''}
-       </div>
-   `;
+    const fantasyData = getFantasyDataFromLocalStorage();
+    const activeLeagueId = currentFilters.league || initializeActiveLeague();
+    const activeLeague = fantasyData?.leagues?.[activeLeagueId];
+    
+    return `
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label for="year-select">Year:</label>
+                <select id="year-select" class="filter-dropdown">
+                    <option value="2024" ${currentFilters.year === '2024' ? 'selected' : ''}>2024</option>
+                    <option value="2023" ${currentFilters.year === '2023' ? 'selected' : ''}>2023</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="week-select">Week:</label>
+                <select id="week-select" class="filter-dropdown">
+                    <option value="total" ${currentFilters.week === 'total' ? 'selected' : ''}>Season Total</option>
+                    ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
+                        <option value="${week}" ${currentFilters.week === week.toString() ? 'selected' : ''}>
+                            Week ${week}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            ${fantasyData?.leagues && Object.keys(fantasyData.leagues).length > 0 ? `
+                <div class="filter-group">
+                    <label for="league-select">League:</label>
+                    <select id="league-select" class="filter-dropdown">
+                        ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
+                            <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
+                                ${league.leagueName}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="team-select">Team:</label>
+                    <select id="team-select" class="filter-dropdown">
+                        <option value="ALL">All Teams</option>
+                        ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
+                            <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
+                                ${team.teamName}
+                            </option>
+                        `).join('') : ''}
+                    </select>
+                </div>
+            ` : ''}
+            
+            <div class="stats-toggle">
+                <button class="stats-toggle-btn ${!showFantasyStats ? 'active' : ''}" data-mode="raw">
+                    Raw Stats
+                </button>
+                <button class="stats-toggle-btn ${showFantasyStats ? 'active' : ''}" data-mode="fantasy">
+                    Fantasy Stats
+                </button>
+            </div>
+        </div>
+        
+        <div class="api-status">
+            <div class="api-info">
+                ${apiState.loading ? 
+                    '<span class="loading">Loading...</span>' : 
+                    `<span class="record-count">${apiState.totalRecords} total records</span>`
+                }
+                ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
+            </div>
+        </div>
+    `;
 }
 
 // Load stats function
 async function loadStats(resetPage = true) {
-   if (resetPage) {
-       apiState.currentPage = 1;
-       currentPlayers = [];
-   }
+    if (resetPage) {
+        apiState.currentPage = 1;
+        currentPlayers = [];
+    }
 
-   apiState.loading = true;
-   apiState.error = null;
-   
-   updateFilterControlsUI();
-   
-   try {
-       const data = await window.statsAPI.getPlayersData(
-           currentFilters.year,
-           currentFilters.week,
-           currentFilters.position,
-           apiState.currentPage
-       );
-       
-       // Convert raw stats to display format ONLY when rendering
+    apiState.loading = true;
+    apiState.error = null;
+    
+    updateFilterControlsUI();
+    
+    try {
+        const data = await window.statsAPI.getPlayersData(
+            currentFilters.year,
+            currentFilters.week,
+            currentFilters.position,
+            apiState.currentPage
+        );
+        // Convert raw stats to display format ONLY when rendering
        const playersWithReadableStats = data.data.map(player => ({
            ...player,
            stats: convertStatsForDisplay(player.stats) // Convert HERE during render
@@ -268,6 +292,11 @@ async function loadStats(resetPage = true) {
        apiState.totalRecords = data.pagination.totalRecords;
        apiState.hasMore = data.pagination.hasNext;
        apiState.loading = false;
+       
+       // Load scoring rules if league is selected
+       if (currentFilters.league) {
+           currentScoringRules = await loadScoringRules(currentFilters.league);
+       }
        
        console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
        
@@ -301,8 +330,12 @@ function setupEventListeners() {
    document.getElementById('league-select')?.addEventListener('change', async (e) => {
        currentFilters.league = e.target.value;
        localStorage.setItem('activeLeagueId', e.target.value);
+       
+       // Load new scoring rules
+       currentScoringRules = await loadScoringRules(e.target.value);
+       
        updateFilterControlsUI(); // Update team dropdown
-       render(); // Just re-render, don't reload stats
+       render(); // Re-render with new scoring rules
    });
    
    // Team filter
@@ -311,12 +344,14 @@ function setupEventListeners() {
        render();
    });
    
-   // Load more button
-   document.getElementById('load-more-btn')?.addEventListener('click', async () => {
-       if (apiState.hasMore && !apiState.loading) {
-           apiState.currentPage++;
-           await loadStats(false);
-       }
+   // Stats toggle
+   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+       btn.addEventListener('click', (e) => {
+           document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+           e.target.classList.add('active');
+           showFantasyStats = e.target.dataset.mode === 'fantasy';
+           render();
+       });
    });
    
    // View toggle buttons
@@ -367,30 +402,53 @@ function getFilteredPlayers() {
        });
    }
    
+   // Apply column filters for research view
+   if (currentView === 'research' && Object.keys(columnFilters).length > 0) {
+       filteredPlayers = filteredPlayers.filter(player => {
+           return Object.entries(columnFilters).every(([column, filterValue]) => {
+               if (!filterValue) return true;
+               
+               let cellValue;
+               if (column === 'name') {
+                   cellValue = player.name;
+               } else if (column === 'position') {
+                   cellValue = player.position;
+               } else if (column === 'team') {
+                   cellValue = player.team;
+               } else {
+                   cellValue = getStatValue(player, column);
+               }
+               
+               return cellValue.toString().toLowerCase().includes(filterValue.toLowerCase());
+           });
+       });
+   }
+   
    return filteredPlayers;
 }
 
 // Fantasy points calculation
 function calculateFantasyPoints(statName, statValue) {
-   // Use the active league's scoring rules if available
-   const scoringRules = window.activeLeagueScoringRules || {};
+   if (!currentScoringRules || statValue === 0) {
+       return 0;
+   }
    
    // Find the stat ID for the given stat name
    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
        STAT_ID_MAPPING[id] === statName
    );
    
-   if (!statId || !scoringRules[statId] || statValue === 0) {
+   if (!statId || !currentScoringRules[statId]) {
        return 0;
    }
    
-   const rule = scoringRules[statId];
-   let points = statValue * rule.points;
+   const rule = currentScoringRules[statId];
+   let points = statValue * parseFloat(rule.points || 0);
    
    // Add bonus points if applicable
    if (rule.bonuses && Array.isArray(rule.bonuses)) {
        rule.bonuses.forEach(bonusRule => {
-           if (statValue >= bonusRule.bonus.target) {
+           if (statValue >= parseFloat(bonusRule.bonus.target)) {
                points += parseFloat(bonusRule.bonus.points);
            }
        });
@@ -399,10 +457,75 @@ function calculateFantasyPoints(statName, statValue) {
    return Math.round(points * 100) / 100;
 }
 
+// Get stat value for display
+function getStatValue(player, statName) {
+   if (showFantasyStats && currentScoringRules) {
+       const rawValue = player.stats[statName] || 0;
+       const fantasyPoints = calculateFantasyPoints(statName, rawValue);
+       return fantasyPoints > 0 ? fantasyPoints : rawValue;
+   }
+   return player.stats[statName] || 0;
+}
+
+// Research table functions
+function sortTable(column) {
+   if (tableSort.column === column) {
+       tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+   } else {
+       tableSort.column = column;
+       tableSort.direction = 'asc';
+   }
+   render();
+}
+
+function clearAllFilters() {
+   columnFilters = {};
+   tableSort = { column: null, direction: 'asc' };
+   document.querySelectorAll('.column-filter').forEach(input => {
+       input.value = '';
+   });
+   render();
+}
+
+function getSortedPlayers(players) {
+   if (!tableSort.column) return players;
+   
+   return [...players].sort((a, b) => {
+       let aValue, bValue;
+       
+       if (tableSort.column === 'name') {
+           aValue = a.name;
+           bValue = b.name;
+       } else if (tableSort.column === 'position') {
+           aValue = a.position;
+           bValue = b.position;
+       } else if (tableSort.column === 'team') {
+           aValue = a.team;
+           bValue = b.team;
+       } else {
+           aValue = getStatValue(a, tableSort.column);
+           bValue = getStatValue(b, tableSort.column);
+       }
+       
+       // Handle numeric vs string comparison
+       if (typeof aValue === 'number' && typeof bValue === 'number') {
+           return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+       } else {
+           aValue = aValue.toString().toLowerCase();
+           bValue = bValue.toString().toLowerCase();
+           if (tableSort.direction === 'asc') {
+               return aValue.localeCompare(bValue);
+           } else {
+               return bValue.localeCompare(aValue);
+           }
+       }
+   });
+}
+
 // Render functions
 function render() {
    const content = document.getElementById('content');
-   const filteredPlayers = getFilteredPlayers();
+   let filteredPlayers = getFilteredPlayers();
 
    if (filteredPlayers.length === 0) {
        content.innerHTML = `
@@ -415,12 +538,17 @@ function render() {
        return;
    }
 
+   // Apply sorting for research view
+   if (currentView === 'research') {
+       filteredPlayers = getSortedPlayers(filteredPlayers);
+   }
+
    switch (currentView) {
        case 'cards':
            renderCardsView(filteredPlayers);
            break;
-       case 'comparison':
-           renderComparisonView(filteredPlayers);
+       case 'research':
+           renderResearchView(filteredPlayers);
            break;
        case 'stats':
            renderStatsView(filteredPlayers);
@@ -453,14 +581,17 @@ function renderPlayerCard(player) {
            </div>
            <div class="stat-grid">
                ${stats.map(stat => {
-                   const value = player.stats[stat] || 0;
-                   const fantasyPoints = calculateFantasyPoints(stat, value);
+                   const rawValue = player.stats[stat] || 0;
+                   const displayValue = getStatValue(player, stat);
+                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
                    const isBest = checkIfBestStat(player, stat);
+                   
                    return `
                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                           <span class="stat-value">${formatStatValue(value, stat)}</span>
+                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                               ${formatStatValue(displayValue, stat, isFantasyMode)}
+                           </span>
                            <span class="stat-label">${stat}</span>
-                           ${fantasyPoints > 0 ? `<div class="fantasy-points">${fantasyPoints} pts</div>` : ''}
                        </div>
                    `;
                }).join('')}
@@ -469,35 +600,69 @@ function renderPlayerCard(player) {
    `;
 }
 
-function renderComparisonView(players) {
+function renderResearchView(players) {
    const content = document.getElementById('content');
    const stats = getStatsForPosition(currentFilters.position);
    
    content.innerHTML = `
-       <div class="comparison-container fade-in">
-           <div class="comparison-header">
-               <h2>Player Comparison</h2>
+       <div class="research-container fade-in">
+           <div class="research-header">
+               <h2>Research Table</h2>
+               <div class="research-controls">
+                   <button class="clear-filters-btn" onclick="clearAllFilters()">
+                       Clear All Filters
+                   </button>
+               </div>
            </div>
-           <div class="comparison-table-wrapper">
-               <table class="comparison-table">
+           <div class="research-table-wrapper">
+               <table class="research-table">
                    <thead>
                        <tr>
-                           <th>Player</th>
-                           ${stats.map(stat => `<th>${stat}</th>`).join('')}
+                           <th class="sortable" onclick="sortTable('name')">
+                               Player
+                               <span class="sort-icon ${tableSort.column === 'name' ? 'sort-' + tableSort.direction : ''}"></span>
+                               <input type="text" class="column-filter" placeholder="Filter..." 
+                                      onkeyup="filterColumn('name', this.value)">
+                           </th>
+                           <th class="sortable" onclick="sortTable('position')">
+                               Pos
+                               <span class="sort-icon ${tableSort.column === 'position' ? 'sort-' + tableSort.direction : ''}"></span>
+                               <input type="text" class="column-filter" placeholder="Filter..." 
+                                      onkeyup="filterColumn('position', this.value)">
+                           </th>
+                           <th class="sortable" onclick="sortTable('team')">
+                               Team
+                               <span class="sort-icon ${tableSort.column === 'team' ? 'sort-' + tableSort.direction : ''}"></span>
+                               <input type="text" class="column-filter" placeholder="Filter..." 
+                                      onkeyup="filterColumn('team', this.value)">
+                           </th>
+                           ${stats.map(stat => `
+                               <th class="sortable" onclick="sortTable('${stat}')">
+                                   ${stat}
+                                   <span class="sort-icon ${tableSort.column === stat ? 'sort-' + tableSort.direction : ''}"></span>
+                                   <input type="text" class="column-filter" placeholder="Filter..." 
+                                          onkeyup="filterColumn('${stat}', this.value)">
+                               </th>
+                           `).join('')}
                        </tr>
                    </thead>
                    <tbody>
                        ${players.map(player => `
                            <tr>
                                <td class="player-name-cell">${player.name}</td>
+                               <td>${player.position}</td>
+                               <td>${player.team}</td>
                                ${stats.map(stat => {
-                                   const value = player.stats[stat] || 0;
-                                   const fantasyPoints = calculateFantasyPoints(stat, value);
+                                   const rawValue = player.stats[stat] || 0;
+                                   const displayValue = getStatValue(player, stat);
+                                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
                                    const isBest = checkIfBestStat(player, stat);
+                                   
                                    return `
-                                       <td ${isBest ? 'style="color: #2e7d32; font-weight: 600;"' : ''}>
-                                           ${formatStatValue(value, stat)}
-                                           ${fantasyPoints > 0 ? `<br><span style="font-size: 12px; color: #2a5298;">${fantasyPoints} pts</span>` : ''}
+                                       <td class="${isBest ? 'stat-best' : ''}">
+                                           <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                               ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                           </span>
                                        </td>
                                    `;
                                }).join('')}
@@ -517,7 +682,7 @@ function renderStatsView(players) {
    
    content.innerHTML = `
        <div class="stats-overview fade-in">
-           <h2>Leaders</h2>
+           <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
            ${Object.entries(statCategories).map(([category, categoryStats]) => `
                <div class="stat-category">
                    <div class="stat-category-title">${category}</div>
@@ -527,8 +692,11 @@ function renderStatsView(players) {
                            <div class="stat-row">
                                <span>${stat}</span>
                                <span>${leaders.map(l => {
-                                   const fantasyPoints = calculateFantasyPoints(stat, l.value);
-                                   return `${l.name} (${formatStatValue(l.value, stat)}${fantasyPoints > 0 ? `, ${fantasyPoints} pts` : ''})`;
+                                   const displayValue = showFantasyStats ? 
+                                       calculateFantasyPoints(stat, l.value) || l.value : 
+                                       l.value;
+                                   const suffix = showFantasyStats && displayValue !== l.value ? ' pts' : '';
+                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats)}${suffix})`;
                                }).join(', ')}</span>
                            </div>
                        `;
@@ -537,6 +705,16 @@ function renderStatsView(players) {
            `).join('')}
        </div>
    `;
+}
+
+// Column filter function
+function filterColumn(column, value) {
+   if (value.trim() === '') {
+       delete columnFilters[column];
+   } else {
+       columnFilters[column] = value.trim();
+   }
+   render();
 }
 
 // Helper functions
@@ -578,20 +756,27 @@ function categorizeStats(stats) {
 function getStatLeaders(players, stat, limit = 3) {
    return players
        .filter(p => p.stats[stat] !== undefined)
-       .map(p => ({ name: p.name, value: p.stats[stat] || 0 }))
+       .map(p => ({ 
+           name: p.name, 
+           value: p.stats[stat] || 0,
+           fantasyValue: showFantasyStats ? calculateFantasyPoints(stat, p.stats[stat] || 0) : null
+       }))
        .sort((a, b) => {
+           const aValue = showFantasyStats && a.fantasyValue !== null ? a.fantasyValue : a.value;
+           const bValue = showFantasyStats && b.fantasyValue !== null ? b.fantasyValue : b.value;
+           
            if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
-               return a.value - b.value;
+               return aValue - bValue;
            }
-           return b.value - a.value;
+           return bValue - aValue;
        })
        .slice(0, limit);
 }
 
 function checkIfBestStat(player, stat) {
    const players = getFilteredPlayers().filter(p => p.position === player.position);
-   const values = players.map(p => p.stats[stat] || 0);
-   const playerValue = player.stats[stat] || 0;
+   const playerValue = getStatValue(player, stat);
+   const values = players.map(p => getStatValue(p, stat));
    
    if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
        return playerValue === Math.min(...values) && playerValue > 0;
@@ -599,7 +784,11 @@ function checkIfBestStat(player, stat) {
    return playerValue === Math.max(...values) && playerValue > 0;
 }
 
-function formatStatValue(value, stat) {
+function formatStatValue(value, stat, isFantasyMode = false) {
+   if (isFantasyMode && value > 0) {
+       return `${value} pts`;
+   }
+   
    if (stat === 'Sack' || stat === 'Pass Def') {
        return value.toFixed(1);
    }
@@ -619,6 +808,11 @@ document.addEventListener('DOMContentLoaded', async () => {
    
    // Load saved week preference
    currentFilters.week = getSavedWeek();
+   
+   // Load scoring rules if league is available
+   if (currentFilters.league) {
+       currentScoringRules = await loadScoringRules(currentFilters.league);
+   }
    
    // Add filter controls to header
    const header = document.querySelector('.header');
