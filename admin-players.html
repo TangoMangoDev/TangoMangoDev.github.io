@@ -298,36 +298,68 @@
         </div>
         
         
-        <!-- Season Stats Import Section -->
-        <div class="import-section">
-            <h2>Import Season Stats (All Weeks)</h2>
-            <div class="import-controls">
-                <div class="input-group">
-                    <label for="seasonYear">Season Year:</label>
-                    <select id="seasonYear">
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="maxPlayers">Max Players:</label>
-                    <input type="number" id="maxPlayers" min="10" max="1000" value="450" placeholder="e.g., 450">
-                </div>
-                <div class="input-group">
-                    <label for="batchSize">Batch Size:</label>
-                    <input type="number" id="batchSize" min="5" max="25" value="10" placeholder="e.g., 10">
-                </div>
-                <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import All Season Stats</button>
-            </div>
-            
-            <div class="batch-info">
-                <strong>Batch Size Guidelines:</strong><br>
-                • 5-10: Safe for CPU limits, slower overall<br>
-                • 10-15: Balanced performance and safety<br>
-                • 15-25: Faster but may hit CPU limits<br>
-                <em>Recommended: 10 for reliable imports</em>
-            </div>
+<!-- Season Stats Import Section -->
+<div class="import-section">
+    <h2>Import Season Stats</h2>
+    <div class="import-controls">
+        <div class="input-group">
+            <label for="seasonYear">Season Year:</label>
+            <select id="seasonYear">
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
+            </select>
         </div>
+        <div class="input-group">
+            <label for="weekSelect">Week:</label>
+            <select id="weekSelect">
+                <option value="all">All Weeks (1-18)</option>
+                <option value="totals">Season Totals Only</option>
+                <optgroup label="Individual Weeks">
+                    <option value="1">Week 1</option>
+                    <option value="2">Week 2</option>
+                    <option value="3">Week 3</option>
+                    <option value="4">Week 4</option>
+                    <option value="5">Week 5</option>
+                    <option value="6">Week 6</option>
+                    <option value="7">Week 7</option>
+                    <option value="8">Week 8</option>
+                    <option value="9">Week 9</option>
+                    <option value="10">Week 10</option>
+                    <option value="11">Week 11</option>
+                    <option value="12">Week 12</option>
+                    <option value="13">Week 13</option>
+                    <option value="14">Week 14</option>
+                    <option value="15">Week 15</option>
+                    <option value="16">Week 16</option>
+                    <option value="17">Week 17</option>
+                    <option value="18">Week 18</option>
+                </optgroup>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="maxPlayers">Max Players:</label>
+            <input type="number" id="maxPlayers" min="10" max="1000" value="450" placeholder="e.g., 450">
+        </div>
+        <div class="input-group">
+            <label for="batchSize">Batch Size:</label>
+            <input type="number" id="batchSize" min="5" max="25" value="10" placeholder="e.g., 10">
+        </div>
+        <button id="importStatsBtn" class="warning-button" onclick="showStatsConfirmation()">Import Stats</button>
+    </div>
+    
+    <div class="batch-info">
+        <strong>Import Options:</strong><br>
+        • <strong>All Weeks:</strong> Import complete season (all 18 weeks + totals)<br>
+        • <strong>Season Totals Only:</strong> Import just the season total statistics<br>
+        • <strong>Individual Week:</strong> Import data for a specific week only<br>
+        <br>
+        <strong>Batch Size Guidelines:</strong><br>
+        • 5-10: Safe for CPU limits, slower overall<br>
+        • 10-15: Balanced performance and safety<br>
+        • 15-25: Faster but may hit CPU limits<br>
+        <em>Recommended: 10 for reliable imports</em>
+    </div>
+</div>
 
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar" id="progressBar">0%</div>
