@@ -127,7 +127,7 @@ const keyStats = {
 // Backend API functions
 async function loadUserLeagues() {
     try {
-        const response = await fetch('/data/stats/leagues');
+        const response = await fetch('/data/stats/rules');
         if (!response.ok) throw new Error('Failed to load leagues');
         
         const data = await response.json();
