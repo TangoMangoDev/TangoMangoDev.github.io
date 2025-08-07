@@ -166,21 +166,24 @@ const keyStats = {
 // Backend API functions
 async function loadUserLeagues() {
     try {
+        console.log('🔄 Loading user leagues...');
         const response = await fetch('/data/stats/rules'); // NO leagueId parameter
-        if (!response.ok) throw new Error('Failed to load leagues');
+        
+        if (!response.ok) {
+            console.warn('⚠️ Failed to load leagues, using empty defaults');
+            return setEmptyDefaults();
+        }
         
         const data = await response.json();
+        console.log('📊 Leagues response received:', data);
         
         // Check if user needs to import leagues
         if (data.needsImport) {
             console.log('⚠️ User needs to import leagues first');
-            userLeagues = {};
-            currentScoringRules = {};
-            currentFilters.league = null;
-            return {};
+            return setEmptyDefaults();
         }
         
-        // Handle the NEW response format
+        // Handle the response format
         if (data.leagues && data.defaultLeagueId && data.scoringRules) {
             userLeagues = data.leagues;
             
@@ -201,6 +204,9 @@ async function loadUserLeagues() {
                 timestamp: Date.now()
             }));
             
+            // BACKGROUND: Preload scoring rules into IndexedDB
+            preloadScoringRulesInBackground(defaultLeagueId);
+            
             return userLeagues;
         }
         
@@ -214,26 +220,43 @@ async function loadUserLeagues() {
         }));
         
         return userLeagues;
+        
     } catch (error) {
-        console.error('Error loading leagues:', error);
-        
-        // Set safe defaults
-        userLeagues = {};
-        currentScoringRules = {};
-        currentFilters.league = null;
-        
-        const cached = localStorage.getItem('userLeagues');
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Date.now() - parsed.timestamp < 3600000) {
-                userLeagues = parsed.leagues;
-                return userLeagues;
-            }
-        }
-        return {};
+        console.error('❌ Error loading leagues:', error);
+        return setEmptyDefaults();
     }
 }
+function setEmptyDefaults() {
+    userLeagues = {};
+    currentScoringRules = {};
+    currentFilters.league = null;
+    
+    const cached = localStorage.getItem('userLeagues');
+    if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < 3600000) {
+            userLeagues = parsed.leagues;
+            return userLeagues;
+        }
+    }
+    return {};
+}
 
+async function preloadScoringRulesInBackground(defaultLeagueId) {
+    try {
+        console.log(`🔄 Preloading scoring rules for ${defaultLeagueId} into IndexedDB...`);
+        
+        // This will cache the rules in IndexedDB for future use
+        const rules = await window.statsAPI.getScoringRules(defaultLeagueId);
+        
+        if (rules && rules[defaultLeagueId]) {
+            console.log(`✅ Preloaded ${Object.keys(rules[defaultLeagueId]).length} scoring rules into IndexedDB`);
+        }
+    } catch (error) {
+        console.warn(`⚠️ Failed to preload scoring rules: ${error.message}`);
+        // Don't block anything, just log the warning
+    }
+}
 
 // FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
@@ -249,10 +272,13 @@ async function loadScoringRulesForActiveLeague(leagueId) {
         const rulesData = await window.statsAPI.getScoringRules(leagueId);
         
         if (rulesData && typeof rulesData === 'object') {
-            // FIXED: Extract the correct structure - rules are nested by leagueId
+            // Extract the correct structure - rules are nested by leagueId
             if (rulesData[leagueId]) {
                 currentScoringRules = rulesData[leagueId];
                 console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules for league ${leagueId}`);
+                
+                // Re-render with new scoring rules
+                render();
             } else {
                 console.log(`⚠️ No scoring rules found for league ${leagueId}`);
                 currentScoringRules = {};
@@ -265,6 +291,7 @@ async function loadScoringRulesForActiveLeague(leagueId) {
     } catch (error) {
         console.error(`❌ Error loading scoring rules for league ${leagueId}:`, error);
         currentScoringRules = {};
+        // Don't block the UI, just show raw stats
     }
 }
 
@@ -1070,12 +1097,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Clear any old localStorage scoring rules
     localStorage.removeItem('allScoringRules');
     
-    // SINGLE CALL - loads leagues AND default scoring rules
-    await loadUserLeagues();
+    // NON-BLOCKING: Load leagues in background
+    const leaguesPromise = loadUserLeagues();
     
-    // Initialize filters
+    // Initialize filters with defaults first
     currentFilters.week = getSavedWeek();
     
+    // Set up UI immediately
     const header = document.querySelector('.header');
     const filterControlsHtml = createFilterControls();
     if (filterControlsHtml && header) {
@@ -1088,7 +1116,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     
     console.log('📊 Loading initial stats data...');
+    // Load stats immediately - don't wait for leagues
     await loadStats(true);
+    
+    // Wait for leagues to load in background, then update UI
+    try {
+        await leaguesPromise;
+        console.log('✅ Leagues loaded, updating UI...');
+        updateFilterControlsUI();
+    } catch (error) {
+        console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
+    }
     
     console.log('🎉 Dashboard initialization complete!');
 });
