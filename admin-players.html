@@ -400,32 +400,34 @@
 </div>
 
 <script>
-// Enhanced global variables with persistence
+// Enhanced global variables with week selection support
 let importState = {
-   isImporting: false,
-   year: null,
-   maxPlayers: null,
-   batchSize: null,
-   playerBatches: [],
-   currentWeek: 1,
-   currentBatchIndex: 0,
-   totalPlayersProcessed: 0,
-   totalWeeksCompleted: 0,
-   totalSeasonTotalsProcessed: 0,
-   completedOperations: new Set(),
-   failedOperations: new Map(),
-   startTime: null,
-   lastCheckpointTime: null,
-   performanceMetrics: {
-       totalTimeMs: 0,
-       totalApiCalls: 0,
-       totalFetchTimeMs: 0,
-       avgPlayersPerSecond: 0,
-       fastestWeekMs: Infinity,
-       slowestWeekMs: 0,
-       weeklyPerformance: []
-   }
+    isImporting: false,
+    year: null,
+    weekSelection: null, // 'all', 'totals', or specific week number
+    maxPlayers: null,
+    batchSize: null,
+    playerBatches: [],
+    currentWeek: 1,
+    currentBatchIndex: 0,
+    totalPlayersProcessed: 0,
+    totalWeeksCompleted: 0,
+    totalSeasonTotalsProcessed: 0,
+    completedOperations: new Set(),
+    failedOperations: new Map(),
+    startTime: null,
+    lastCheckpointTime: null,
+    performanceMetrics: {
+        totalTimeMs: 0,
+        totalApiCalls: 0,
+        totalFetchTimeMs: 0,
+        avgPlayersPerSecond: 0,
+        fastestWeekMs: Infinity,
+        slowestWeekMs: 0,
+        weeklyPerformance: []
+    }
 };
+
 
 const STORAGE_KEY = 'nfl_import_progress';
 const MAX_RETRIES = 3;
@@ -475,30 +477,43 @@ function loadProgressFromStorage() {
    }
 }
 
-// Check for resumable import
+// Check for resumable import (updated)
 function checkForResumableImport() {
-   if (importState.year && importState.playerBatches.length > 0 && !importState.isImporting) {
-       const resumeSection = document.getElementById('resumeSection');
-       const resumeInfo = document.getElementById('resumeInfo');
-       
-       const totalOperations = importState.playerBatches.length * 18;
-       const completed = importState.completedOperations.size;
-       const percent = Math.round((completed / totalOperations) * 100);
-       
-       resumeInfo.innerHTML = `
-           <strong>Year:</strong> ${importState.year}<br>
-           <strong>Max Players:</strong> ${importState.maxPlayers}<br>
-           <strong>Batch Size:</strong> ${importState.batchSize}<br>
-           <strong>Progress:</strong> ${completed}/${totalOperations} operations (${percent}%)<br>
-           <strong>Current Week:</strong> ${importState.currentWeek}/18<br>
-           <strong>Current Batch:</strong> ${importState.currentBatchIndex + 1}/${importState.playerBatches.length}<br>
-           <strong>Failed Operations:</strong> ${importState.failedOperations.size}<br>
-           <strong>Last Saved:</strong> ${new Date(importState.timestamp).toLocaleTimeString()}
-       `;
-       
-       resumeSection.style.display = 'block';
-       console.log('Resume section displayed');
-   }
+    if (importState.year && importState.playerBatches.length > 0 && !importState.isImporting) {
+        const resumeSection = document.getElementById('resumeSection');
+        const resumeInfo = document.getElementById('resumeInfo');
+        
+        let totalOperations = 0;
+        let importTypeText = '';
+        
+        if (importState.weekSelection === 'all') {
+            totalOperations = importState.playerBatches.length * 18;
+            importTypeText = 'All Weeks';
+        } else if (importState.weekSelection === 'totals') {
+            totalOperations = importState.playerBatches.length;
+            importTypeText = 'Season Totals';
+        } else {
+            totalOperations = importState.playerBatches.length;
+            importTypeText = `Week ${importState.weekSelection}`;
+        }
+        
+        const completed = importState.completedOperations.size;
+        const percent = Math.round((completed / totalOperations) * 100);
+        
+        resumeInfo.innerHTML = `
+            <strong>Year:</strong> ${importState.year}<br>
+            <strong>Import Type:</strong> ${importTypeText}<br>
+            <strong>Max Players:</strong> ${importState.maxPlayers}<br>
+            <strong>Batch Size:</strong> ${importState.batchSize}<br>
+            <strong>Progress:</strong> ${completed}/${totalOperations} operations (${percent}%)<br>
+            <strong>Current Batch:</strong> ${importState.currentBatchIndex + 1}/${importState.playerBatches.length}<br>
+            <strong>Failed Operations:</strong> ${importState.failedOperations.size}<br>
+            <strong>Last Saved:</strong> ${new Date(importState.timestamp).toLocaleTimeString()}
+        `;
+        
+        resumeSection.style.display = 'block';
+        console.log('Resume section displayed');
+    }
 }
 
 // Clear progress data
@@ -556,16 +571,35 @@ async function resumeImport() {
    await continueStatsImport();
 }
 
-// Show stats confirmation modal
+// Show stats confirmation modal (updated)
 function showStatsConfirmation() {
-   const year = document.getElementById('seasonYear').value;
-   const maxPlayers = document.getElementById('maxPlayers').value;
-   const batchSize = document.getElementById('batchSize').value;
-   
-   document.getElementById('modalYear').textContent = year;
-   document.getElementById('modalMaxPlayers').textContent = maxPlayers;
-   document.getElementById('modalBatchSize').textContent = batchSize;
-   document.getElementById('confirmModal').style.display = 'block';
+    const year = document.getElementById('seasonYear').value;
+    const weekSelection = document.getElementById('weekSelect').value;
+    const maxPlayers = document.getElementById('maxPlayers').value;
+    const batchSize = document.getElementById('batchSize').value;
+    
+    document.getElementById('modalYear').textContent = year;
+    document.getElementById('modalMaxPlayers').textContent = maxPlayers;
+    document.getElementById('modalBatchSize').textContent = batchSize;
+    
+    // Set import type description
+    let importTypeText = '';
+    let warningText = '';
+    
+    if (weekSelection === 'all') {
+        importTypeText = 'All 18 weeks + season totals';
+        warningText = '⚠️ This will import the complete season and may take 15-30 minutes.';
+    } else if (weekSelection === 'totals') {
+        importTypeText = 'Season totals only';
+        warningText = '⚠️ This will import season total statistics only.';
+    } else {
+        importTypeText = `Week ${weekSelection} only`;
+        warningText = `⚠️ This will import data for Week ${weekSelection} only.`;
+    }
+    
+    document.getElementById('modalImportType').textContent = importTypeText;
+    document.getElementById('modalWarning').textContent = warningText;
+    document.getElementById('confirmModal').style.display = 'block';
 }
 
 // Close modal
@@ -573,45 +607,47 @@ function closeModal() {
    document.getElementById('confirmModal').style.display = 'none';
 }
 
-// Enhanced stats import with checkpointing
+// Enhanced stats import with week selection (updated)
 async function confirmStatsImport() {
-   closeModal();
-   
-   // Clear any existing progress
-   clearProgress();
-   
-   const year = parseInt(document.getElementById('seasonYear').value);
-   const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
-   const batchSize = parseInt(document.getElementById('batchSize').value);
-   
-   // Initialize import state
-   importState = {
-       isImporting: true,
-       year: year,
-       maxPlayers: maxPlayers,
-       batchSize: batchSize,
-       playerBatches: [],
-       currentWeek: 1,
-       currentBatchIndex: 0,
-       totalPlayersProcessed: 0,
-       totalWeeksCompleted: 0,
-       totalSeasonTotalsProcessed: 0,
-       completedOperations: new Set(),
-       failedOperations: new Map(),
-       startTime: Date.now(),
-       lastCheckpointTime: Date.now(),
-       performanceMetrics: {
-           totalTimeMs: 0,
-           totalApiCalls: 0,
-           totalFetchTimeMs: 0,
-           avgPlayersPerSecond: 0,
-           fastestWeekMs: Infinity,
-           slowestWeekMs: 0,
-           weeklyPerformance: []
-       }
-   };
-   
-   await continueStatsImport();
+    closeModal();
+    
+    // Clear any existing progress
+    clearProgress();
+    
+    const year = parseInt(document.getElementById('seasonYear').value);
+    const weekSelection = document.getElementById('weekSelect').value;
+    const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
+    const batchSize = parseInt(document.getElementById('batchSize').value);
+    
+    // Initialize import state
+    importState = {
+        isImporting: true,
+        year: year,
+        weekSelection: weekSelection,
+        maxPlayers: maxPlayers,
+        batchSize: batchSize,
+        playerBatches: [],
+        currentWeek: weekSelection === 'all' ? 1 : (weekSelection === 'totals' ? 0 : parseInt(weekSelection)),
+        currentBatchIndex: 0,
+        totalPlayersProcessed: 0,
+        totalWeeksCompleted: 0,
+        totalSeasonTotalsProcessed: 0,
+        completedOperations: new Set(),
+        failedOperations: new Map(),
+        startTime: Date.now(),
+        lastCheckpointTime: Date.now(),
+        performanceMetrics: {
+            totalTimeMs: 0,
+            totalApiCalls: 0,
+            totalFetchTimeMs: 0,
+            avgPlayersPerSecond: 0,
+            fastestWeekMs: Infinity,
+            slowestWeekMs: 0,
+            weeklyPerformance: []
+        }
+    };
+    
+    await continueStatsImport();
 }
 
 // Continue stats import (used for both new and resumed imports)
@@ -624,44 +660,59 @@ async function continueStatsImport() {
    progressContainer.style.display = 'block';
    progressDetails.style.display = 'block';
    
-   // Start checkpoint saving
-   const checkpointInterval = setInterval(() => {
-       if (importState.isImporting) {
-           saveProgressToStorage();
-           updateProgressDisplay();
-       } else {
-           clearInterval(checkpointInterval);
-       }
-   }, CHECKPOINT_INTERVAL);
-   
-   try {
-       // Step 1: Collect player batches (skip if already collected)
-       if (importState.playerBatches.length === 0) {
-           await collectPlayerBatches();
-       } else {
-           console.log('Using existing player batches:', importState.playerBatches.length);
-       }
-       
-       // Step 2: Process weekly stats
-       await processWeeklyStats();
-       
-       // Step 3: Process season totals
-       await processSeasonTotals();
-       
-       // Import completed successfully
-       importState.isImporting = false;
-       showStatus('🎉 Import completed successfully!', 'success');
-       displayEnhancedStatsSummary(importState.year, importState.totalWeeksCompleted, importState.totalPlayersProcessed, importState.performanceMetrics, importState.totalSeasonTotalsProcessed, importState.batchSize);
-       clearProgress(); // Clear progress after successful completion
-       
-   } catch (error) {
-       console.error('Stats import error:', error);
-       handleImportError(error);
-   } finally {
-       importBtn.disabled = false;
-       clearInterval(checkpointInterval);
-       saveProgressToStorage();
-   }
+// Continue stats import (updated for week selection)
+async function continueStatsImport() {
+    const importBtn = document.getElementById('importStatsBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressDetails = document.getElementById('progressDetails');
+    
+    importBtn.disabled = true;
+    progressContainer.style.display = 'block';
+    progressDetails.style.display = 'block';
+    
+    // Start checkpoint saving
+    const checkpointInterval = setInterval(() => {
+        if (importState.isImporting) {
+            saveProgressToStorage();
+            updateProgressDisplay();
+        } else {
+            clearInterval(checkpointInterval);
+        }
+    }, CHECKPOINT_INTERVAL);
+    
+    try {
+        // Step 1: Collect player batches (skip if already collected)
+        if (importState.playerBatches.length === 0) {
+            await collectPlayerBatches();
+        } else {
+            console.log('Using existing player batches:', importState.playerBatches.length);
+        }
+        
+        // Step 2: Process based on selection
+        if (importState.weekSelection === 'totals') {
+            await processSeasonTotals();
+        } else if (importState.weekSelection === 'all') {
+            await processWeeklyStats();
+            await processSeasonTotals();
+        } else {
+            // Single week
+            await processSingleWeek(parseInt(importState.weekSelection));
+        }
+        
+        // Import completed successfully
+        importState.isImporting = false;
+        showStatus('🎉 Import completed successfully!', 'success');
+        displayEnhancedStatsSummary(importState.year, importState.totalWeeksCompleted, importState.totalPlayersProcessed, importState.performanceMetrics, importState.totalSeasonTotalsProcessed, importState.batchSize);
+        clearProgress(); // Clear progress after successful completion
+        
+    } catch (error) {
+        console.error('Stats import error:', error);
+        handleImportError(error);
+    } finally {
+        importBtn.disabled = false;
+        clearInterval(checkpointInterval);
+        saveProgressToStorage();
+    }
 }
 
 // Collect player batches with error handling
@@ -737,6 +788,97 @@ async function collectPlayerBatches() {
    
    showStatus(`Collected ${importState.playerBatches.length} player batches`, 'success');
 }
+
+    // Process single week (new function)
+async function processSingleWeek(weekNumber) {
+    updateCurrentOperation(`Processing Week ${weekNumber}...`);
+    
+    const totalBatches = importState.playerBatches.length;
+    const weekStartTime = Date.now();
+    let weekPlayersProcessed = 0;
+    
+    for (let batchIndex = importState.currentBatchIndex; batchIndex < totalBatches; batchIndex++) {
+        importState.currentBatchIndex = batchIndex;
+        const operationKey = `week-${weekNumber}-batch-${batchIndex}`;
+        
+        // Skip if already completed
+        if (importState.completedOperations.has(operationKey)) {
+            console.log(`Skipping already completed: ${operationKey}`);
+            continue;
+        }
+        
+        // Check retry limit
+        const retryCount = importState.failedOperations.get(operationKey) || 0;
+        if (retryCount >= MAX_RETRIES) {
+            console.warn(`Skipping ${operationKey} - max retries exceeded`);
+            continue;
+        }
+        
+        try {
+            const batch = importState.playerBatches[batchIndex];
+            
+            const response = await fetch('/data/admin/stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    year: importState.year,
+                    week: weekNumber,
+                    batchSize: batch.playerKeys.length,
+                    playerKeys: batch.playerKeys,
+                    playerInfoData: batch.playerInfoData,
+                    useStoredKeys: true
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            weekPlayersProcessed += data.importedCount;
+            importState.totalPlayersProcessed += data.importedCount;
+            
+            // Mark as completed
+            importState.completedOperations.add(operationKey);
+            importState.failedOperations.delete(operationKey);
+            
+            console.log(`Completed: ${operationKey} - ${data.importedCount} players`);
+            updateProgressDisplay();
+            
+        } catch (error) {
+            console.error(`Error processing ${operationKey}:`, error);
+            
+            // Track failure
+            importState.failedOperations.set(operationKey, retryCount + 1);
+            
+            // Show error but continue
+            showStatus(`⚠️ Failed ${operationKey} (retry ${retryCount + 1}/${MAX_RETRIES}): ${error.message}`, 'error');
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    const weekDuration = Date.now() - weekStartTime;
+    importState.performanceMetrics.weeklyPerformance.push({
+        week: weekNumber,
+        duration: weekDuration,
+        playersProcessed: weekPlayersProcessed,
+        playersPerSecond: Math.round(weekPlayersProcessed / (weekDuration / 1000))
+    });
+    
+    if (weekPlayersProcessed > 0) {
+        showStatus(`✅ Week ${weekNumber} complete: ${weekPlayersProcessed} players`, 'success');
+    }
+    
+    importState.totalWeeksCompleted = 1;
+    saveProgressToStorage();
+}
+    
 
 // Process weekly stats with resumption
 async function processWeeklyStats() {
@@ -887,35 +1029,48 @@ function updateCurrentOperation(operation) {
    document.getElementById('currentOperation').textContent = operation;
 }
 
-// Update progress display
+// Update progress display (updated for week selection)
 function updateProgressDisplay() {
-   const totalOperations = importState.playerBatches.length * 18;
-   const completed = importState.completedOperations.size;
-   const progressPercent = Math.round((completed / totalOperations) * 100);
-   
-   document.getElementById('progressBar').style.width = progressPercent + '%';
-   document.getElementById('progressBar').textContent = progressPercent + '%';
-   
-   document.getElementById('batchProgress').textContent = 
-       `${importState.currentBatchIndex + 1}/${importState.playerBatches.length}`;
-   document.getElementById('weekProgress').textContent = 
-       `${importState.currentWeek}/18`;
-   document.getElementById('totalPlayersCount').textContent = 
-       importState.totalPlayersProcessed.toLocaleString();
-   document.getElementById('lastCheckpoint').textContent = 
-       new Date().toLocaleTimeString();
-   
-   // Calculate estimated time remaining
-   if (importState.startTime && completed > 0) {
-       const elapsed = Date.now() - importState.startTime;
-       const rate = completed / elapsed;
-       const remaining = (totalOperations - completed) / rate;
-       const remainingMinutes = Math.round(remaining / 60000);
-       
-       document.getElementById('timeRemaining').textContent = 
-           remainingMinutes > 0 ? `~${remainingMinutes} minutes` : 'Almost done!';
-   }
+    let totalOperations = 0;
+    let progressText = '';
+    
+    if (importState.weekSelection === 'all') {
+        totalOperations = importState.playerBatches.length * 18;
+        progressText = `${importState.currentWeek}/18`;
+    } else if (importState.weekSelection === 'totals') {
+        totalOperations = importState.playerBatches.length;
+        progressText = 'Season Totals';
+    } else {
+        totalOperations = importState.playerBatches.length;
+        progressText = `Week ${importState.weekSelection}`;
+    }
+    
+    const completed = importState.completedOperations.size;
+    const progressPercent = totalOperations > 0 ? Math.round((completed / totalOperations) * 100) : 0;
+    
+    document.getElementById('progressBar').style.width = progressPercent + '%';
+    document.getElementById('progressBar').textContent = progressPercent + '%';
+    
+    document.getElementById('batchProgress').textContent = 
+        `${importState.currentBatchIndex + 1}/${importState.playerBatches.length}`;
+    document.getElementById('weekProgress').textContent = progressText;
+    document.getElementById('totalPlayersCount').textContent = 
+        importState.totalPlayersProcessed.toLocaleString();
+    document.getElementById('lastCheckpoint').textContent = 
+        new Date().toLocaleTimeString();
+    
+    // Calculate estimated time remaining
+    if (importState.startTime && completed > 0) {
+        const elapsed = Date.now() - importState.startTime;
+        const rate = completed / elapsed;
+        const remaining = (totalOperations - completed) / rate;
+        const remainingMinutes = Math.round(remaining / 60000);
+        
+        document.getElementById('timeRemaining').textContent = 
+            remainingMinutes > 0 ? `~${remainingMinutes} minutes` : 'Almost done!';
+    }
 }
+
 
 // Handle import errors
 function handleImportError(error) {
