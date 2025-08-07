@@ -199,7 +199,7 @@ async function loadUserLeagues() {
                 // FIXED: Use the correct method name
                 if (allPlayersLoaded && currentPlayers.length > 0) {
                     console.log(`🏆 Triggering ranking calculation with loaded players...`);
-                    await window.statsAPI.calculateAndStoreRankings( // FIXED NAME
+                    await window.statsAPI.calculateFantasyRankings( // FIXED NAME
                         defaultLeagueId,
                         currentPlayers,
                         currentScoringRules
@@ -448,7 +448,7 @@ async function loadStats(resetPage = true) {
                 console.log(`🏆 BACKGROUND: Calculating fantasy rankings...`);
                 
                 // FIXED: Use correct method name
-                await window.statsAPI.calculateAndStoreRankings(
+                await window.statsAPI.calculateFantasyRankings(
                     currentFilters.league,
                     playersWithReadableStats,
                     currentScoringRules
