@@ -438,38 +438,46 @@ async function loadStats(resetPage = true) {
             stats: convertStatsForDisplay(player.stats)
         }));
 
-        // ENHANCED: Handle initial full load
+        // ENHANCED: Handle initial full load for ranking calculation ONLY
         if (data.isInitialLoad && !allPlayersLoaded) {
             console.log(`🚀 INITIAL LOAD: Received ${playersWithReadableStats.length} players`);
-            
-            // Store all players and calculate rankings if we have scoring rules
             allPlayersLoaded = true;
             
+            // BACKGROUND: Calculate rankings if we have scoring rules (DON'T RENDER ALL)
             if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-                console.log(`🏆 Calculating fantasy rankings...`);
+                console.log(`🏆 BACKGROUND: Calculating fantasy rankings...`);
                 
-                await window.statsAPI.calculateFantasyRankings(
+                // Calculate in background, don't render all players
+                await window.statsAPI.calculateAndStoreRankings(
                     currentFilters.league,
                     playersWithReadableStats,
                     currentScoringRules
                 );
                 
-                console.log(`✅ Fantasy rankings calculated for league ${currentFilters.league}`);
+                console.log(`✅ BACKGROUND: Fantasy rankings calculated for league ${currentFilters.league}`);
             }
-        }
-
-        if (resetPage) {
-            currentPlayers = playersWithReadableStats;
+            
+            // ONLY SHOW FIRST 50 PLAYERS
+            currentPlayers = playersWithReadableStats.slice(0, 50);
+            apiState.totalRecords = data.pagination.totalRecords;
+            apiState.totalPages = Math.ceil(data.pagination.totalRecords / 50);
+            apiState.hasMore = currentPlayers.length < data.pagination.totalRecords;
         } else {
-            currentPlayers = [...currentPlayers, ...playersWithReadableStats];
+            // Normal pagination
+            if (resetPage) {
+                currentPlayers = playersWithReadableStats;
+            } else {
+                currentPlayers = [...currentPlayers, ...playersWithReadableStats];
+            }
+            
+            apiState.totalPages = data.pagination.totalPages;
+            apiState.totalRecords = data.pagination.totalRecords;
+            apiState.hasMore = data.pagination.hasNext;
         }
         
-        apiState.totalPages = data.pagination.totalPages;
-        apiState.totalRecords = data.pagination.totalRecords;
-        apiState.hasMore = data.pagination.hasNext;
         apiState.loading = false;
         
-        console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
+        console.log(`✅ Loaded ${playersWithReadableStats.length} players, displaying: ${currentPlayers.length}`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -592,23 +600,32 @@ function updateFilterControlsUI() {
 }
 
 // ENHANCED: Use ranked players for filtering
-function getFilteredPlayers() {
+async function getFilteredPlayers() {
     let filteredPlayers = currentPlayers;
 
-    // ENHANCED: Use ranked players if available and in fantasy mode
-    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRecentRankings(currentFilters.league)) {
-        console.log('🏆 Using ranked players for fantasy stats display');
+    // ENHANCED: Enhance with rankings if available and fantasy mode
+    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
+        console.log('🏆 Enhancing players with stored rankings');
         
-        filteredPlayers = window.statsAPI.getRankedPlayers(
+        // LIMIT TO FIRST 100 PLAYERS FOR PERFORMANCE
+        const playersToEnhance = filteredPlayers.slice(0, 100);
+        
+        if (playersToEnhance.length > 100) {
+            console.warn('⚠️ Too many players for fantasy mode, limiting to 100');
+        }
+        
+        filteredPlayers = await window.statsAPI.enhancePlayersWithRankings(
             currentFilters.league,
-            currentFilters.position
+            playersToEnhance
         );
         
-        // Convert to expected format
-        filteredPlayers = filteredPlayers.map(player => ({
-            ...player,
-            stats: convertStatsForDisplay(player.rawStats || player.stats)
-        }));
+        // Sort by overall rank if we have rankings
+        filteredPlayers = filteredPlayers.sort((a, b) => {
+            if (a.overallRank && b.overallRank) {
+                return a.overallRank - b.overallRank;
+            }
+            return 0;
+        });
         
         console.log(`📊 Using ${filteredPlayers.length} ranked players`);
     }
@@ -622,7 +639,6 @@ function getFilteredPlayers() {
     
     return filteredPlayers;
 }
-
 
 // FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
 function calculateFantasyPoints(statName, rawStatValue) {
@@ -879,66 +895,67 @@ function renderPlayerCard(player) {
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const stats = getStatsForPosition(currentFilters.position);
-    const bonusStats = getBonusStatsForPosition(currentFilters.position);
+    
+    // SAFETY: Disable fantasy mode if too many players
+    if (showFantasyStats && players.length > 100) {
+        console.warn('⚠️ Too many players for fantasy mode, switching to raw stats');
+        showFantasyStats = false;
+        document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.mode === 'raw') btn.classList.add('active');
+        });
+    }
     
     content.innerHTML = `
         <div class="research-container fade-in">
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    <button class="clear-filters-btn" onclick="clearAllFilters()">
-                        Clear Sort
-                    </button>
-                    ${showFantasyStats ? '<span class="bonus-note">Bonus columns show bonus points earned</span>' : ''}
+                    <button class="clear-filters-btn" onclick="clearAllFilters()">Clear Sort</button>
+                    ${showFantasyStats ? '<span class="bonus-note">Showing top ranked players with fantasy scoring</span>' : ''}
+                    <span class="player-count">Showing ${players.length} players</span>
                 </div>
             </div>
             <div class="research-table-wrapper">
                 <table class="research-table">
                     <thead>
                         <tr>
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
                             <th class="sortable" onclick="sortTable('name')">Player</th>
                             <th class="sortable" onclick="sortTable('position')">Pos</th>
                             <th class="sortable" onclick="sortTable('team')">Team</th>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'totalPts\')">Total Pts</th>' : ''}
-                            ${stats.map(stat => `
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Fantasy Pts</th>' : ''}
+                            ${stats.slice(0, 8).map(stat => `
                                 <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
-                                ${showFantasyStats && hasBonusRule(stat) ? `
-                                    <th class="sortable bonus-header" onclick="sortTable('${stat}_bonus')">${stat} Bonus</th>
-                                ` : ''}
                             `).join('')}
                         </tr>
                     </thead>
                     <tbody>
                         ${players.map(player => {
-                            const totalFantasyPoints = calculateTotalFantasyPoints(player);
                             return `
                                 <tr>
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
                                     <td class="player-name-cell">${player.name}</td>
                                     <td>${player.position}</td>
                                     <td>${player.team}</td>
                                     ${showFantasyStats ? `
                                         <td class="fantasy-stat-cell">
-                                            ${totalFantasyPoints > 0 ? totalFantasyPoints + ' pts' : '0 pts'}
+                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : '0 pts'}
                                         </td>
                                     ` : ''}
-                                    ${stats.map(stat => {
+                                    ${stats.slice(0, 8).map(stat => {
                                         const rawValue = player.stats[stat] || 0;
                                         const displayValue = getStatValue(player, stat);
-                                        const bonusPoints = getBonusPoints(player, stat);
                                         const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        const isBest = checkIfBestStat(player, stat);
                                         
                                         return `
-                                            <td class="${isBest ? 'stat-best' : ''}">
+                                            <td>
                                                 <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
                                                     ${formatStatValue(displayValue, stat, isFantasyMode)}
                                                 </span>
                                             </td>
-                                            ${showFantasyStats && hasBonusRule(stat) ? `
-                                                <td class="bonus-cell">
-                                                    ${bonusPoints > 0 ? '+' + bonusPoints + ' pts' : '0'}
-                                                </td>
-                                            ` : ''}
                                         `;
                                     }).join('')}
                                 </tr>
