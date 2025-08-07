@@ -22,11 +22,12 @@ let currentView = 'cards';
 let searchQuery = '';
 let showFantasyStats = false;
 let currentScoringRules = {};
+let userLeagues = {};
+let allScoringRules = {};
 let tableSort = {
     column: null,
     direction: 'asc'
 };
-let columnFilters = {};
 
 // Yahoo stat ID mapping
 const STAT_ID_MAPPING = {
@@ -123,47 +124,80 @@ const keyStats = {
     "DT": ["Tack Solo", "Sack", "Fum Force", "TD"]
 };
 
-// Scoring rules functions
-async function loadScoringRules(leagueId) {
-    if (!leagueId) return {};
-    
+// Backend API functions
+async function loadUserLeagues() {
     try {
-        const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
-        if (!response.ok) throw new Error('Failed to load scoring rules');
+        const response = await fetch('/data/stats/leagues');
+        if (!response.ok) throw new Error('Failed to load leagues');
         
         const data = await response.json();
-        return data.scoringRules || {};
+        userLeagues = data.leagues || {};
+        
+        // Store in localStorage with timestamp
+        localStorage.setItem('userLeagues', JSON.stringify({
+            leagues: userLeagues,
+            timestamp: Date.now()
+        }));
+        
+        return userLeagues;
     } catch (error) {
-        console.error('Error loading scoring rules:', error);
+        console.error('Error loading leagues:', error);
+        // Try to use cached data if available
+        const cached = localStorage.getItem('userLeagues');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            // Use cached data if less than 1 hour old
+            if (Date.now() - parsed.timestamp < 3600000) {
+                userLeagues = parsed.leagues;
+                return userLeagues;
+            }
+        }
         return {};
     }
 }
 
-// Fantasy data functions
-function getFantasyDataFromLocalStorage() {
+async function loadAllScoringRules() {
+    const leagueIds = Object.keys(userLeagues);
+    if (leagueIds.length === 0) return;
+    
     try {
-        const storedData = localStorage.getItem('fantasyLeagueData');
-        return storedData ? JSON.parse(storedData) : null;
+        const promises = leagueIds.map(async (leagueId) => {
+            try {
+                const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
+                if (!response.ok) throw new Error(`Failed to load rules for ${leagueId}`);
+                const data = await response.json();
+                return { leagueId, rules: data.scoringRules || {} };
+            } catch (error) {
+                console.error(`Error loading rules for league ${leagueId}:`, error);
+                return { leagueId, rules: {} };
+            }
+        });
+        
+        const results = await Promise.all(promises);
+        
+        results.forEach(({ leagueId, rules }) => {
+            allScoringRules[leagueId] = rules;
+        });
+        
+        // Store in localStorage with timestamp
+        localStorage.setItem('allScoringRules', JSON.stringify({
+            rules: allScoringRules,
+            timestamp: Date.now()
+        }));
+        
+        console.log('✅ Loaded scoring rules for all leagues');
+        
     } catch (error) {
-        console.error('Error retrieving fantasy data from localStorage:', error);
-        return null;
+        console.error('Error loading all scoring rules:', error);
+        // Try to use cached data
+        const cached = localStorage.getItem('allScoringRules');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < 3600000) {
+                allScoringRules = parsed.rules;
+            }
+        }
     }
-}
-
-function initializeActiveLeague() {
-    const fantasyData = getFantasyDataFromLocalStorage();
-    if (!fantasyData || !fantasyData.leagues || Object.keys(fantasyData.leagues).length === 0) {
-        return null;
-    }
-    
-    let activeLeagueId = localStorage.getItem('activeLeagueId');
-    
-    if (!activeLeagueId || !fantasyData.leagues[activeLeagueId]) {
-        activeLeagueId = Object.keys(fantasyData.leagues)[0];
-        localStorage.setItem('activeLeagueId', activeLeagueId);
-    }
-    
-    return activeLeagueId;
 }
 
 function getSavedWeek() {
@@ -182,11 +216,24 @@ function saveWeekPreference(week) {
     }
 }
 
+function initializeActiveLeague() {
+    let activeLeagueId = localStorage.getItem('activeLeagueId');
+    
+    if (!activeLeagueId || !userLeagues[activeLeagueId]) {
+        const leagueIds = Object.keys(userLeagues);
+        if (leagueIds.length > 0) {
+            activeLeagueId = leagueIds[0];
+            localStorage.setItem('activeLeagueId', activeLeagueId);
+        }
+    }
+    
+    return activeLeagueId;
+}
+
 // Filter controls
 function createFilterControls() {
-    const fantasyData = getFantasyDataFromLocalStorage();
     const activeLeagueId = currentFilters.league || initializeActiveLeague();
-    const activeLeague = fantasyData?.leagues?.[activeLeagueId];
+    const activeLeague = userLeagues[activeLeagueId];
     
     return `
         <div class="filter-controls">
@@ -210,13 +257,13 @@ function createFilterControls() {
                 </select>
             </div>
             
-            ${fantasyData?.leagues && Object.keys(fantasyData.leagues).length > 0 ? `
+            ${Object.keys(userLeagues).length > 0 ? `
                 <div class="filter-group">
                     <label for="league-select">League:</label>
                     <select id="league-select" class="filter-dropdown">
-                        ${Object.entries(fantasyData.leagues).map(([leagueId, league]) => `
+                        ${Object.entries(userLeagues).map(([leagueId, league]) => `
                             <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
-                                ${league.leagueName}
+                                ${league.leagueName || `League ${leagueId}`}
                             </option>
                         `).join('')}
                     </select>
@@ -253,6 +300,13 @@ function createFilterControls() {
                 }
                 ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
             </div>
+            
+            ${apiState.totalPages > 1 ? `
+                <div class="pagination-info">
+                    Page ${apiState.currentPage} of ${apiState.totalPages}
+                    ${apiState.hasMore ? '<button id="load-more-btn" class="load-more-btn">Load More</button>' : ''}
+                </div>
+            ` : ''}
         </div>
     `;
 }
@@ -276,455 +330,450 @@ async function loadStats(resetPage = true) {
             currentFilters.position,
             apiState.currentPage
         );
+        
         // Convert raw stats to display format ONLY when rendering
-       const playersWithReadableStats = data.data.map(player => ({
-           ...player,
-           stats: convertStatsForDisplay(player.stats) // Convert HERE during render
-       }));
-       
-       if (resetPage) {
-           currentPlayers = playersWithReadableStats;
-       } else {
-           currentPlayers = [...currentPlayers, ...playersWithReadableStats];
-       }
-       
-       apiState.totalPages = data.pagination.totalPages;
-       apiState.totalRecords = data.pagination.totalRecords;
-       apiState.hasMore = data.pagination.hasNext;
-       apiState.loading = false;
-       
-       // Load scoring rules if league is selected
-       if (currentFilters.league) {
-           currentScoringRules = await loadScoringRules(currentFilters.league);
-       }
-       
-       console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
-       
-   } catch (error) {
-       console.error('Failed to load stats:', error);
-       apiState.error = error.message;
-       apiState.loading = false;
-   }
-   
-   updateFilterControlsUI();
-   render();
+        const playersWithReadableStats = data.data.map(player => ({
+            ...player,
+            stats: convertStatsForDisplay(player.stats) // Convert HERE during render
+        }));
+        
+        if (resetPage) {
+            currentPlayers = playersWithReadableStats;
+        } else {
+            currentPlayers = [...currentPlayers, ...playersWithReadableStats];
+        }
+        
+        apiState.totalPages = data.pagination.totalPages;
+        apiState.totalRecords = data.pagination.totalRecords;
+        apiState.hasMore = data.pagination.hasNext;
+        apiState.loading = false;
+        
+        // Set scoring rules for current league
+        if (currentFilters.league && allScoringRules[currentFilters.league]) {
+            currentScoringRules = allScoringRules[currentFilters.league];
+        }
+        
+        console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
+        
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+        apiState.error = error.message;
+        apiState.loading = false;
+    }
+    
+    updateFilterControlsUI();
+    render();
 }
 
 // Event listeners
 function setupEventListeners() {
-   // Year filter
-   document.getElementById('year-select')?.addEventListener('change', async (e) => {
-       currentFilters.year = e.target.value;
-       currentFilters.week = 'total'; // Reset week when year changes
-       await loadStats(true);
-   });
-   
-   // Week filter  
-   document.getElementById('week-select')?.addEventListener('change', async (e) => {
-       currentFilters.week = e.target.value;
-       saveWeekPreference(e.target.value);
-       await loadStats(true);
-   });
-   
-   // League filter
-   document.getElementById('league-select')?.addEventListener('change', async (e) => {
-       currentFilters.league = e.target.value;
-       localStorage.setItem('activeLeagueId', e.target.value);
-       
-       // Load new scoring rules
-       currentScoringRules = await loadScoringRules(e.target.value);
-       
-       updateFilterControlsUI(); // Update team dropdown
-       render(); // Re-render with new scoring rules
-   });
-   
-   // Team filter
-   document.getElementById('team-select')?.addEventListener('change', (e) => {
-       currentFilters.team = e.target.value;
-       render();
-   });
-   
-   // Stats toggle
-   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-       btn.addEventListener('click', (e) => {
-           document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-           e.target.classList.add('active');
-           showFantasyStats = e.target.dataset.mode === 'fantasy';
-           render();
-       });
-   });
-   
-   // View toggle buttons
-   document.querySelectorAll('.view-btn').forEach(btn => {
-       btn.addEventListener('click', (e) => {
-           document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-           e.target.classList.add('active');
-           currentView = e.target.dataset.view;
-           render();
-       });
-   });
+    // Year filter
+    document.getElementById('year-select')?.addEventListener('change', async (e) => {
+        currentFilters.year = e.target.value;
+        currentFilters.week = 'total'; // Reset week when year changes
+        await loadStats(true);
+    });
+    
+    // Week filter  
+    document.getElementById('week-select')?.addEventListener('change', async (e) => {
+        currentFilters.week = e.target.value;
+        saveWeekPreference(e.target.value);
+        await loadStats(true);
+    });
+    
+    // League filter
+    document.getElementById('league-select')?.addEventListener('change', async (e) => {
+        currentFilters.league = e.target.value;
+        localStorage.setItem('activeLeagueId', e.target.value);
+        
+        // Set scoring rules for new league
+        if (allScoringRules[e.target.value]) {
+            currentScoringRules = allScoringRules[e.target.value];
+        }
+        
+        updateFilterControlsUI(); // Update team dropdown
+        render(); // Re-render with new scoring rules
+    });
+    
+    // Team filter
+    document.getElementById('team-select')?.addEventListener('change', (e) => {
+        currentFilters.team = e.target.value;
+        render();
+    });
+    
+    // Stats toggle
+    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            showFantasyStats = e.target.dataset.mode === 'fantasy';
+            render();
+        });
+    });
+    
+    // Load more button
+    document.getElementById('load-more-btn')?.addEventListener('click', async () => {
+        if (apiState.hasMore && !apiState.loading) {
+            apiState.currentPage++;
+            await loadStats(false);
+        }
+    });
+    
+    // View toggle buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentView = e.target.dataset.view;
+            render();
+        });
+    });
 
-   // Search
-   document.getElementById('searchInput').addEventListener('input', (e) => {
-       searchQuery = e.target.value.toLowerCase();
-       render();
-   });
-   
-   // Position filter buttons
-   document.getElementById('positionFilter').addEventListener('click', async (e) => {
-       if (e.target.classList.contains('position-btn')) {
-           document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-           e.target.classList.add('active');
-           currentFilters.position = e.target.dataset.position;
-           await loadStats(true);
-       }
-   });
+    // Search
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        render();
+    });
+    
+    // Position filter buttons
+    document.getElementById('positionFilter').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('position-btn')) {
+            document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentFilters.position = e.target.dataset.position;
+            await loadStats(true);
+        }
+    });
 }
 
 // Update filter controls UI
 function updateFilterControlsUI() {
-   const filterContainer = document.querySelector('.filter-controls-container');
-   if (filterContainer) {
-       filterContainer.innerHTML = createFilterControls();
-       setupEventListeners();
-   }
+    const filterContainer = document.querySelector('.filter-controls-container');
+    if (filterContainer) {
+        filterContainer.innerHTML = createFilterControls();
+        setupEventListeners();
+    }
 }
 
 // Get filtered players
 function getFilteredPlayers() {
-   let filteredPlayers = currentPlayers;
-   
-   // Apply search filter
-   if (searchQuery) {
-       filteredPlayers = filteredPlayers.filter(player => {
-           return player.name.toLowerCase().includes(searchQuery) ||
-                  player.team.toLowerCase().includes(searchQuery);
-       });
-   }
-   
-   // Apply column filters for research view
-   if (currentView === 'research' && Object.keys(columnFilters).length > 0) {
-       filteredPlayers = filteredPlayers.filter(player => {
-           return Object.entries(columnFilters).every(([column, filterValue]) => {
-               if (!filterValue) return true;
-               
-               let cellValue;
-               if (column === 'name') {
-                   cellValue = player.name;
-               } else if (column === 'position') {
-                   cellValue = player.position;
-               } else if (column === 'team') {
-                   cellValue = player.team;
-               } else {
-                   cellValue = getStatValue(player, column);
-               }
-               
-               return cellValue.toString().toLowerCase().includes(filterValue.toLowerCase());
-           });
-       });
-   }
-   
-   return filteredPlayers;
+    let filteredPlayers = currentPlayers;
+    
+    // Apply search filter
+    if (searchQuery) {
+        filteredPlayers = filteredPlayers.filter(player => {
+            return player.name.toLowerCase().includes(searchQuery) ||
+                   player.team.toLowerCase().includes(searchQuery);
+        });
+    }
+    
+    return filteredPlayers;
 }
 
 // Fantasy points calculation
 function calculateFantasyPoints(statName, statValue) {
-   if (!currentScoringRules || statValue === 0) {
-       return 0;
-   }
-   
-   // Find the stat ID for the given stat name
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
-   
-   if (!statId || !currentScoringRules[statId]) {
-       return 0;
-   }
-   
-   const rule = currentScoringRules[statId];
-   let points = statValue * parseFloat(rule.points || 0);
-   
-   // Add bonus points if applicable
-   if (rule.bonuses && Array.isArray(rule.bonuses)) {
-       rule.bonuses.forEach(bonusRule => {
-           if (statValue >= parseFloat(bonusRule.bonus.target)) {
-               points += parseFloat(bonusRule.bonus.points);
-           }
-       });
-   }
-   
-   return Math.round(points * 100) / 100;
+    if (!currentScoringRules || statValue === 0) {
+        return 0;
+    }
+    
+    // Find the stat ID for the given stat name
+    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+        STAT_ID_MAPPING[id] === statName
+    );
+    
+    if (!statId || !currentScoringRules[statId]) {
+        return 0;
+    }
+    
+    const rule = currentScoringRules[statId];
+    let points = statValue * parseFloat(rule.points || 0);
+    
+    // Add bonus points if applicable
+    if (rule.bonuses && Array.isArray(rule.bonuses)) {
+        rule.bonuses.forEach(bonusRule => {
+            if (statValue >= parseFloat(bonusRule.bonus.target)) {
+                points += parseFloat(bonusRule.bonus.points);
+            }
+        });
+    }
+    
+    return Math.round(points * 100) / 100;
+}
+
+// Calculate total fantasy points for a player
+function calculateTotalFantasyPoints(player) {
+    if (!showFantasyStats || !currentScoringRules) return 0;
+    
+    let totalPoints = 0;
+    Object.entries(player.stats).forEach(([statName, statValue]) => {
+        const points = calculateFantasyPoints(statName, statValue);
+        totalPoints += points;
+    });
+    
+    return Math.round(totalPoints * 100) / 100;
 }
 
 // Get stat value for display
 function getStatValue(player, statName) {
-   if (showFantasyStats && currentScoringRules) {
-       const rawValue = player.stats[statName] || 0;
-       const fantasyPoints = calculateFantasyPoints(statName, rawValue);
-       return fantasyPoints > 0 ? fantasyPoints : rawValue;
-   }
-   return player.stats[statName] || 0;
+    if (showFantasyStats && currentScoringRules) {
+        const rawValue = player.stats[statName] || 0;
+        const fantasyPoints = calculateFantasyPoints(statName, rawValue);
+        return fantasyPoints > 0 ? fantasyPoints : rawValue;
+    }
+    return player.stats[statName] || 0;
 }
 
 // Research table functions
 function sortTable(column) {
-   if (tableSort.column === column) {
-       tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-   } else {
-       tableSort.column = column;
-       tableSort.direction = 'asc';
-   }
-   render();
+    if (tableSort.column === column) {
+        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'asc';
+    }
+    render();
 }
 
 function clearAllFilters() {
-   columnFilters = {};
-   tableSort = { column: null, direction: 'asc' };
-   document.querySelectorAll('.column-filter').forEach(input => {
-       input.value = '';
-   });
-   render();
+    tableSort = { column: null, direction: 'asc' };
+    render();
 }
 
 function getSortedPlayers(players) {
-   if (!tableSort.column) return players;
-   
-   return [...players].sort((a, b) => {
-       let aValue, bValue;
-       
-       if (tableSort.column === 'name') {
-           aValue = a.name;
-           bValue = b.name;
-       } else if (tableSort.column === 'position') {
-           aValue = a.position;
-           bValue = b.position;
-       } else if (tableSort.column === 'team') {
-           aValue = a.team;
-           bValue = b.team;
-       } else {
-           aValue = getStatValue(a, tableSort.column);
-           bValue = getStatValue(b, tableSort.column);
-       }
-       
-       // Handle numeric vs string comparison
-       if (typeof aValue === 'number' && typeof bValue === 'number') {
-           return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
-       } else {
-           aValue = aValue.toString().toLowerCase();
-           bValue = bValue.toString().toLowerCase();
-           if (tableSort.direction === 'asc') {
-               return aValue.localeCompare(bValue);
-           } else {
-               return bValue.localeCompare(aValue);
-           }
-       }
-   });
+    if (!tableSort.column) return players;
+    
+    return [...players].sort((a, b) => {
+        let aValue, bValue;
+        
+        if (tableSort.column === 'name') {
+            aValue = a.name;
+            bValue = b.name;
+        } else if (tableSort.column === 'position') {
+            aValue = a.position;
+            bValue = b.position;
+        } else if (tableSort.column === 'team') {
+            aValue = a.team;
+            bValue = b.team;
+        } else if (tableSort.column === 'totalPts') {
+            aValue = calculateTotalFantasyPoints(a);
+            bValue = calculateTotalFantasyPoints(b);
+        } else {
+            aValue = getStatValue(a, tableSort.column);
+            bValue = getStatValue(b, tableSort.column);
+        }
+        
+        // Handle numeric vs string comparison
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            aValue = aValue.toString().toLowerCase();
+            bValue = bValue.toString().toLowerCase();
+            if (tableSort.direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
 }
 
 // Render functions
 function render() {
-   const content = document.getElementById('content');
-   let filteredPlayers = getFilteredPlayers();
+    const content = document.getElementById('content');
+    let filteredPlayers = getFilteredPlayers();
 
-   if (filteredPlayers.length === 0) {
-       content.innerHTML = `
-           <div class="empty-state">
-               <div class="empty-state-icon">🏈</div>
-               <h3>No players found</h3>
-               <p>Try adjusting your filters or search terms</p>
-           </div>
-       `;
-       return;
-   }
+    if (filteredPlayers.length === 0) {
+        content.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🏈</div>
+                <h3>No players found</h3>
+                <p>Try adjusting your filters or search terms</p>
+            </div>
+        `;
+        return;
+    }
 
-   // Apply sorting for research view
-   if (currentView === 'research') {
-       filteredPlayers = getSortedPlayers(filteredPlayers);
-   }
+    // Apply sorting for research view
+    if (currentView === 'research') {
+        filteredPlayers = getSortedPlayers(filteredPlayers);
+    }
 
-   switch (currentView) {
-       case 'cards':
-           renderCardsView(filteredPlayers);
-           break;
-       case 'research':
-           renderResearchView(filteredPlayers);
-           break;
-       case 'stats':
-           renderStatsView(filteredPlayers);
-           break;
-   }
+    switch (currentView) {
+        case 'cards':
+            renderCardsView(filteredPlayers);
+            break;
+        case 'research':
+            renderResearchView(filteredPlayers);
+            break;
+        case 'stats':
+            renderStatsView(filteredPlayers);
+            break;
+    }
 }
 
 function renderCardsView(players) {
-   const content = document.getElementById('content');
-   content.innerHTML = `
-       <div class="player-grid">
-           ${players.map(player => renderPlayerCard(player)).join('')}
-       </div>
-   `;
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="player-grid">
+            ${players.map(player => renderPlayerCard(player)).join('')}
+        </div>
+    `;
 }
 
 function renderPlayerCard(player) {
-   const stats = keyStats[player.position] || [];
-   
-   return `
-       <div class="player-card fade-in">
-           <div class="player-header">
-               <div class="player-info">
-                   <h3>${player.name}</h3>
-                   <div class="player-meta">
-                       <span class="position-badge">${player.position}</span>
-                       <span>${player.team}</span>
-                   </div>
-               </div>
-           </div>
-           <div class="stat-grid">
-               ${stats.map(stat => {
-                   const rawValue = player.stats[stat] || 0;
-                   const displayValue = getStatValue(player, stat);
-                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                   const isBest = checkIfBestStat(player, stat);
-                   
-                   return `
-                       <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                               ${formatStatValue(displayValue, stat, isFantasyMode)}
-                           </span>
-                           <span class="stat-label">${stat}</span>
-                       </div>
-                   `;
-               }).join('')}
-           </div>
-       </div>
-   `;
+    const stats = keyStats[player.position] || [];
+    
+    return `
+        <div class="player-card fade-in">
+            <div class="player-header">
+                <div class="player-info">
+                    <h3>${player.name}</h3>
+                    <div class="player-meta">
+                        <span class="position-badge">${player.position}</span>
+                        <span>${player.team}</span>
+                        ${showFantasyStats ? `<span class="fantasy-total">${calculateTotalFantasyPoints(player)} pts</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="stat-grid">
+                ${stats.map(stat => {
+                    const rawValue = player.stats[stat] || 0;
+                    const displayValue = getStatValue(player, stat);
+                    const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                    const isBest = checkIfBestStat(player, stat);
+                    
+                    return `
+                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
+                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                                ${formatStatValue(displayValue, stat, isFantasyMode)}
+                            </span>
+                            <span class="stat-label">${stat}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
 }
 
 function renderResearchView(players) {
-   const content = document.getElementById('content');
-   const stats = getStatsForPosition(currentFilters.position);
-   
-   content.innerHTML = `
-       <div class="research-container fade-in">
-           <div class="research-header">
-               <h2>Research Table</h2>
-               <div class="research-controls">
-                   <button class="clear-filters-btn" onclick="clearAllFilters()">
-                       Clear All Filters
-                   </button>
-               </div>
-           </div>
-           <div class="research-table-wrapper">
-               <table class="research-table">
-                   <thead>
-                       <tr>
-                           <th class="sortable" onclick="sortTable('name')">
-                               Player
-                               <span class="sort-icon ${tableSort.column === 'name' ? 'sort-' + tableSort.direction : ''}"></span>
-                               <input type="text" class="column-filter" placeholder="Filter..." 
-                                      onkeyup="filterColumn('name', this.value)">
-                           </th>
-                           <th class="sortable" onclick="sortTable('position')">
-                               Pos
-                               <span class="sort-icon ${tableSort.column === 'position' ? 'sort-' + tableSort.direction : ''}"></span>
-                               <input type="text" class="column-filter" placeholder="Filter..." 
-                                      onkeyup="filterColumn('position', this.value)">
-                           </th>
-                           <th class="sortable" onclick="sortTable('team')">
-                               Team
-                               <span class="sort-icon ${tableSort.column === 'team' ? 'sort-' + tableSort.direction : ''}"></span>
-                               <input type="text" class="column-filter" placeholder="Filter..." 
-                                      onkeyup="filterColumn('team', this.value)">
-                           </th>
-                           ${stats.map(stat => `
-                               <th class="sortable" onclick="sortTable('${stat}')">
-                                   ${stat}
-                                   <span class="sort-icon ${tableSort.column === stat ? 'sort-' + tableSort.direction : ''}"></span>
-                                   <input type="text" class="column-filter" placeholder="Filter..." 
-                                          onkeyup="filterColumn('${stat}', this.value)">
-                               </th>
-                           `).join('')}
-                       </tr>
-                   </thead>
-                   <tbody>
-                       ${players.map(player => `
-                           <tr>
-                               <td class="player-name-cell">${player.name}</td>
-                               <td>${player.position}</td>
-                               <td>${player.team}</td>
-                               ${stats.map(stat => {
-                                   const rawValue = player.stats[stat] || 0;
-                                   const displayValue = getStatValue(player, stat);
-                                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                   const isBest = checkIfBestStat(player, stat);
-                                   
-                                   return `
-                                       <td class="${isBest ? 'stat-best' : ''}">
-                                           <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                               ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                           </span>
-                                       </td>
-                                   `;
-                               }).join('')}
-                           </tr>
-                       `).join('')}
-                   </tbody>
-               </table>
-           </div>
-       </div>
-   `;
+    const content = document.getElementById('content');
+    const stats = getStatsForPosition(currentFilters.position);
+    
+    content.innerHTML = `
+        <div class="research-container fade-in">
+            <div class="research-header">
+                <h2>Research Table</h2>
+                <div class="research-controls">
+                    <button class="clear-filters-btn" onclick="clearAllFilters()">
+                        Clear Sort
+                    </button>
+                </div>
+            </div>
+            <div class="research-table-wrapper">
+                <table class="research-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('name')">
+                                Player
+                                <span class="sort-icon ${tableSort.column === 'name' ? 'sort-' + tableSort.direction : ''}"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('position')">
+                                Pos
+                                <span class="sort-icon ${tableSort.column === 'position' ? 'sort-' + tableSort.direction : ''}"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('team')">
+                                Team
+                                <span class="sort-icon ${tableSort.column === 'team' ? 'sort-' + tableSort.direction : ''}"></span>
+                            </th>
+                            ${showFantasyStats ? `
+                                <th class="sortable" onclick="sortTable('totalPts')">
+                                    Total Pts
+                                    <span class="sort-icon ${tableSort.column === 'totalPts' ? 'sort-' + tableSort.direction : ''}"></span>
+                                </th>
+                            ` : ''}
+                            ${stats.map(stat => `
+                                <th class="sortable" onclick="sortTable('${stat}')">
+                                    ${stat}
+                                    <span class="sort-icon ${tableSort.column === stat ? 'sort-' + tableSort.direction : ''}"></span>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${players.map(player => `
+                            <tr>
+                                <td class="player-name-cell">${player.name}</td>
+                                <td>${player.position}</td>
+                                <td>${player.team}</td>
+                                ${showFantasyStats ? `
+                                    <td class="fantasy-stat-cell">
+                                        ${calculateTotalFantasyPoints(player)} pts
+                                    </td>
+                                ` : ''}
+                                ${stats.map(stat => {
+                                    const rawValue = player.stats[stat] || 0;
+                                    const displayValue = getStatValue(player, stat);
+                                    const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                    const isBest = checkIfBestStat(player, stat);
+                                    
+                                    return `
+                                        <td class="${isBest ? 'stat-best' : ''}">
+                                            <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                            </span>
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 function renderStatsView(players) {
-   const content = document.getElementById('content');
-   const stats = getStatsForPosition(currentFilters.position);
-   const statCategories = categorizeStats(stats);
-   
-   content.innerHTML = `
-       <div class="stats-overview fade-in">
-           <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
-           ${Object.entries(statCategories).map(([category, categoryStats]) => `
-               <div class="stat-category">
-                   <div class="stat-category-title">${category}</div>
-                   ${categoryStats.map(stat => {
-                       const leaders = getStatLeaders(players, stat, 3);
-                       return `
-                           <div class="stat-row">
-                               <span>${stat}</span>
-                               <span>${leaders.map(l => {
-                                   const displayValue = showFantasyStats ? 
-                                       calculateFantasyPoints(stat, l.value) || l.value : 
-                                       l.value;
-                                   const suffix = showFantasyStats && displayValue !== l.value ? ' pts' : '';
-                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats)}${suffix})`;
-                               }).join(', ')}</span>
-                           </div>
-                       `;
-                   }).join('')}
-               </div>
-           `).join('')}
-       </div>
-   `;
-}
-
-// Column filter function
-function filterColumn(column, value) {
-   if (value.trim() === '') {
-       delete columnFilters[column];
-   } else {
-       columnFilters[column] = value.trim();
-   }
-   render();
+    const content = document.getElementById('content');
+    const stats = getStatsForPosition(currentFilters.position);
+    const statCategories = categorizeStats(stats);
+    
+    content.innerHTML = `
+        <div class="stats-overview fade-in">
+            <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
+            ${Object.entries(statCategories).map(([category, categoryStats]) => `
+                <div class="stat-category">
+                    <div class="stat-category-title">${category}</div>
+                    ${categoryStats.map(stat => {
+                        const leaders = getStatLeaders(players, stat, 3);
+                        return `
+                            <div class="stat-row">
+                                <span>${stat}</span>
+                                <span>${leaders.map(l => {
+                                    const displayValue = showFantasyStats ? 
+                                        calculateFantasyPoints(stat, l.value) || l.value : 
+                                        l.value;
+                                    const suffix = showFantasyStats && displayValue !== l.value ? ' pts' : '';
+                                    return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats)}${suffix})`;
+                                }).join(', ')}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 // Helper functions
 function getStatsForPosition(position) {
-   if (position === 'ALL') {
-       const allStats = new Set();
-       Object.values(positionStats).forEach(stats => {
-           stats.forEach(stat => allStats.add(stat));
-       });
-       return Array.from(allStats);
+    if (position === 'ALL') {
+        const allStats = new Set();
+        Object.values(positionStats).forEach(stats => {
+            stats.forEach(stat => allStats.add(stat));
+        });
+        return Array.from(allStats);
    }
    return positionStats[position] || [];
 }
@@ -803,15 +852,27 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+   console.log('🚀 Initializing Fantasy Football Dashboard...');
+   
+   // Load user leagues first
+   console.log('📡 Loading user leagues...');
+   await loadUserLeagues();
+   
    // Initialize active league
    currentFilters.league = initializeActiveLeague();
+   console.log('🎯 Active league:', currentFilters.league);
    
    // Load saved week preference
    currentFilters.week = getSavedWeek();
    
-   // Load scoring rules if league is available
-   if (currentFilters.league) {
-       currentScoringRules = await loadScoringRules(currentFilters.league);
+   // Load all scoring rules for all leagues
+   console.log('⚖️ Loading scoring rules for all leagues...');
+   await loadAllScoringRules();
+   
+   // Set scoring rules for current league
+   if (currentFilters.league && allScoringRules[currentFilters.league]) {
+       currentScoringRules = allScoringRules[currentFilters.league];
+       console.log('✅ Scoring rules loaded for active league');
    }
    
    // Add filter controls to header
@@ -828,5 +889,8 @@ document.addEventListener('DOMContentLoaded', async () => {
    setupEventListeners();
    
    // Load initial stats data
+   console.log('📊 Loading initial stats data...');
    await loadStats(true);
+   
+   console.log('🎉 Dashboard initialization complete!');
 });
