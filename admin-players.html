@@ -382,21 +382,22 @@
         <div id="results"></div>
     </div>
     
-    <!-- Confirmation Modal -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <h3>Import Season Statistics</h3>
-            <p>You are about to import ALL player statistics for the <strong id="modalYear"></strong> season.</p>
-            <p>Max Players: <strong id="modalMaxPlayers"></strong></p>
-            <p>Batch Size: <strong id="modalBatchSize"></strong></p>
-            <p class="warning-text">⚠️ This will fetch data for all 18 weeks and may take several minutes.</p>
-            <p>Do you want to continue?</p>
-            <div class="modal-buttons">
-                <button class="cancel-button" onclick="closeModal()">Cancel</button>
-                <button onclick="confirmStatsImport()">Continue</button>
-            </div>
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <h3>Import Statistics</h3>
+        <p>You are about to import statistics for the <strong id="modalYear"></strong> season.</p>
+        <p><strong>Import Type:</strong> <span id="modalImportType"></span></p>
+        <p>Max Players: <strong id="modalMaxPlayers"></strong></p>
+        <p>Batch Size: <strong id="modalBatchSize"></strong></p>
+        <p class="warning-text" id="modalWarning">⚠️ This operation may take several minutes.</p>
+        <p>Do you want to continue?</p>
+        <div class="modal-buttons">
+            <button class="cancel-button" onclick="closeModal()">Cancel</button>
+            <button onclick="confirmStatsImport()">Continue</button>
         </div>
     </div>
+</div>
 
 <script>
 // Enhanced global variables with persistence
