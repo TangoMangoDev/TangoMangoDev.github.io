@@ -27,7 +27,8 @@ let tableSort = {
     column: null,
     direction: 'asc'
 };
-
+let allPlayersLoaded = false;
+let currentRankings = null;
 let eventListenersSetup = false;
 
 // COMPLETE Yahoo stat ID mapping - ALL STATS FROM YOUR SCORING RULES
@@ -168,7 +169,7 @@ const keyStats = {
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading user leagues...');
-        const response = await fetch('/data/stats/rules'); // NO leagueId parameter
+        const response = await fetch('/data/stats/rules');
         
         if (!response.ok) {
             console.warn('⚠️ Failed to load leagues, using empty defaults');
@@ -178,28 +179,34 @@ async function loadUserLeagues() {
         const data = await response.json();
         console.log('📊 Leagues response received:', data);
         
-        // Check if user needs to import leagues
         if (data.needsImport) {
             console.log('⚠️ User needs to import leagues first');
             return setEmptyDefaults();
         }
         
-        // Handle the response format
         if (data.leagues && data.defaultLeagueId && data.scoringRules) {
             userLeagues = data.leagues;
             
-            // STORE SCORING RULES IN INDEXEDDB IMMEDIATELY
             const defaultLeagueId = data.defaultLeagueId;
             const rulesForDefault = data.scoringRules[defaultLeagueId];
             
             if (rulesForDefault && Object.keys(rulesForDefault).length > 0) {
                 console.log(`💾 STORING ${Object.keys(rulesForDefault).length} scoring rules in IndexedDB for default league ${defaultLeagueId}`);
                 
-                // Store in IndexedDB using the cache
                 await window.statsAPI.cache.setScoringRules(defaultLeagueId, rulesForDefault);
-                
-                // Set current rules from what we just stored
                 currentScoringRules = rulesForDefault;
+                
+                // ENHANCED: Trigger ranking calculation if we have all players loaded
+                if (allPlayersLoaded && currentPlayers.length > 0) {
+                    console.log(`🏆 Triggering ranking calculation with loaded players...`);
+                    await window.statsAPI.calculateFantasyRankings(
+                        defaultLeagueId,
+                        currentPlayers,
+                        currentScoringRules
+                    );
+                    
+                    console.log(`✅ Rankings calculated post-league load`);
+                }
                 
                 console.log(`✅ Stored and set scoring rules for league ${defaultLeagueId}`);
             } else {
@@ -207,14 +214,12 @@ async function loadUserLeagues() {
                 currentScoringRules = {};
             }
             
-            // Store active league in localStorage
             localStorage.setItem('activeLeagueId', defaultLeagueId);
             currentFilters.league = defaultLeagueId;
             
             console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
             console.log(`🎯 Set default league: ${defaultLeagueId} with ${Object.keys(currentScoringRules).length} scoring rules`);
             
-            // Store in localStorage
             localStorage.setItem('userLeagues', JSON.stringify({
                 leagues: userLeagues,
                 timestamp: Date.now()
@@ -223,7 +228,6 @@ async function loadUserLeagues() {
             return userLeagues;
         }
         
-        // Fallback to old format or empty
         userLeagues = data.leagues || {};
         currentScoringRules = {};
         
@@ -239,6 +243,7 @@ async function loadUserLeagues() {
         return setEmptyDefaults();
     }
 }
+
 
 function setEmptyDefaults() {
     userLeagues = {};
@@ -402,7 +407,7 @@ function createFilterControls() {
     `;
 }
 
-// Load stats function
+// ENHANCED: Load stats with initial full load
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -429,10 +434,30 @@ async function loadStats(resetPage = true) {
         
         const playersWithReadableStats = data.data.map(player => ({
             ...player,
-            rawStats: player.stats, // Keep original raw stats
-            stats: convertStatsForDisplay(player.stats) // Readable stats for display
+            rawStats: player.stats,
+            stats: convertStatsForDisplay(player.stats)
         }));
-        
+
+        // ENHANCED: Handle initial full load
+        if (data.isInitialLoad && !allPlayersLoaded) {
+            console.log(`🚀 INITIAL LOAD: Received ${playersWithReadableStats.length} players`);
+            
+            // Store all players and calculate rankings if we have scoring rules
+            allPlayersLoaded = true;
+            
+            if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+                console.log(`🏆 Calculating fantasy rankings...`);
+                
+                await window.statsAPI.calculateFantasyRankings(
+                    currentFilters.league,
+                    playersWithReadableStats,
+                    currentScoringRules
+                );
+                
+                console.log(`✅ Fantasy rankings calculated for league ${currentFilters.league}`);
+            }
+        }
+
         if (resetPage) {
             currentPlayers = playersWithReadableStats;
         } else {
@@ -455,7 +480,6 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     render();
 }
-
 // Event listeners
 function setupEventListeners() {
     if (eventListenersSetup) {
@@ -567,8 +591,27 @@ function updateFilterControlsUI() {
     }
 }
 
+// ENHANCED: Use ranked players for filtering
 function getFilteredPlayers() {
     let filteredPlayers = currentPlayers;
+
+    // ENHANCED: Use ranked players if available and in fantasy mode
+    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRecentRankings(currentFilters.league)) {
+        console.log('🏆 Using ranked players for fantasy stats display');
+        
+        filteredPlayers = window.statsAPI.getRankedPlayers(
+            currentFilters.league,
+            currentFilters.position
+        );
+        
+        // Convert to expected format
+        filteredPlayers = filteredPlayers.map(player => ({
+            ...player,
+            stats: convertStatsForDisplay(player.rawStats || player.stats)
+        }));
+        
+        console.log(`📊 Using ${filteredPlayers.length} ranked players`);
+    }
     
     if (searchQuery) {
         filteredPlayers = filteredPlayers.filter(player => {
@@ -579,6 +622,7 @@ function getFilteredPlayers() {
     
     return filteredPlayers;
 }
+
 
 // FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
 function calculateFantasyPoints(statName, rawStatValue) {
@@ -785,9 +829,10 @@ function renderCardsView(players) {
     `;
 }
 
+// ENHANCED: Player card with rankings
 function renderPlayerCard(player) {
     const stats = keyStats[player.position] || [];
-    const totalFantasyPoints = calculateTotalFantasyPoints(player);
+    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
     
     return `
         <div class="player-card fade-in">
@@ -797,7 +842,15 @@ function renderPlayerCard(player) {
                     <div class="player-meta">
                         <span class="position-badge">${player.position}</span>
                         <span>${player.team}</span>
-                        ${showFantasyStats && totalFantasyPoints > 0 ? `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''}
+                        ${showFantasyStats && totalFantasyPoints > 0 ? 
+                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
+                        }
+                        ${showFantasyStats && player.overallRank ? 
+                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
+                        }
+                        ${showFantasyStats && player.positionRank ? 
+                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
+                        }
                     </div>
                 </div>
             </div>
