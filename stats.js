@@ -171,6 +171,15 @@ async function loadUserLeagues() {
         
         const data = await response.json();
         
+        // Check if user needs to import leagues
+        if (data.needsImport) {
+            console.log('⚠️ User needs to import leagues first');
+            userLeagues = {};
+            currentScoringRules = {};
+            currentFilters.league = null;
+            return {};
+        }
+        
         // Handle the NEW response format
         if (data.leagues && data.defaultLeagueId && data.scoringRules) {
             userLeagues = data.leagues;
@@ -195,8 +204,9 @@ async function loadUserLeagues() {
             return userLeagues;
         }
         
-        // Fallback to old format
+        // Fallback to old format or empty
         userLeagues = data.leagues || {};
+        currentScoringRules = {};
         
         localStorage.setItem('userLeagues', JSON.stringify({
             leagues: userLeagues,
@@ -206,6 +216,12 @@ async function loadUserLeagues() {
         return userLeagues;
     } catch (error) {
         console.error('Error loading leagues:', error);
+        
+        // Set safe defaults
+        userLeagues = {};
+        currentScoringRules = {};
+        currentFilters.league = null;
+        
         const cached = localStorage.getItem('userLeagues');
         if (cached) {
             const parsed = JSON.parse(cached);
@@ -217,6 +233,7 @@ async function loadUserLeagues() {
         return {};
     }
 }
+
 
 // FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
@@ -542,7 +559,13 @@ function getFilteredPlayers() {
 
 // FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
 function calculateFantasyPoints(statName, rawStatValue) {
-    if (!showFantasyStats || !currentScoringRules || !rawStatValue || rawStatValue === 0) {
+    if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
+        return rawStatValue || 0;
+    }
+    
+    // SAFE: If no scoring rules, just return raw value
+    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+        console.warn('⚠️ No scoring rules available, showing raw stats');
         return rawStatValue || 0;
     }
     
@@ -560,7 +583,7 @@ function calculateFantasyPoints(statName, rawStatValue) {
     // Base points calculation
     let points = rawStatValue * parseFloat(rule.points || 0);
     
-    // FIXED: Add bonus points if applicable
+    // Add bonus points if applicable
     if (rule.bonuses && Array.isArray(rule.bonuses)) {
         rule.bonuses.forEach(bonusRule => {
             const target = parseFloat(bonusRule.bonus.target || 0);
@@ -568,84 +591,81 @@ function calculateFantasyPoints(statName, rawStatValue) {
             
             if (rawStatValue >= target) {
                 points += bonusPoints;
-                console.log(`🎯 BONUS: ${statName} ${rawStatValue} >= ${target}, adding ${bonusPoints} pts`);
             }
         });
     }
     
-    const finalPoints = Math.round(points * 100) / 100;
-    console.log(`💰 ${statName} (${statId}): ${rawStatValue} * ${rule.points} + bonuses = ${finalPoints} pts`);
-    
-    return finalPoints;
+    return Math.round(points * 100) / 100;
 }
 
 // Calculate total fantasy points for a player
 function calculateTotalFantasyPoints(player) {
-    if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
+    if (!showFantasyStats || !player.rawStats) {
+        return 0;
+    }
+    
+    // SAFE: If no scoring rules, return 0
+    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
         return 0;
     }
     
     let totalPoints = 0;
-    let calculationBreakdown = [];
     
-    // Use RAW stats for calculation
-    Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-        if (currentScoringRules[statId] && statValue > 0) {
-            const statName = STAT_ID_MAPPING[statId];
-            const rule = currentScoringRules[statId];
-            
-            // Base points
-            let points = statValue * parseFloat(rule.points || 0);
-            
-            // Add bonuses
-            if (rule.bonuses && Array.isArray(rule.bonuses)) {
-                rule.bonuses.forEach(bonusRule => {
-                    const target = parseFloat(bonusRule.bonus.target || 0);
-                    const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                    
-                    if (statValue >= target) {
-                        points += bonusPoints;
-                        calculationBreakdown.push(`${statName}: +${bonusPoints} bonus (${statValue} >= ${target})`);
-                    }
-                });
+    try {
+        // Use RAW stats for calculation
+        Object.entries(player.rawStats).forEach(([statId, statValue]) => {
+            if (currentScoringRules[statId] && statValue > 0) {
+                const rule = currentScoringRules[statId];
+                
+                // Base points
+                let points = statValue * parseFloat(rule.points || 0);
+                
+                // Add bonuses
+                if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                    rule.bonuses.forEach(bonusRule => {
+                        const target = parseFloat(bonusRule.bonus.target || 0);
+                        const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                        
+                        if (statValue >= target) {
+                            points += bonusPoints;
+                        }
+                    });
+                }
+                
+                if (points !== 0) {
+                    totalPoints += points;
+                }
             }
-            
-            if (points !== 0) {
-                totalPoints += points;
-                calculationBreakdown.push(`${statName}: ${statValue} * ${rule.points} = ${points}`);
-            }
-        }
-    });
-    
-    const finalTotal = Math.round(totalPoints * 100) / 100;
-    
-    // Log breakdown for debugging
-    if (calculationBreakdown.length > 0) {
-        console.log(`🏈 ${player.name} total: ${finalTotal} pts`, calculationBreakdown.slice(0, 5));
+        });
+        
+        return Math.round(totalPoints * 100) / 100;
+    } catch (error) {
+        console.error(`Error calculating total fantasy points for ${player.name}:`, error);
+        return 0;
     }
-    
-    return finalTotal;
 }
 
 // FIXED: Get stat value for display - PROPER conversion
 function getStatValue(player, statName) {
     const rawValue = player.stats[statName] || 0;
     
-    if (!showFantasyStats || !currentScoringRules || rawValue === 0) {
+    if (!showFantasyStats) {
         return rawValue;
     }
     
-    // Find the stat ID for fantasy calculation
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    if (statId && currentScoringRules[statId]) {
-        return calculateFantasyPoints(statName, rawValue);
+    // SAFE: If no scoring rules, show raw values
+    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+        return rawValue;
     }
     
-    return rawValue;
+    try {
+        return calculateFantasyPoints(statName, rawValue);
+    } catch (error) {
+        console.error(`Error calculating fantasy points for ${statName}:`, error);
+        return rawValue;
+    }
 }
+
 
 // Research table functions
 function sortTable(column) {
