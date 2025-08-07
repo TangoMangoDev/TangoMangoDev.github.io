@@ -374,8 +374,8 @@ class StatsAPI {
         this.baseUrl = '/data/stats/stats';
         this.cache = new StatsCache();
         this.currentRequests = new Map();
-        // NEW: In-memory player rankings by league
-        this.playerRankings = new Map(); // leagueId -> ranked player data
+        this.allPlayersCache = null; // Cache all players data
+        this.rankingsCalculated = new Set(); // Track which leagues have rankings
     }
 
     async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
@@ -410,28 +410,24 @@ class StatsAPI {
         }
     }
 
-    // NEW: Calculate and store fantasy rankings for a league
-    async calculateFantasyRankings(leagueId, allPlayers, scoringRules) {
+    // NEW: Calculate rankings efficiently (in background, don't render)
+    async calculateAndStoreRankings(leagueId, allPlayers, scoringRules) {
         if (!leagueId || !allPlayers || !scoringRules) {
             console.log('❌ Missing data for fantasy rankings calculation');
-            return;
+            return false;
         }
 
-        console.log(`🏆 Calculating fantasy rankings for league ${leagueId} with ${allPlayers.length} players`);
+        console.log(`🏆 BACKGROUND: Calculating fantasy rankings for league ${leagueId} with ${allPlayers.length} players`);
 
-        // Calculate fantasy points for each player
+        // Calculate fantasy points for each player (BACKGROUND ONLY)
         const playersWithFantasyPoints = allPlayers.map(player => {
             let totalFantasyPoints = 0;
 
-            // Calculate total fantasy points using raw stats and scoring rules
             Object.entries(player.rawStats || {}).forEach(([statId, statValue]) => {
                 if (scoringRules[statId] && statValue > 0) {
                     const rule = scoringRules[statId];
-                    
-                    // Base points
                     let points = statValue * parseFloat(rule.points || 0);
                     
-                    // Add bonuses
                     if (rule.bonuses && Array.isArray(rule.bonuses)) {
                         rule.bonuses.forEach(bonusRule => {
                             const target = parseFloat(bonusRule.bonus.target || 0);
@@ -453,7 +449,7 @@ class StatsAPI {
             };
         });
 
-        // Sort by fantasy points (highest first) and assign overall rank
+        // Sort by fantasy points and assign overall rank
         const rankedPlayers = playersWithFantasyPoints
             .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
             .map((player, index) => ({
@@ -462,16 +458,12 @@ class StatsAPI {
             }));
 
         // Calculate position-specific ranks
-        const positionRanks = {};
-        
-        // Group by position and rank within each position
         const playersByPosition = rankedPlayers.reduce((acc, player) => {
             if (!acc[player.position]) acc[player.position] = [];
             acc[player.position].push(player);
             return acc;
         }, {});
 
-        // Assign position ranks
         Object.entries(playersByPosition).forEach(([position, players]) => {
             players
                 .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
@@ -480,58 +472,38 @@ class StatsAPI {
                 });
         });
 
-        // Store rankings in memory
-        this.playerRankings.set(leagueId, {
-            players: rankedPlayers,
-            lastUpdated: Date.now(),
-            totalPlayers: rankedPlayers.length,
-            positionCounts: Object.fromEntries(
-                Object.entries(playersByPosition).map(([pos, players]) => [pos, players.length])
-            )
-        });
+        // STORE RANKINGS IN INDEXEDDB (NOT MEMORY)
+        await this.cache.setPlayerRankings(leagueId, rankedPlayers);
+        this.rankingsCalculated.add(leagueId);
 
-        console.log(`✅ Fantasy rankings calculated for league ${leagueId}:`, {
-            totalPlayers: rankedPlayers.length,
-            positionCounts: Object.fromEntries(
-                Object.entries(playersByPosition).map(([pos, players]) => [pos, players.length])
-            )
-        });
-
-        return rankedPlayers;
+        console.log(`✅ BACKGROUND: Fantasy rankings calculated and stored for league ${leagueId}`);
+        return true;
     }
 
-    // NEW: Get ranked players for a league
-    getRankedPlayers(leagueId, position = 'ALL', limit = null) {
-        const rankings = this.playerRankings.get(leagueId);
-        
-        if (!rankings) {
-            console.log(`⚠️ No rankings found for league ${leagueId}`);
-            return [];
-        }
+    // NEW: Enhance players with their rankings (for display)
+    async enhancePlayersWithRankings(leagueId, players) {
+        if (!leagueId || !players.length) return players;
 
-        let players = rankings.players;
+        const playerIds = players.map(p => p.id);
+        const rankings = await this.cache.getPlayerRankings(leagueId, playerIds);
 
-        // Filter by position if specified
-        if (position && position !== 'ALL') {
-            players = players.filter(p => p.position === position);
-        }
-
-        // Apply limit if specified
-        if (limit) {
-            players = players.slice(0, limit);
-        }
-
-        return players;
+        return players.map(player => {
+            const ranking = rankings.get(player.id);
+            if (ranking) {
+                return {
+                    ...player,
+                    overallRank: ranking.overallRank,
+                    positionRank: ranking.positionRank,
+                    fantasyPoints: ranking.fantasyPoints
+                };
+            }
+            return player;
+        });
     }
 
-    // NEW: Check if rankings exist and are recent
-    hasRecentRankings(leagueId, maxAgeHours = 24) {
-        const rankings = this.playerRankings.get(leagueId);
-        
-        if (!rankings) return false;
-        
-        const age = (Date.now() - rankings.lastUpdated) / (1000 * 60 * 60);
-        return age < maxAgeHours;
+    // NEW: Check if rankings exist for league
+    hasRankingsForLeague(leagueId) {
+        return this.rankingsCalculated.has(leagueId);
     }
 
     async getScoringRules(leagueId) {
@@ -617,9 +589,9 @@ class StatsAPI {
             await this.cache.clearAll();
         }
         
-        // Clear rankings too
-        this.playerRankings.clear();
-        console.log('🗑️ Cleared player rankings');
+        this.allPlayersCache = null;
+        this.rankingsCalculated.clear();
+        console.log('🗑️ Cleared all caches and rankings');
     }
 }
 
