@@ -411,7 +411,7 @@ class StatsAPI {
     }
 
     // NEW: Calculate rankings efficiently (in background, don't render)
-    async calculateAndStoreRankings(leagueId, allPlayers, scoringRules) {
+    async calculateFantasyRankings(leagueId, allPlayers, scoringRules) {
         if (!leagueId || !allPlayers || !scoringRules) {
             console.log('❌ Missing data for fantasy rankings calculation');
             return false;
