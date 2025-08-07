@@ -449,7 +449,6 @@ class StatsAPI {
             };
         });
 
-        // Sort by fantasy points and assign overall rank
         const rankedPlayers = playersWithFantasyPoints
             .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
             .map((player, index) => ({
@@ -457,7 +456,6 @@ class StatsAPI {
                 overallRank: index + 1
             }));
 
-        // Calculate position-specific ranks
         const playersByPosition = rankedPlayers.reduce((acc, player) => {
             if (!acc[player.position]) acc[player.position] = [];
             acc[player.position].push(player);
@@ -472,7 +470,6 @@ class StatsAPI {
                 });
         });
 
-        // STORE RANKINGS IN INDEXEDDB (NOT MEMORY)
         await this.cache.setPlayerRankings(leagueId, rankedPlayers);
         this.rankingsCalculated.add(leagueId);
 
