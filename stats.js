@@ -1045,36 +1045,30 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🚀 Initializing Fantasy Football Dashboard...');
-  
-  // Clear any old localStorage scoring rules
-  localStorage.removeItem('allScoringRules');
-  
-  await loadUserLeagues();
-  
-  currentFilters.league = initializeActiveLeague();
-  console.log('🎯 Active league:', currentFilters.league);
-  
-  currentFilters.week = getSavedWeek();
-  
-  // Load scoring rules ONLY for the active league from IndexedDB
-  if (currentFilters.league) {
-      await loadScoringRulesForActiveLeague(currentFilters.league);
-  }
-  
-  const header = document.querySelector('.header');
-  const filterControlsHtml = createFilterControls();
-  if (filterControlsHtml && header) {
-      const filterContainer = document.createElement('div');
-      filterContainer.className = 'filter-controls-container';
-      filterContainer.innerHTML = filterControlsHtml;
-      header.appendChild(filterContainer);
-  }
-  
-  setupEventListeners();
-  
-  console.log('📊 Loading initial stats data...');
-  await loadStats(true);
-  
-  console.log('🎉 Dashboard initialization complete!');
+    console.log('🚀 Initializing Fantasy Football Dashboard...');
+    
+    // Clear any old localStorage scoring rules
+    localStorage.removeItem('allScoringRules');
+    
+    // SINGLE CALL - loads leagues AND default scoring rules
+    await loadUserLeagues();
+    
+    // Initialize filters
+    currentFilters.week = getSavedWeek();
+    
+    const header = document.querySelector('.header');
+    const filterControlsHtml = createFilterControls();
+    if (filterControlsHtml && header) {
+        const filterContainer = document.createElement('div');
+        filterContainer.className = 'filter-controls-container';
+        filterContainer.innerHTML = filterControlsHtml;
+        header.appendChild(filterContainer);
+    }
+    
+    setupEventListeners();
+    
+    console.log('📊 Loading initial stats data...');
+    await loadStats(true);
+    
+    console.log('🎉 Dashboard initialization complete!');
 });
