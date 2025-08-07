@@ -759,9 +759,11 @@ function renderPlayerCard(player) {
     `;
 }
 
+// FIXED: Render research view with separate bonus columns visible
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const stats = getStatsForPosition(currentFilters.position);
+    const bonusStats = getBonusStatsForPosition(currentFilters.position);
     
     content.innerHTML = `
         <div class="research-container fade-in">
@@ -771,31 +773,22 @@ function renderResearchView(players) {
                     <button class="clear-filters-btn" onclick="clearAllFilters()">
                         Clear Sort
                     </button>
-                    ${showFantasyStats ? '<span class="bonus-indicator">🎯 = Bonus applied</span>' : ''}
+                    ${showFantasyStats ? '<span class="bonus-note">Bonus columns show bonus points earned</span>' : ''}
                 </div>
             </div>
             <div class="research-table-wrapper">
                 <table class="research-table">
                     <thead>
                         <tr>
-                            <th class="sortable" onclick="sortTable('name')">
-                                Player
-                            </th>
-                            <th class="sortable" onclick="sortTable('position')">
-                                Pos
-                            </th>
-                            <th class="sortable" onclick="sortTable('team')">
-                                Team
-                            </th>
-                            ${showFantasyStats ? `
-                                <th class="sortable" onclick="sortTable('totalPts')">
-                                    Total Pts
-                                </th>
-                            ` : ''}
+                            <th class="sortable" onclick="sortTable('name')">Player</th>
+                            <th class="sortable" onclick="sortTable('position')">Pos</th>
+                            <th class="sortable" onclick="sortTable('team')">Team</th>
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'totalPts\')">Total Pts</th>' : ''}
                             ${stats.map(stat => `
-                                <th class="sortable" onclick="sortTable('${stat}')">
-                                    ${stat}${showFantasyStats && hasBonusRule(stat) ? ' 🎯' : ''}
-                                </th>
+                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
+                                ${showFantasyStats && hasBonusRule(stat) ? `
+                                    <th class="sortable bonus-header" onclick="sortTable('${stat}_bonus')">${stat} Bonus</th>
+                                ` : ''}
                             `).join('')}
                         </tr>
                     </thead>
@@ -815,17 +808,21 @@ function renderResearchView(players) {
                                     ${stats.map(stat => {
                                         const rawValue = player.stats[stat] || 0;
                                         const displayValue = getStatValue(player, stat);
+                                        const bonusPoints = getBonusPoints(player, stat);
                                         const isFantasyMode = showFantasyStats && displayValue !== rawValue;
                                         const isBest = checkIfBestStat(player, stat);
-                                        const hasBonus = showFantasyStats && hasBonusApplied(player, stat);
                                         
                                         return `
                                             <td class="${isBest ? 'stat-best' : ''}">
                                                 <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
                                                     ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                                    ${hasBonus ? ' 🎯' : ''}
                                                 </span>
                                             </td>
+                                            ${showFantasyStats && hasBonusRule(stat) ? `
+                                                <td class="bonus-cell">
+                                                    ${bonusPoints > 0 ? '+' + bonusPoints + ' pts' : '0'}
+                                                </td>
+                                            ` : ''}
                                         `;
                                     }).join('')}
                                 </tr>
@@ -836,6 +833,40 @@ function renderResearchView(players) {
             </div>
         </div>
     `;
+}
+
+// NEW: Function to get bonus points for a specific stat
+function getBonusPoints(player, statName) {
+    if (!showFantasyStats || !currentScoringRules || !player.rawStats) return 0;
+    
+    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+        STAT_ID_MAPPING[id] === statName
+    );
+    
+    if (!statId || !currentScoringRules[statId]) return 0;
+    
+    const rule = currentScoringRules[statId];
+    const rawValue = player.rawStats[statId] || 0;
+    
+    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return 0;
+    
+    let totalBonusPoints = 0;
+    rule.bonuses.forEach(bonusRule => {
+        const target = parseFloat(bonusRule.bonus.target || 0);
+        const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+        
+        if (rawValue >= target) {
+            totalBonusPoints += bonusPoints;
+        }
+    });
+    
+    return Math.round(totalBonusPoints * 100) / 100;
+}
+
+// NEW: Get stats that have bonus rules for position
+function getBonusStatsForPosition(position) {
+    const stats = getStatsForPosition(position);
+    return stats.filter(stat => hasBonusRule(stat));
 }
 
 // Helper function to check if a stat has bonus rules
