@@ -286,36 +286,45 @@ class StatsAPI {
         }
     }
 
-async function getScoringRules(leagueId) {
-    // Check cache first
-    const cachedRules = await this.cache.getScoringRules(leagueId);
-    if (cachedRules) {
-        return cachedRules;
-    }
-
-    // Fetch from API
-    try {
-        const url = leagueId ? 
-            `/data/stats/rules?leagueId=${leagueId}` : 
-            `/data/stats/rules`;
-            
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to load rules`);
+    // FIXED: Proper method definition (was missing 'async' and had wrong function syntax)
+    async getScoringRules(leagueId) {
+        console.log(`🔍 getScoringRules called for league: ${leagueId}`);
         
-        const data = await response.json();
-        const rules = data.scoringRules || {};
-        
-        // Cache the rules
-        if (leagueId) {
-            await this.cache.setScoringRules(leagueId, rules);
+        // Check cache first
+        const cachedRules = await this.cache.getScoringRules(leagueId);
+        if (cachedRules) {
+            console.log(`✅ Using cached scoring rules for ${leagueId}`);
+            return cachedRules;
         }
-        
-        return rules;
-    } catch (error) {
-        console.error(`Error loading scoring rules:`, error);
-        return {};
+
+        // Fetch from API
+        try {
+            const url = leagueId ? 
+                `/data/stats/rules?leagueId=${leagueId}` : 
+                `/data/stats/rules`;
+                
+            console.log(`🌐 Fetching scoring rules from: ${url}`);
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to load rules`);
+            
+            const data = await response.json();
+            console.log(`📊 Received scoring rules response:`, data);
+            
+            const rules = data.scoringRules || {};
+            
+            // Cache the rules if we have a specific league ID and rules exist
+            if (leagueId && rules[leagueId] && Object.keys(rules[leagueId]).length > 0) {
+                console.log(`💾 Caching scoring rules for league ${leagueId}`);
+                await this.cache.setScoringRules(leagueId, rules);
+            }
+            
+            return rules;
+        } catch (error) {
+            console.error(`❌ Error loading scoring rules:`, error);
+            return {};
+        }
     }
-}
 
     async fetchFromAPI(year, week, position, page) {
         const params = new URLSearchParams({
