@@ -2,10 +2,11 @@
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 1;
+        this.version = 2; // Increment version to add scoring rules store
         this.storeName = 'stats';
+        this.scoringRulesStore = 'scoring_rules';
         this.db = null;
-        this.cacheExpiryMinutes = 60; // 1 hour cache for stats data
+        this.cacheExpiryMinutes = 60;
     }
 
     async init() {
@@ -23,6 +24,7 @@ class StatsCache {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 
+                // Stats store
                 if (!db.objectStoreNames.contains(this.storeName)) {
                     const store = db.createObjectStore(this.storeName, { keyPath: 'cacheKey' });
                     store.createIndex('timestamp', 'timestamp', { unique: false });
@@ -30,8 +32,84 @@ class StatsCache {
                     store.createIndex('week', 'week', { unique: false });
                     store.createIndex('position', 'position', { unique: false });
                 }
+
+                // Scoring rules store
+                if (!db.objectStoreNames.contains(this.scoringRulesStore)) {
+                    const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
+                    rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
+                }
             };
         });
+    }
+
+    // Scoring rules methods
+    async getScoringRules(leagueId) {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.scoringRulesStore], 'readonly');
+            const store = transaction.objectStore(this.scoringRulesStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.get(leagueId);
+                
+                request.onsuccess = () => {
+                    const result = request.result;
+                    
+                    if (!result) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    // Check if cached data is still fresh (24 hours)
+                    const now = new Date();
+                    const cachedTime = new Date(result.timestamp);
+                    const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                    
+                    if (diffHours > 24) {
+                        console.log(`Scoring rules cache expired for ${leagueId}`);
+                        resolve(null);
+                        return;
+                    }
+                    
+                    console.log(`✅ Scoring rules cache hit for ${leagueId}`);
+                    resolve(result.rules);
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error getting scoring rules from cache:', error);
+            return null;
+        }
+    }
+
+    async setScoringRules(leagueId, rules) {
+        try {
+            await this.init();
+            
+            const cacheEntry = {
+                leagueId,
+                rules,
+                timestamp: new Date().toISOString()
+            };
+            
+            const transaction = this.db.transaction([this.scoringRulesStore], 'readwrite');
+            const store = transaction.objectStore(this.scoringRulesStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(cacheEntry);
+                
+                request.onsuccess = () => {
+                    console.log(`✅ Cached scoring rules for ${leagueId}`);
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error setting scoring rules cache:', error);
+        }
     }
 
     generateCacheKey(year, week, position, page) {
@@ -145,19 +223,24 @@ class StatsCache {
         try {
             await this.init();
             
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
+            const transaction = this.db.transaction([this.storeName, this.scoringRulesStore], 'readwrite');
+            const statsStore = transaction.objectStore(this.storeName);
+            const rulesStore = transaction.objectStore(this.scoringRulesStore);
             
-            return new Promise((resolve, reject) => {
-                const request = store.clear();
-                
-                request.onsuccess = () => {
-                    console.log('🗑️ Cleared all cached data');
-                    resolve();
-                };
-                
-                request.onerror = () => reject(request.error);
-            });
+            await Promise.all([
+                new Promise((resolve, reject) => {
+                    const request = statsStore.clear();
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                }),
+                new Promise((resolve, reject) => {
+                    const request = rulesStore.clear();
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                })
+            ]);
+            
+            console.log('🗑️ Cleared all cached data and scoring rules');
         } catch (error) {
             console.error('Cache clear all error:', error);
         }
@@ -174,19 +257,16 @@ class StatsAPI {
     async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
         const requestKey = `${year}_${week}_${position}_${page}`;
         
-        // Check if there's already a pending request for the same parameters
         if (this.currentRequests.has(requestKey)) {
             console.log(`⏳ Waiting for pending request: ${requestKey}`);
             return await this.currentRequests.get(requestKey);
         }
 
-        // Check cache first
         const cachedData = await this.cache.get(year, week, position, page);
         if (cachedData) {
             return cachedData;
         }
 
-        // Create the fetch promise and store it to prevent duplicates
         const fetchPromise = this.fetchFromAPI(year, week, position, page);
         this.currentRequests.set(requestKey, fetchPromise);
 
@@ -202,8 +282,32 @@ class StatsAPI {
             console.error('Stats fetch error:', error);
             throw error;
         } finally {
-            // Always clean up the request tracker
             this.currentRequests.delete(requestKey);
+        }
+    }
+
+    async getScoringRules(leagueId) {
+        // Check cache first
+        const cachedRules = await this.cache.getScoringRules(leagueId);
+        if (cachedRules) {
+            return cachedRules;
+        }
+
+        // Fetch from API
+        try {
+            const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
+            if (!response.ok) throw new Error(`Failed to load rules for ${leagueId}`);
+            
+            const data = await response.json();
+            const rules = data.scoringRules || {};
+            
+            // Cache the rules
+            await this.cache.setScoringRules(leagueId, rules);
+            
+            return rules;
+        } catch (error) {
+            console.error(`Error loading scoring rules for ${leagueId}:`, error);
+            return {};
         }
     }
 
@@ -237,7 +341,7 @@ class StatsAPI {
         }
 
         console.log(`✅ Fetched ${data.count} players from API`);
-        return data; // Return RAW data with Yahoo stat IDs intact
+        return data;
     }
 
     async clearCache(year = null) {
