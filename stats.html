@@ -79,6 +79,7 @@
             background: rgba(255,255,255,0.1);
             border-radius: 8px;
             flex-wrap: wrap;
+            align-items: center;
         }
         
         .filter-group {
@@ -109,6 +110,31 @@
             color: white;
         }
 
+        .stats-toggle {
+            display: flex;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-left: auto;
+        }
+
+        .stats-toggle-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stats-toggle-btn.active {
+            background: white;
+            color: #2a5298;
+        }
+
         .api-status {
             display: flex;
             justify-content: space-between;
@@ -132,33 +158,6 @@
         
         .record-count {
             color: rgba(255,255,255,0.8);
-        }
-        
-        .pagination-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: rgba(255,255,255,0.8);
-        }
-        
-        .load-more-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .load-more-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        .load-more-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
 
         .view-toggle {
@@ -192,7 +191,7 @@
 
         .container {
             padding: 16px;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -265,6 +264,11 @@
             display: block;
         }
 
+        .stat-value.fantasy-points {
+            font-size: 28px;
+            color: #2a5298;
+        }
+
         .stat-label {
             font-size: 12px;
             color: #666;
@@ -278,35 +282,63 @@
             margin-top: 2px;
         }
 
-        .comparison-container {
+        /* Research Table Styles */
+        .research-container {
             background: white;
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
-        .comparison-header {
+        .research-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 16px;
         }
 
-        .comparison-table-wrapper {
-            overflow-x: auto;
-            position: relative;
+        .research-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
         }
 
-        .comparison-table {
+        .clear-filters-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #666;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-filters-btn:hover {
+            background: #e9ecef;
+        }
+
+        .research-table-wrapper {
+            overflow: auto;
+            max-height: 80vh;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+
+        .research-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            min-width: 1200px;
         }
 
-        .comparison-table thead {
+        .research-table thead {
             position: sticky;
             top: 0;
             z-index: 10;
+            background: white;
         }
 
-        .comparison-table th {
+        .research-table th {
             background: #f8f9fa;
             padding: 12px 8px;
             text-align: left;
@@ -314,23 +346,105 @@
             font-weight: 600;
             color: #666;
             border-bottom: 2px solid #dee2e6;
+            border-right: 1px solid #dee2e6;
+            position: relative;
+            cursor: pointer;
+            user-select: none;
         }
 
-        .comparison-table td {
-            padding: 12px 8px;
+        .research-table th:last-child {
+            border-right: none;
+        }
+
+        .research-table th:hover {
+            background: #e9ecef;
+        }
+
+        .research-table th.sortable {
+            padding-right: 24px;
+        }
+
+        .research-table th .sort-icon {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #999;
+        }
+
+        .research-table th.sort-asc .sort-icon::after {
+            content: '▲';
+            color: #2a5298;
+        }
+
+        .research-table th.sort-desc .sort-icon::after {
+            content: '▼';
+            color: #2a5298;
+        }
+
+        .research-table th:not(.sort-asc):not(.sort-desc) .sort-icon::after {
+            content: '▲▼';
+            font-size: 8px;
+        }
+
+        .column-filter {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 4px;
+            background: white;
+        }
+
+        .research-table td {
+            padding: 10px 8px;
             border-bottom: 1px solid #eee;
+            border-right: 1px solid #eee;
             font-size: 14px;
-            vertical-align: top;
+            vertical-align: middle;
         }
 
-        .comparison-table tr:last-child td {
+        .research-table td:last-child {
+            border-right: none;
+        }
+
+        .research-table tr:last-child td {
             border-bottom: none;
+        }
+
+        .research-table tr:hover {
+            background: #f8f9fa;
         }
 
         .player-name-cell {
             font-weight: 600;
             color: #1a1a1a;
             min-width: 150px;
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 5;
+        }
+
+        .research-table tr:hover .player-name-cell {
+            background: #f8f9fa;
+        }
+
+        .fantasy-stat-cell {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2a5298;
+        }
+
+        .stat-best {
+            background: #e8f5e9 !important;
+            font-weight: 600;
+        }
+
+        .stat-best .fantasy-stat-cell {
+            color: #2e7d32;
         }
 
         .stats-overview {
@@ -402,14 +516,6 @@
             box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
         }
 
-        .stat-best {
-            background: #e8f5e9;
-        }
-
-        .stat-best .stat-value {
-            color: #2e7d32;
-        }
-
         .fade-in {
             animation: fadeIn 0.3s ease-in;
         }
@@ -459,6 +565,15 @@
                 width: 100%;
                 min-width: 0;
             }
+
+            .stats-toggle {
+                margin-left: 0;
+                margin-top: 8px;
+            }
+
+            .research-table {
+                min-width: 800px;
+            }
         }
     </style>
 </head>
@@ -483,7 +598,7 @@
 
     <div class="view-toggle">
         <button class="view-btn active" data-view="cards">Cards</button>
-        <button class="view-btn" data-view="comparison">Compare</button>
+        <button class="view-btn" data-view="research">Research</button>
         <button class="view-btn" data-view="stats">Stats</button>
     </div>
 
