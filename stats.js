@@ -166,10 +166,36 @@ const keyStats = {
 // Backend API functions
 async function loadUserLeagues() {
     try {
-        const response = await fetch('/data/stats/rules');
+        const response = await fetch('/data/stats/rules'); // NO leagueId parameter
         if (!response.ok) throw new Error('Failed to load leagues');
         
         const data = await response.json();
+        
+        // Handle the NEW response format
+        if (data.leagues && data.defaultLeagueId && data.scoringRules) {
+            userLeagues = data.leagues;
+            
+            // Set the default league and its scoring rules immediately
+            const defaultLeagueId = data.defaultLeagueId;
+            currentScoringRules = data.scoringRules[defaultLeagueId] || {};
+            
+            // Store active league in localStorage
+            localStorage.setItem('activeLeagueId', defaultLeagueId);
+            currentFilters.league = defaultLeagueId;
+            
+            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
+            console.log(`🎯 Set default league: ${defaultLeagueId} with ${Object.keys(currentScoringRules).length} scoring rules`);
+            
+            // Store in localStorage
+            localStorage.setItem('userLeagues', JSON.stringify({
+                leagues: userLeagues,
+                timestamp: Date.now()
+            }));
+            
+            return userLeagues;
+        }
+        
+        // Fallback to old format
         userLeagues = data.leagues || {};
         
         localStorage.setItem('userLeagues', JSON.stringify({
@@ -206,18 +232,12 @@ async function loadScoringRulesForActiveLeague(leagueId) {
         const rulesData = await window.statsAPI.getScoringRules(leagueId);
         
         if (rulesData && typeof rulesData === 'object') {
-            // FIXED: Extract the correct nested structure
-            // The structure is: rules.{leagueId}.{statId}
+            // FIXED: Extract the correct structure - rules are nested by leagueId
             if (rulesData[leagueId]) {
                 currentScoringRules = rulesData[leagueId];
                 console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules for league ${leagueId}`);
-                console.log('📋 Sample scoring rules:', {
-                    'Pass Yds (4)': currentScoringRules['4'],
-                    'Rec Yds (12)': currentScoringRules['12'],
-                    'Pass TD (5)': currentScoringRules['5']
-                });
             } else {
-                console.log(`⚠️ No nested scoring rules found for league ${leagueId}`);
+                console.log(`⚠️ No scoring rules found for league ${leagueId}`);
                 currentScoringRules = {};
             }
         } else {
