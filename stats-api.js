@@ -286,42 +286,49 @@ class StatsAPI {
         }
     }
 
-    // FIXED: Proper method definition (was missing 'async' and had wrong function syntax)
+    // FIXED: Get scoring rules from IndexedDB FIRST, then API if needed
     async getScoringRules(leagueId) {
         console.log(`🔍 getScoringRules called for league: ${leagueId}`);
         
-        // Check cache first
+        if (!leagueId) {
+            console.log('❌ No leagueId provided to getScoringRules');
+            return {};
+        }
+        
+        // ALWAYS check cache first
         const cachedRules = await this.cache.getScoringRules(leagueId);
         if (cachedRules) {
-            console.log(`✅ Using cached scoring rules for ${leagueId}`);
-            return cachedRules;
+            console.log(`✅ Using cached scoring rules for ${leagueId}:`, Object.keys(cachedRules).length, 'rules');
+            return { [leagueId]: cachedRules };
         }
 
-        // Fetch from API
+        // Not in cache, fetch from API
+        console.log(`🌐 Fetching scoring rules from API for league: ${leagueId}`);
+        
         try {
-            const url = leagueId ? 
-                `/data/stats/rules?leagueId=${leagueId}` : 
-                `/data/stats/rules`;
-                
-            console.log(`🌐 Fetching scoring rules from: ${url}`);
-            
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to load rules`);
-            
-            const data = await response.json();
-            console.log(`📊 Received scoring rules response:`, data);
-            
-            const rules = data.scoringRules || {};
-            
-            // Cache the rules if we have a specific league ID and rules exist
-            if (leagueId && rules[leagueId] && Object.keys(rules[leagueId]).length > 0) {
-                console.log(`💾 Caching scoring rules for league ${leagueId}`);
-                await this.cache.setScoringRules(leagueId, rules);
+            const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
             }
             
-            return rules;
+            const data = await response.json();
+            console.log(`📊 API response received:`, data);
+            
+            if (data.success && data.scoringRules && data.scoringRules[leagueId]) {
+                const rulesForLeague = data.scoringRules[leagueId];
+                console.log(`💾 STORING ${Object.keys(rulesForLeague).length} scoring rules in IndexedDB for league ${leagueId}`);
+                
+                // STORE IN INDEXEDDB
+                await this.cache.setScoringRules(leagueId, rulesForLeague);
+                
+                return { [leagueId]: rulesForLeague };
+            } else {
+                console.log(`⚠️ No scoring rules found in API response for league ${leagueId}`);
+                return {};
+            }
+            
         } catch (error) {
-            console.error(`❌ Error loading scoring rules:`, error);
+            console.error(`❌ Error loading scoring rules for ${leagueId}:`, error);
             return {};
         }
     }
