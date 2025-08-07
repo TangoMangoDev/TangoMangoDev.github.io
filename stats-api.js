@@ -286,30 +286,36 @@ class StatsAPI {
         }
     }
 
-    async getScoringRules(leagueId) {
-        // Check cache first
-        const cachedRules = await this.cache.getScoringRules(leagueId);
-        if (cachedRules) {
-            return cachedRules;
-        }
-
-        // Fetch from API
-        try {
-            const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
-            if (!response.ok) throw new Error(`Failed to load rules for ${leagueId}`);
-            
-            const data = await response.json();
-            const rules = data.scoringRules || {};
-            
-            // Cache the rules
-            await this.cache.setScoringRules(leagueId, rules);
-            
-            return rules;
-        } catch (error) {
-            console.error(`Error loading scoring rules for ${leagueId}:`, error);
-            return {};
-        }
+async function getScoringRules(leagueId) {
+    // Check cache first
+    const cachedRules = await this.cache.getScoringRules(leagueId);
+    if (cachedRules) {
+        return cachedRules;
     }
+
+    // Fetch from API
+    try {
+        const url = leagueId ? 
+            `/data/stats/rules?leagueId=${leagueId}` : 
+            `/data/stats/rules`;
+            
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to load rules`);
+        
+        const data = await response.json();
+        const rules = data.scoringRules || {};
+        
+        // Cache the rules
+        if (leagueId) {
+            await this.cache.setScoringRules(leagueId, rules);
+        }
+        
+        return rules;
+    } catch (error) {
+        console.error(`Error loading scoring rules:`, error);
+        return {};
+    }
+}
 
     async fetchFromAPI(year, week, position, page) {
         const params = new URLSearchParams({
