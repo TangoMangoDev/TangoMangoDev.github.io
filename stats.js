@@ -192,7 +192,7 @@ async function loadUserLeagues() {
     }
 }
 
-// FIXED: Load ONLY the active league's scoring rules from IndexedDB
+// FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
     if (!leagueId) {
         console.log('❌ No league ID provided for scoring rules');
@@ -203,14 +203,25 @@ async function loadScoringRulesForActiveLeague(leagueId) {
     try {
         console.log(`🔄 Loading scoring rules for league: ${leagueId}`);
         
-        // Use IndexedDB via StatsAPI - check cache first, then API if needed
-        const rules = await window.statsAPI.getScoringRules(leagueId);
+        const rulesData = await window.statsAPI.getScoringRules(leagueId);
         
-        if (rules && Object.keys(rules).length > 0) {
-            currentScoringRules = rules;
-            console.log(`✅ Loaded ${Object.keys(rules).length} scoring rules for league ${leagueId}`);
+        if (rulesData && typeof rulesData === 'object') {
+            // FIXED: Extract the correct nested structure
+            // The structure is: rules.{leagueId}.{statId}
+            if (rulesData[leagueId]) {
+                currentScoringRules = rulesData[leagueId];
+                console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules for league ${leagueId}`);
+                console.log('📋 Sample scoring rules:', {
+                    'Pass Yds (4)': currentScoringRules['4'],
+                    'Rec Yds (12)': currentScoringRules['12'],
+                    'Pass TD (5)': currentScoringRules['5']
+                });
+            } else {
+                console.log(`⚠️ No nested scoring rules found for league ${leagueId}`);
+                currentScoringRules = {};
+            }
         } else {
-            console.log(`⚠️ No scoring rules found for league ${leagueId}`);
+            console.log(`⚠️ No scoring rules data found for league ${leagueId}`);
             currentScoringRules = {};
         }
         
@@ -509,10 +520,10 @@ function getFilteredPlayers() {
     return filteredPlayers;
 }
 
-// FIXED Fantasy points calculation - PROPERLY USE RAW STATS
-function calculateFantasyPoints(statName, rawStatValue, rawStats) {
-    if (!currentScoringRules || !rawStatValue || rawStatValue === 0) {
-        return 0;
+// FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
+function calculateFantasyPoints(statName, rawStatValue) {
+    if (!showFantasyStats || !currentScoringRules || !rawStatValue || rawStatValue === 0) {
+        return rawStatValue || 0;
     }
     
     // Find the stat ID for the given stat name
@@ -521,7 +532,7 @@ function calculateFantasyPoints(statName, rawStatValue, rawStats) {
     );
     
     if (!statId || !currentScoringRules[statId]) {
-        return 0;
+        return rawStatValue || 0;
     }
     
     const rule = currentScoringRules[statId];
@@ -536,6 +547,7 @@ function calculateFantasyPoints(statName, rawStatValue, rawStats) {
         });
     }
     
+    console.log(`💰 ${statName} (${statId}): ${rawStatValue} * ${rule.points} = ${points} pts`);
     return Math.round(points * 100) / 100;
 }
 
@@ -549,38 +561,44 @@ function calculateTotalFantasyPoints(player) {
     
     // Use RAW stats for calculation
     Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-        const statName = STAT_ID_MAPPING[statId];
-        if (statName && currentScoringRules[statId] && statValue > 0) {
-            const points = calculateFantasyPoints(statName, statValue, player.rawStats);
-            if (points !== 0) {
-                totalPoints += points;
+        if (currentScoringRules[statId] && statValue > 0) {
+            const rule = currentScoringRules[statId];
+            let points = statValue * parseFloat(rule.points || 0);
+            
+            // Add bonus points if applicable
+            if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                rule.bonuses.forEach(bonusRule => {
+                    if (statValue >= parseFloat(bonusRule.bonus.target)) {
+                        points += parseFloat(bonusRule.bonus.points);
+                    }
+                });
             }
+            
+            totalPoints += points;
         }
     });
     
     return Math.round(totalPoints * 100) / 100;
 }
 
-// Get stat value for display - FIXED to properly calculate fantasy points
+// FIXED: Get stat value for display - PROPER conversion
 function getStatValue(player, statName) {
-    if (showFantasyStats && currentScoringRules && player.rawStats) {
-        // Find the raw stat value using the stat ID
-        const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-            STAT_ID_MAPPING[id] === statName
-        );
-        
-        if (statId && player.rawStats[statId] !== undefined) {
-            const rawValue = player.rawStats[statId];
-            if (rawValue > 0) {
-                const fantasyPoints = calculateFantasyPoints(statName, rawValue, player.rawStats);
-                return fantasyPoints > 0 ? fantasyPoints : rawValue;
-            }
-            return rawValue;
-        }
+    const rawValue = player.stats[statName] || 0;
+    
+    if (!showFantasyStats || !currentScoringRules || rawValue === 0) {
+        return rawValue;
     }
     
-    // Return display stat value (converted from raw)
-    return player.stats[statName] || 0;
+    // Find the stat ID for fantasy calculation
+    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+        STAT_ID_MAPPING[id] === statName
+    );
+    
+    if (statId && currentScoringRules[statId]) {
+        return calculateFantasyPoints(statName, rawValue);
+    }
+    
+    return rawValue;
 }
 
 // Research table functions
@@ -698,7 +716,7 @@ function renderPlayerCard(player) {
                 ${stats.map(stat => {
                     const rawValue = player.stats[stat] || 0;
                     const displayValue = getStatValue(player, stat);
-                    const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
                     const isBest = checkIfBestStat(player, stat);
                     
                     return `
@@ -720,29 +738,29 @@ function renderResearchView(players) {
     const stats = getStatsForPosition(currentFilters.position);
     
     content.innerHTML = `
-        <div class="research-container fade-in">
-            <div class="research-header">
-                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
-                <div class="research-controls">
-                    <button class="clear-filters-btn" onclick="clearAllFilters()">
-                        Clear Sort
-                    </button>
-                </div>
-            </div>
-            <div class="research-table-wrapper">
-                <table class="research-table">
-                    <thead>
-                        <tr>
-                            <th class="sortable" onclick="sortTable('name')">
-                                Player
-                            </th>
-                            <th class="sortable" onclick="sortTable('position')">
-                                Pos
-                            </th>
-                            <th class="sortable" onclick="sortTable('team')">
-                                Team
-                            </th>
-                            ${showFantasyStats ? `
+<div class="research-container fade-in">
+           <div class="research-header">
+               <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
+               <div class="research-controls">
+                   <button class="clear-filters-btn" onclick="clearAllFilters()">
+                       Clear Sort
+                   </button>
+               </div>
+           </div>
+           <div class="research-table-wrapper">
+               <table class="research-table">
+                   <thead>
+                       <tr>
+                           <th class="sortable" onclick="sortTable('name')">
+                               Player
+                           </th>
+                           <th class="sortable" onclick="sortTable('position')">
+                               Pos
+                           </th>
+                           <th class="sortable" onclick="sortTable('team')">
+                               Team
+                           </th>
+                           ${showFantasyStats ? `
                                <th class="sortable" onclick="sortTable('totalPts')">
                                    Total Pts
                                </th>
@@ -808,8 +826,8 @@ function renderStatsView(players) {
                            <div class="stat-row">
                                <span>${stat}</span>
                                <span>${leaders.map(l => {
-                                   const displayValue = showFantasyStats && l.fantasyValue !== null ? 
-                                       l.fantasyValue : l.value;
+                                   const displayValue = showFantasyStats ? 
+                                       getStatValue({stats: {[stat]: l.value}}, stat) : l.value;
                                    const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
                                    return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
                                }).join(', ')}</span>
@@ -866,12 +884,11 @@ function getStatLeaders(players, stat, limit = 3) {
       .map(p => ({ 
           name: p.name, 
           value: p.stats[stat] || 0,
-          rawStats: p.rawStats,
-          fantasyValue: showFantasyStats ? calculateFantasyPoints(stat, p.stats[stat] || 0, p.rawStats) : null
+          rawStats: p.rawStats
       }))
       .sort((a, b) => {
-          const aValue = showFantasyStats && a.fantasyValue !== null ? a.fantasyValue : a.value;
-          const bValue = showFantasyStats && b.fantasyValue !== null ? b.fantasyValue : b.value;
+          const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
+          const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
           
           // For negative stats, sort ascending (lower is better)
           if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
