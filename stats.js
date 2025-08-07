@@ -29,10 +29,9 @@ let tableSort = {
     direction: 'asc'
 };
 
-// Flag to prevent duplicate event listener setup
 let eventListenersSetup = false;
 
-// Yahoo stat ID mapping - COMPLETE mapping
+// COMPLETE Yahoo stat ID mapping - ALL STATS FROM YOUR SCORING RULES
 const STAT_ID_MAPPING = {
     "0": "Games Played",
     "1": "Pass Att",
@@ -53,22 +52,44 @@ const STAT_ID_MAPPING = {
     "16": "Off Fum Ret TD",
     "17": "2-PT",
     "18": "Fum",
-    "19": "Fum Lost",
-    "20": "FG",
-    "21": "FGM",
-    "22": "Pts Allow",
-    "23": "Tack Solo",
-    "24": "Tack Ast",
-    "25": "Pass Def",
-    "26": "Sack",
-    "27": "Int",
-    "28": "Fum Rec",
-    "29": "Fum Force",
-    "30": "TD",
-    "31": "Safe",
-    "32": "Blk Kick",
-    "33": "Ret Yds",
-    "34": "Ret TD",
+    "19": "Fum Rec",
+    "20": "FG 0-19",
+    "21": "FG 20-29",
+    "22": "FG 30-39",
+    "23": "FG 40-49",
+    "24": "FG 50+",
+    "25": "FG Miss 0-19",
+    "26": "FG Miss 20-29",
+    "27": "FG Miss 30-39",
+    "28": "FG Miss 40-49",
+    "29": "FG Miss 50+",
+    "30": "XP Made",
+    "31": "XP Miss",
+    "32": "Pts Allow 0",
+    "33": "Pts Allow 1-6",
+    "34": "Pts Allow 7-13",
+    "35": "Pts Allow 14-20",
+    "36": "Pts Allow 21-27",
+    "37": "Pts Allow 28-34",
+    "38": "Pts Allow 35+",
+    "39": "Tack Solo",
+    "40": "Tack Ast",
+    "41": "Sack",
+    "42": "Int",
+    "43": "Fum Force",
+    "44": "Fum Rec TD",
+    "45": "Int TD",
+    "46": "Blk Kick",
+    "47": "Safe",
+    "48": "Pass Def",
+    "49": "Kick Ret TD",
+    "50": "Punt Ret TD",
+    "51": "FG Ret TD",
+    "52": "Blk FG TD",
+    "53": "Blk Punt TD",
+    "54": "Blk PAT TD",
+    "55": "Fum Ret TD",
+    "56": "Int Ret TD",
     "57": "Off Snaps",
     "58": "Off Snap %",
     "59": "Def Snaps", 
@@ -77,13 +98,29 @@ const STAT_ID_MAPPING = {
     "62": "ST Snap %",
     "63": "Games Started",
     "64": "Off Plays",
+    "65": "Yds Allow 0-99",
+    "66": "Yds Allow 100-199",
+    "67": "Yds Allow 200-299",
+    "68": "Yds Allow 300-399",
+    "69": "Yds Allow 400-499",
+    "70": "Yds Allow 500+",
+    "71": "Rush Yds Allow 0-99",
+    "72": "Rush Yds Allow 100-149",
+    "73": "Rush Yds Allow 150+",
+    "74": "Pass Yds Allow 0-199",
+    "75": "Pass Yds Allow 200-299",
+    "76": "Pass Yds Allow 300+",
+    "77": "Tack Total",
     "78": "Tack Total",
     "79": "Tack Loss",
     "80": "QB Hits",
-    "81": "Hurries"
+    "81": "Hurries",
+    "82": "Def TD",
+    "83": "ST TD",
+    "84": "4th Down Stops"
 };
 
-// Convert Yahoo stat IDs to readable names - KEEP RAW STATS INTACT
+// Convert Yahoo stat IDs to readable names
 function convertStatsForDisplay(rawStats) {
     const readableStats = {};
     
@@ -99,17 +136,17 @@ function convertStatsForDisplay(rawStats) {
 
 // Position stat mappings
 const positionStats = {
-    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost"],
-    "K": ["FG", "FGM"],
-    "DST": ["Pts Allow"],
-    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "DT": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"]
+    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
+    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
+    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
+    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
+    "K": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "FG Miss 0-19", "FG Miss 20-29", "FG Miss 30-39", "FG Miss 40-49", "FG Miss 50+", "XP Made", "XP Miss"],
+    "DST": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+", "Sack", "Int", "Fum Rec", "Safe", "Def TD", "ST TD"],
+    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "DT": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"]
 };
 
 // Key stats for card view
@@ -118,13 +155,13 @@ const keyStats = {
     "RB": ["Rush Yds", "Rush TD", "Rec", "Rec Yds"],
     "WR": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
     "TE": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
-    "K": ["FG", "FGM"],
-    "DST": ["Pts Allow"],
+    "K": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49"],
+    "DST": ["Pts Allow 0", "Sack", "Int", "Def TD"],
     "LB": ["Tack Solo", "Sack", "Int", "Fum Force"],
-    "CB": ["Tack Solo", "Pass Def", "Int", "TD"],
-    "S": ["Tack Solo", "Pass Def", "Int", "TD"],
-    "DE": ["Tack Solo", "Sack", "Fum Force", "TD"],
-    "DT": ["Tack Solo", "Sack", "Fum Force", "TD"]
+    "CB": ["Tack Solo", "Pass Def", "Int", "Def TD"],
+    "S": ["Tack Solo", "Pass Def", "Int", "Def TD"],
+    "DE": ["Tack Solo", "Sack", "Fum Force", "Def TD"],
+    "DT": ["Tack Solo", "Sack", "Fum Force", "Def TD"]
 };
 
 // Backend API functions
@@ -136,7 +173,6 @@ async function loadUserLeagues() {
         const data = await response.json();
         userLeagues = data.leagues || {};
         
-        // Store in localStorage with timestamp
         localStorage.setItem('userLeagues', JSON.stringify({
             leagues: userLeagues,
             timestamp: Date.now()
@@ -145,11 +181,9 @@ async function loadUserLeagues() {
         return userLeagues;
     } catch (error) {
         console.error('Error loading leagues:', error);
-        // Try to use cached data if available
         const cached = localStorage.getItem('userLeagues');
         if (cached) {
             const parsed = JSON.parse(cached);
-            // Use cached data if less than 1 hour old
             if (Date.now() - parsed.timestamp < 3600000) {
                 userLeagues = parsed.leagues;
                 return userLeagues;
@@ -163,43 +197,31 @@ async function loadAllScoringRules() {
     const leagueIds = Object.keys(userLeagues);
     if (leagueIds.length === 0) return;
     
+    console.log('🔄 Loading scoring rules for leagues:', leagueIds);
+    
     try {
+        // Clear old localStorage format
+        localStorage.removeItem('allScoringRules');
+        
+        // Load each league's scoring rules individually using IndexedDB
         const promises = leagueIds.map(async (leagueId) => {
             try {
-                const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
-                if (!response.ok) throw new Error(`Failed to load rules for ${leagueId}`);
-                const data = await response.json();
-                return { leagueId, rules: data.scoringRules || {} };
+                const rules = await window.statsAPI.getScoringRules(leagueId);
+                allScoringRules[leagueId] = rules;
+                console.log(`✅ Loaded scoring rules for league ${leagueId}:`, Object.keys(rules).length, 'stats');
+                return { leagueId, success: true };
             } catch (error) {
-                console.error(`Error loading rules for league ${leagueId}:`, error);
-                return { leagueId, rules: {} };
+                console.error(`❌ Error loading rules for league ${leagueId}:`, error);
+                allScoringRules[leagueId] = {};
+                return { leagueId, success: false };
             }
         });
         
-        const results = await Promise.all(promises);
-        
-        results.forEach(({ leagueId, rules }) => {
-            allScoringRules[leagueId] = rules;
-        });
-        
-        // Store in localStorage with timestamp
-        localStorage.setItem('allScoringRules', JSON.stringify({
-            rules: allScoringRules,
-            timestamp: Date.now()
-        }));
-        
-        console.log('✅ Loaded scoring rules for all leagues');
+        await Promise.all(promises);
+        console.log('🎉 Completed loading all scoring rules');
         
     } catch (error) {
-        console.error('Error loading all scoring rules:', error);
-        // Try to use cached data
-        const cached = localStorage.getItem('allScoringRules');
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Date.now() - parsed.timestamp < 3600000) {
-                allScoringRules = parsed.rules;
-            }
-        }
+        console.error('Error in loadAllScoringRules:', error);
     }
 }
 
@@ -299,7 +321,7 @@ function createFilterControls() {
             <div class="api-info">
                 ${apiState.loading ? 
                     '<span class="loading">Loading...</span>' : 
-                    `<span class="record-count">${apiState.totalRecords} total records</span>`
+                    `<span class="record-count">${apiState.totalRecords} total records | ${showFantasyStats ? 'Fantasy Mode' : 'Raw Stats'}</span>`
                 }
                 ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
             </div>
@@ -314,9 +336,8 @@ function createFilterControls() {
     `;
 }
 
-// Load stats function - PREVENT DUPLICATE CALLS
+// Load stats function
 async function loadStats(resetPage = true) {
-    // Prevent multiple simultaneous calls
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
         return;
@@ -340,7 +361,6 @@ async function loadStats(resetPage = true) {
             apiState.currentPage
         );
         
-        // Keep raw stats intact, only convert for display when needed
         const playersWithReadableStats = data.data.map(player => ({
             ...player,
             rawStats: player.stats, // Keep original raw stats
@@ -358,9 +378,9 @@ async function loadStats(resetPage = true) {
         apiState.hasMore = data.pagination.hasNext;
         apiState.loading = false;
         
-        // Set scoring rules for current league
         if (currentFilters.league && allScoringRules[currentFilters.league]) {
             currentScoringRules = allScoringRules[currentFilters.league];
+            console.log(`📋 Using scoring rules for ${currentFilters.league}:`, Object.keys(currentScoringRules).length, 'stats');
         }
         
         console.log(`✅ Loaded ${data.count} players, total: ${currentPlayers.length}`);
@@ -375,197 +395,189 @@ async function loadStats(resetPage = true) {
     render();
 }
 
-// Event listeners - PREVENT DUPLICATES
+// Event listeners
 function setupEventListeners() {
     if (eventListenersSetup) {
-        console.log('🚫 Event listeners already setup, skipping');
         return;
     }
 
-    // Year filter
     const yearSelect = document.getElementById('year-select');
     if (yearSelect) {
-        yearSelect.addEventListener('change', async (e) => {
-            currentFilters.year = e.target.value;
-            currentFilters.week = 'total'; // Reset week when year changes
-            await loadStats(true);
-        });
-    }
-    
-    // Week filter  
-    const weekSelect = document.getElementById('week-select');
-    if (weekSelect) {
-        weekSelect.addEventListener('change', async (e) => {
-            currentFilters.week = e.target.value;
-            saveWeekPreference(e.target.value);
-            await loadStats(true);
-        });
-    }
-    
-    // League filter
-    const leagueSelect = document.getElementById('league-select');
-    if (leagueSelect) {
-        leagueSelect.addEventListener('change', async (e) => {
-            currentFilters.league = e.target.value;
-            localStorage.setItem('activeLeagueId', e.target.value);
-            
-            // Set scoring rules for new league
-            if (allScoringRules[e.target.value]) {
-                currentScoringRules = allScoringRules[e.target.value];
-            }
-            
-            updateFilterControlsUI(); // Update team dropdown
-            render(); // Re-render with new scoring rules
-        });
-    }
-    
-    // Team filter
-    const teamSelect = document.getElementById('team-select');
-    if (teamSelect) {
-        teamSelect.addEventListener('change', (e) => {
-            currentFilters.team = e.target.value;
-            render();
-        });
-    }
-    
-    // Stats toggle
-    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            showFantasyStats = e.target.dataset.mode === 'fantasy';
-            render();
-        });
-    });
-    
-    // Load more button
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', async () => {
-            if (apiState.hasMore && !apiState.loading) {
-                apiState.currentPage++;
-                await loadStats(false);
-            }
-        });
-    }
-    
-    // View toggle buttons
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentView = e.target.dataset.view;
-            render();
-        });
-    });
+       yearSelect.addEventListener('change', async (e) => {
+           currentFilters.year = e.target.value;
+           currentFilters.week = 'total';
+           await loadStats(true);
+       });
+   }
+   
+   const weekSelect = document.getElementById('week-select');
+   if (weekSelect) {
+       weekSelect.addEventListener('change', async (e) => {
+           currentFilters.week = e.target.value;
+           saveWeekPreference(e.target.value);
+           await loadStats(true);
+       });
+   }
+   
+   const leagueSelect = document.getElementById('league-select');
+   if (leagueSelect) {
+       leagueSelect.addEventListener('change', async (e) => {
+           currentFilters.league = e.target.value;
+           localStorage.setItem('activeLeagueId', e.target.value);
+           
+           if (allScoringRules[e.target.value]) {
+               currentScoringRules = allScoringRules[e.target.value];
+               console.log(`🔄 Switched to league ${e.target.value} with ${Object.keys(currentScoringRules).length} scoring rules`);
+           }
+           
+           updateFilterControlsUI();
+           render();
+       });
+   }
+   
+   const teamSelect = document.getElementById('team-select');
+   if (teamSelect) {
+       teamSelect.addEventListener('change', (e) => {
+           currentFilters.team = e.target.value;
+           render();
+       });
+   }
+   
+   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+       btn.addEventListener('click', (e) => {
+           document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+           e.target.classList.add('active');
+           showFantasyStats = e.target.dataset.mode === 'fantasy';
+           console.log(`🔄 Switched to ${showFantasyStats ? 'Fantasy' : 'Raw'} stats mode`);
+           render();
+       });
+   });
+   
+   const loadMoreBtn = document.getElementById('load-more-btn');
+   if (loadMoreBtn) {
+       loadMoreBtn.addEventListener('click', async () => {
+           if (apiState.hasMore && !apiState.loading) {
+               apiState.currentPage++;
+               await loadStats(false);
+           }
+       });
+   }
+   
+   document.querySelectorAll('.view-btn').forEach(btn => {
+       btn.addEventListener('click', (e) => {
+           document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+           e.target.classList.add('active');
+           currentView = e.target.dataset.view;
+           render();
+       });
+   });
 
-    // Search
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            searchQuery = e.target.value.toLowerCase();
-            render();
-        });
-    }
-    
-    // Position filter buttons - SINGLE EVENT LISTENER
-    const positionFilter = document.getElementById('positionFilter');
-    if (positionFilter) {
-        positionFilter.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('position-btn')) {
-                // Prevent duplicate calls by checking if already active
-                if (e.target.classList.contains('active')) {
-                    console.log('🚫 Position already selected, ignoring click');
-                    return;
-                }
-                
-                document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentFilters.position = e.target.dataset.position;
-                await loadStats(true);
-            }
-        });
-    }
+   const searchInput = document.getElementById('searchInput');
+   if (searchInput) {
+       searchInput.addEventListener('input', (e) => {
+           searchQuery = e.target.value.toLowerCase();
+           render();
+       });
+   }
+   
+   const positionFilter = document.getElementById('positionFilter');
+   if (positionFilter) {
+       positionFilter.addEventListener('click', async (e) => {
+           if (e.target.classList.contains('position-btn')) {
+               if (e.target.classList.contains('active')) {
+                   return;
+               }
+               
+               document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+               e.target.classList.add('active');
+               currentFilters.position = e.target.dataset.position;
+               await loadStats(true);
+           }
+       });
+   }
 
-    eventListenersSetup = true;
-    console.log('✅ Event listeners setup complete');
+   eventListenersSetup = true;
 }
 
-// Update filter controls UI
 function updateFilterControlsUI() {
-    const filterContainer = document.querySelector('.filter-controls-container');
-    if (filterContainer) {
-        filterContainer.innerHTML = createFilterControls();
-        // Reset the event listeners flag since we're rebuilding the UI
-        eventListenersSetup = false;
-        setupEventListeners();
-    }
+   const filterContainer = document.querySelector('.filter-controls-container');
+   if (filterContainer) {
+       filterContainer.innerHTML = createFilterControls();
+       eventListenersSetup = false;
+       setupEventListeners();
+   }
 }
 
-// Get filtered players
 function getFilteredPlayers() {
-    let filteredPlayers = currentPlayers;
-    
-    // Apply search filter
-    if (searchQuery) {
-        filteredPlayers = filteredPlayers.filter(player => {
-            return player.name.toLowerCase().includes(searchQuery) ||
-                   player.team.toLowerCase().includes(searchQuery);
-        });
-    }
-    
-    return filteredPlayers;
+   let filteredPlayers = currentPlayers;
+   
+   if (searchQuery) {
+       filteredPlayers = filteredPlayers.filter(player => {
+           return player.name.toLowerCase().includes(searchQuery) ||
+                  player.team.toLowerCase().includes(searchQuery);
+       });
+   }
+   
+   return filteredPlayers;
 }
 
-// FIXED Fantasy points calculation - Use RAW stats
+// FIXED Fantasy points calculation - PROPERLY USE RAW STATS
 function calculateFantasyPoints(statName, rawStatValue, rawStats) {
-    if (!currentScoringRules || rawStatValue === 0) {
-        return 0;
-    }
-    
-    // Find the stat ID for the given stat name
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    if (!statId || !currentScoringRules[statId]) {
-        return 0;
-    }
-    
-    const rule = currentScoringRules[statId];
-    let points = rawStatValue * parseFloat(rule.points || 0);
-    
-    // Add bonus points if applicable
-    if (rule.bonuses && Array.isArray(rule.bonuses)) {
-        rule.bonuses.forEach(bonusRule => {
-            if (rawStatValue >= parseFloat(bonusRule.bonus.target)) {
-                points += parseFloat(bonusRule.bonus.points);
-            }
-        });
-    }
-    
-    return Math.round(points * 100) / 100;
+   if (!currentScoringRules || !rawStatValue || rawStatValue === 0) {
+       return 0;
+   }
+   
+   // Find the stat ID for the given stat name
+   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+       STAT_ID_MAPPING[id] === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) {
+       // Debug logging for missing mappings
+       if (rawStatValue > 0) {
+           console.log(`⚠️ No scoring rule found for stat: ${statName} (ID: ${statId})`);
+       }
+       return 0;
+   }
+   
+   const rule = currentScoringRules[statId];
+   let points = rawStatValue * parseFloat(rule.points || 0);
+   
+   // Add bonus points if applicable
+   if (rule.bonuses && Array.isArray(rule.bonuses)) {
+       rule.bonuses.forEach(bonusRule => {
+           if (rawStatValue >= parseFloat(bonusRule.bonus.target)) {
+               points += parseFloat(bonusRule.bonus.points);
+           }
+       });
+   }
+   
+   return Math.round(points * 100) / 100;
 }
 
-// Calculate total fantasy points for a player - Use RAW stats
+// Calculate total fantasy points for a player
 function calculateTotalFantasyPoints(player) {
-   if (!showFantasyStats || !currentScoringRules || !player.rawStats) return 0;
+   if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
+       return 0;
+   }
    
    let totalPoints = 0;
    
    // Use RAW stats for calculation
    Object.entries(player.rawStats).forEach(([statId, statValue]) => {
        const statName = STAT_ID_MAPPING[statId];
-       if (statName && currentScoringRules[statId]) {
+       if (statName && currentScoringRules[statId] && statValue > 0) {
            const points = calculateFantasyPoints(statName, statValue, player.rawStats);
-           totalPoints += points;
+           if (points !== 0) {
+               totalPoints += points;
+           }
        }
    });
    
    return Math.round(totalPoints * 100) / 100;
 }
 
-// Get stat value for display - FIXED to use RAW stats for fantasy calculations
+// Get stat value for display - FIXED to properly calculate fantasy points
 function getStatValue(player, statName) {
    if (showFantasyStats && currentScoringRules && player.rawStats) {
        // Find the raw stat value using the stat ID
@@ -575,8 +587,11 @@ function getStatValue(player, statName) {
        
        if (statId && player.rawStats[statId] !== undefined) {
            const rawValue = player.rawStats[statId];
-           const fantasyPoints = calculateFantasyPoints(statName, rawValue, player.rawStats);
-           return fantasyPoints > 0 ? fantasyPoints : rawValue;
+           if (rawValue > 0) {
+               const fantasyPoints = calculateFantasyPoints(statName, rawValue, player.rawStats);
+               return fantasyPoints > 0 ? fantasyPoints : rawValue;
+           }
+           return rawValue;
        }
    }
    
@@ -623,7 +638,6 @@ function getSortedPlayers(players) {
            bValue = getStatValue(b, tableSort.column);
        }
        
-       // Handle numeric vs string comparison
        if (typeof aValue === 'number' && typeof bValue === 'number') {
            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
        } else {
@@ -654,7 +668,6 @@ function render() {
        return;
    }
 
-   // Apply sorting for research view
    if (currentView === 'research') {
        filteredPlayers = getSortedPlayers(filteredPlayers);
    }
@@ -683,6 +696,7 @@ function renderCardsView(players) {
 
 function renderPlayerCard(player) {
    const stats = keyStats[player.position] || [];
+   const totalFantasyPoints = calculateTotalFantasyPoints(player);
    
    return `
        <div class="player-card fade-in">
@@ -692,7 +706,7 @@ function renderPlayerCard(player) {
                    <div class="player-meta">
                        <span class="position-badge">${player.position}</span>
                        <span>${player.team}</span>
-                       ${showFantasyStats ? `<span class="fantasy-total">${calculateTotalFantasyPoints(player)} pts</span>` : ''}
+                       ${showFantasyStats && totalFantasyPoints > 0 ? `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''}
                    </div>
                </div>
            </div>
@@ -724,7 +738,7 @@ function renderResearchView(players) {
    content.innerHTML = `
        <div class="research-container fade-in">
            <div class="research-header">
-               <h2>Research Table</h2>
+               <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                <div class="research-controls">
                    <button class="clear-filters-btn" onclick="clearAllFilters()">
                        Clear Sort
@@ -757,32 +771,35 @@ function renderResearchView(players) {
                        </tr>
                    </thead>
                    <tbody>
-                       ${players.map(player => `
-                           <tr>
-                               <td class="player-name-cell">${player.name}</td>
-                               <td>${player.position}</td>
-                               <td>${player.team}</td>
-                               ${showFantasyStats ? `
-                                   <td class="fantasy-stat-cell">
-                                       ${calculateTotalFantasyPoints(player)} pts
-                                   </td>
-                               ` : ''}
-                               ${stats.map(stat => {
-                                   const rawValue = player.stats[stat] || 0;
-                                   const displayValue = getStatValue(player, stat);
-                                   const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                   const isBest = checkIfBestStat(player, stat);
-                                   
-                                   return `
-                                       <td class="${isBest ? 'stat-best' : ''}">
-                                           <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                               ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                           </span>
+                       ${players.map(player => {
+                           const totalFantasyPoints = calculateTotalFantasyPoints(player);
+                           return `
+                               <tr>
+                                   <td class="player-name-cell">${player.name}</td>
+                                   <td>${player.position}</td>
+                                   <td>${player.team}</td>
+                                   ${showFantasyStats ? `
+                                       <td class="fantasy-stat-cell">
+                                           ${totalFantasyPoints > 0 ? totalFantasyPoints + ' pts' : '0 pts'}
                                        </td>
-                                   `;
-                               }).join('')}
-                           </tr>
-                       `).join('')}
+                                   ` : ''}
+                                   ${stats.map(stat => {
+                                       const rawValue = player.stats[stat] || 0;
+                                       const displayValue = getStatValue(player, stat);
+                                       const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
+                                       const isBest = checkIfBestStat(player, stat);
+                                       
+                                       return `
+                                           <td class="${isBest ? 'stat-best' : ''}">
+                                               <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                   ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                               </span>
+                                           </td>
+                                       `;
+                                   }).join('')}
+                               </tr>
+                           `;
+                       }).join('')}
                    </tbody>
                </table>
            </div>
@@ -807,11 +824,10 @@ function renderStatsView(players) {
                            <div class="stat-row">
                                <span>${stat}</span>
                                <span>${leaders.map(l => {
-                                   const displayValue = showFantasyStats ? 
-                                       calculateFantasyPoints(stat, l.value, l.rawStats) || l.value : 
-                                       l.value;
-                                   const suffix = showFantasyStats && displayValue !== l.value ? ' pts' : '';
-                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats)}${suffix})`;
+                                   const displayValue = showFantasyStats && l.fantasyValue !== null ? 
+                                       l.fantasyValue : l.value;
+                                   const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
+                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
                                }).join(', ')}</span>
                            </div>
                        `;
@@ -839,9 +855,11 @@ function categorizeStats(stats) {
       "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
       "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
       "Receiving": ["Rec", "Rec Yds", "Rec TD"],
-      "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-      "Special Teams": ["Ret Yds", "Ret TD", "FG", "FGM", "Pts Allow"],
-      "Turnovers": ["Fum", "Fum Lost", "Off Fum Ret TD"],
+      "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
+      "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+      "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
+      "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
+      "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
       "Scoring": ["2-PT"]
   };
 
@@ -860,7 +878,7 @@ function categorizeStats(stats) {
 
 function getStatLeaders(players, stat, limit = 3) {
   return players
-      .filter(p => p.stats[stat] !== undefined)
+      .filter(p => p.stats[stat] !== undefined && p.stats[stat] > 0)
       .map(p => ({ 
           name: p.name, 
           value: p.stats[stat] || 0,
@@ -871,7 +889,8 @@ function getStatLeaders(players, stat, limit = 3) {
           const aValue = showFantasyStats && a.fantasyValue !== null ? a.fantasyValue : a.value;
           const bValue = showFantasyStats && b.fantasyValue !== null ? b.fantasyValue : b.value;
           
-          if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
+          // For negative stats, sort ascending (lower is better)
+          if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
               return aValue - bValue;
           }
           return bValue - aValue;
@@ -882,9 +901,12 @@ function getStatLeaders(players, stat, limit = 3) {
 function checkIfBestStat(player, stat) {
   const players = getFilteredPlayers().filter(p => p.position === player.position);
   const playerValue = getStatValue(player, stat);
-  const values = players.map(p => getStatValue(p, stat));
+  const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
   
-  if (stat === 'Int' || stat === 'Fum Lost' || stat === 'FGM' || stat === 'Pts Allow') {
+  if (values.length === 0) return false;
+  
+  // For negative stats, best is lowest
+  if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
       return playerValue === Math.min(...values) && playerValue > 0;
   }
   return playerValue === Math.max(...values) && playerValue > 0;
@@ -895,15 +917,12 @@ function formatStatValue(value, stat, isFantasyMode = false) {
       return `${value} pts`;
   }
   
-  if (stat === 'Sack' || stat === 'Pass Def') {
-      return value.toFixed(1);
+  if (typeof value === 'number') {
+      if (value % 1 !== 0) {
+          return value.toFixed(1);
+      }
   }
-  if (stat === 'FG') {
-      return `${value} Att`;
-  }
-  if (stat === 'FGM') {
-      return `${value} Miss`;
-  }
+  
   return value.toString();
 }
 
@@ -911,28 +930,21 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('🚀 Initializing Fantasy Football Dashboard...');
   
-  // Load user leagues first
-  console.log('📡 Loading user leagues...');
   await loadUserLeagues();
   
-  // Initialize active league
   currentFilters.league = initializeActiveLeague();
   console.log('🎯 Active league:', currentFilters.league);
   
-  // Load saved week preference
   currentFilters.week = getSavedWeek();
   
-  // Load all scoring rules for all leagues
   console.log('⚖️ Loading scoring rules for all leagues...');
   await loadAllScoringRules();
   
-  // Set scoring rules for current league
   if (currentFilters.league && allScoringRules[currentFilters.league]) {
       currentScoringRules = allScoringRules[currentFilters.league];
-      console.log('✅ Scoring rules loaded for active league');
+      console.log('✅ Scoring rules loaded for active league:', Object.keys(currentScoringRules).length, 'stats');
   }
   
-  // Add filter controls to header
   const header = document.querySelector('.header');
   const filterControlsHtml = createFilterControls();
   if (filterControlsHtml && header) {
@@ -942,10 +954,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       header.appendChild(filterContainer);
   }
   
-  // Setup event listeners
   setupEventListeners();
   
-  // Load initial stats data
   console.log('📊 Loading initial stats data...');
   await loadStats(true);
   
