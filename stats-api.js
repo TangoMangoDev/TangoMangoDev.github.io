@@ -252,6 +252,8 @@ class StatsAPI {
         this.baseUrl = '/data/stats/stats';
         this.cache = new StatsCache();
         this.currentRequests = new Map();
+        // NEW: In-memory player rankings by league
+        this.playerRankings = new Map(); // leagueId -> ranked player data
     }
 
     async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
@@ -286,7 +288,130 @@ class StatsAPI {
         }
     }
 
-    // FIXED: Get scoring rules from IndexedDB FIRST, then API if needed
+    // NEW: Calculate and store fantasy rankings for a league
+    async calculateFantasyRankings(leagueId, allPlayers, scoringRules) {
+        if (!leagueId || !allPlayers || !scoringRules) {
+            console.log('❌ Missing data for fantasy rankings calculation');
+            return;
+        }
+
+        console.log(`🏆 Calculating fantasy rankings for league ${leagueId} with ${allPlayers.length} players`);
+
+        // Calculate fantasy points for each player
+        const playersWithFantasyPoints = allPlayers.map(player => {
+            let totalFantasyPoints = 0;
+
+            // Calculate total fantasy points using raw stats and scoring rules
+            Object.entries(player.rawStats || {}).forEach(([statId, statValue]) => {
+                if (scoringRules[statId] && statValue > 0) {
+                    const rule = scoringRules[statId];
+                    
+                    // Base points
+                    let points = statValue * parseFloat(rule.points || 0);
+                    
+                    // Add bonuses
+                    if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                        rule.bonuses.forEach(bonusRule => {
+                            const target = parseFloat(bonusRule.bonus.target || 0);
+                            const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                            
+                            if (statValue >= target) {
+                                points += bonusPoints;
+                            }
+                        });
+                    }
+                    
+                    totalFantasyPoints += points;
+                }
+            });
+
+            return {
+                ...player,
+                fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
+            };
+        });
+
+        // Sort by fantasy points (highest first) and assign overall rank
+        const rankedPlayers = playersWithFantasyPoints
+            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+            .map((player, index) => ({
+                ...player,
+                overallRank: index + 1
+            }));
+
+        // Calculate position-specific ranks
+        const positionRanks = {};
+        
+        // Group by position and rank within each position
+        const playersByPosition = rankedPlayers.reduce((acc, player) => {
+            if (!acc[player.position]) acc[player.position] = [];
+            acc[player.position].push(player);
+            return acc;
+        }, {});
+
+        // Assign position ranks
+        Object.entries(playersByPosition).forEach(([position, players]) => {
+            players
+                .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+                .forEach((player, index) => {
+                    player.positionRank = index + 1;
+                });
+        });
+
+        // Store rankings in memory
+        this.playerRankings.set(leagueId, {
+            players: rankedPlayers,
+            lastUpdated: Date.now(),
+            totalPlayers: rankedPlayers.length,
+            positionCounts: Object.fromEntries(
+                Object.entries(playersByPosition).map(([pos, players]) => [pos, players.length])
+            )
+        });
+
+        console.log(`✅ Fantasy rankings calculated for league ${leagueId}:`, {
+            totalPlayers: rankedPlayers.length,
+            positionCounts: Object.fromEntries(
+                Object.entries(playersByPosition).map(([pos, players]) => [pos, players.length])
+            )
+        });
+
+        return rankedPlayers;
+    }
+
+    // NEW: Get ranked players for a league
+    getRankedPlayers(leagueId, position = 'ALL', limit = null) {
+        const rankings = this.playerRankings.get(leagueId);
+        
+        if (!rankings) {
+            console.log(`⚠️ No rankings found for league ${leagueId}`);
+            return [];
+        }
+
+        let players = rankings.players;
+
+        // Filter by position if specified
+        if (position && position !== 'ALL') {
+            players = players.filter(p => p.position === position);
+        }
+
+        // Apply limit if specified
+        if (limit) {
+            players = players.slice(0, limit);
+        }
+
+        return players;
+    }
+
+    // NEW: Check if rankings exist and are recent
+    hasRecentRankings(leagueId, maxAgeHours = 24) {
+        const rankings = this.playerRankings.get(leagueId);
+        
+        if (!rankings) return false;
+        
+        const age = (Date.now() - rankings.lastUpdated) / (1000 * 60 * 60);
+        return age < maxAgeHours;
+    }
+
     async getScoringRules(leagueId) {
         console.log(`🔍 getScoringRules called for league: ${leagueId}`);
         
@@ -295,14 +420,12 @@ class StatsAPI {
             return {};
         }
         
-        // ALWAYS check cache first
         const cachedRules = await this.cache.getScoringRules(leagueId);
         if (cachedRules) {
             console.log(`✅ Using cached scoring rules for ${leagueId}:`, Object.keys(cachedRules).length, 'rules');
             return { [leagueId]: cachedRules };
         }
 
-        // Not in cache, fetch from API
         console.log(`🌐 Fetching scoring rules from API for league: ${leagueId}`);
         
         try {
@@ -318,7 +441,6 @@ class StatsAPI {
                 const rulesForLeague = data.scoringRules[leagueId];
                 console.log(`💾 STORING ${Object.keys(rulesForLeague).length} scoring rules in IndexedDB for league ${leagueId}`);
                 
-                // STORE IN INDEXEDDB
                 await this.cache.setScoringRules(leagueId, rulesForLeague);
                 
                 return { [leagueId]: rulesForLeague };
@@ -372,6 +494,10 @@ class StatsAPI {
         } else {
             await this.cache.clearAll();
         }
+        
+        // Clear rankings too
+        this.playerRankings.clear();
+        console.log('🗑️ Cleared player rankings');
     }
 }
 
