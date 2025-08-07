@@ -457,17 +457,17 @@ async function loadStats(resetPage = true) {
                 console.log(`✅ BACKGROUND: Fantasy rankings calculated for league ${currentFilters.league}`);
             }
             
-            // ONLY SHOW FIRST 50 PLAYERS
-            currentPlayers = playersWithReadableStats.slice(0, 50);
+            // ONLY SHOW FIRST 50 PLAYERS - ENSURE IT'S AN ARRAY
+            currentPlayers = Array.isArray(playersWithReadableStats) ? playersWithReadableStats.slice(0, 50) : [];
             apiState.totalRecords = data.pagination.totalRecords;
             apiState.totalPages = Math.ceil(data.pagination.totalRecords / 50);
             apiState.hasMore = currentPlayers.length < data.pagination.totalRecords;
         } else {
             // Normal pagination
             if (resetPage) {
-                currentPlayers = playersWithReadableStats;
+                currentPlayers = Array.isArray(playersWithReadableStats) ? playersWithReadableStats : [];
             } else {
-                currentPlayers = [...currentPlayers, ...playersWithReadableStats];
+                currentPlayers = [...(Array.isArray(currentPlayers) ? currentPlayers : []), ...(Array.isArray(playersWithReadableStats) ? playersWithReadableStats : [])];
             }
             
             apiState.totalPages = data.pagination.totalPages;
@@ -483,11 +483,14 @@ async function loadStats(resetPage = true) {
         console.error('Failed to load stats:', error);
         apiState.error = error.message;
         apiState.loading = false;
+        // Ensure currentPlayers is always an array
+        currentPlayers = [];
     }
     
     updateFilterControlsUI();
-    render();
+    await render(); // AWAIT the render call
 }
+
 // Event listeners
 function setupEventListeners() {
     if (eventListenersSetup) {
@@ -518,29 +521,28 @@ function setupEventListeners() {
             currentFilters.league = e.target.value;
             localStorage.setItem('activeLeagueId', e.target.value);
             
-            // Load scoring rules for the new league ONLY
             await loadScoringRulesForActiveLeague(e.target.value);
             
             updateFilterControlsUI();
-            render();
+            await render(); // AWAIT
         });
     }
     
     const teamSelect = document.getElementById('team-select');
     if (teamSelect) {
-        teamSelect.addEventListener('change', (e) => {
+        teamSelect.addEventListener('change', async (e) => {
             currentFilters.team = e.target.value;
-            render();
+            await render(); // AWAIT
         });
     }
     
     document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             showFantasyStats = e.target.dataset.mode === 'fantasy';
             console.log(`🔄 Switched to ${showFantasyStats ? 'Fantasy' : 'Raw'} stats mode`);
-            render();
+            await render(); // AWAIT
         });
     });
     
@@ -555,19 +557,19 @@ function setupEventListeners() {
     }
     
     document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
             currentView = e.target.dataset.view;
-            render();
+            await render(); // AWAIT
         });
     });
 
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', async (e) => {
             searchQuery = e.target.value.toLowerCase();
-            render();
+            await render(); // AWAIT
         });
     }
     
@@ -600,36 +602,9 @@ function updateFilterControlsUI() {
 }
 
 // ENHANCED: Use ranked players for filtering
-async function getFilteredPlayers() {
-    let filteredPlayers = currentPlayers;
+function getFilteredPlayers() {
+    let filteredPlayers = [...currentPlayers]; // Always ensure it's an array
 
-    // ENHANCED: Enhance with rankings if available and fantasy mode
-    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
-        console.log('🏆 Enhancing players with stored rankings');
-        
-        // LIMIT TO FIRST 100 PLAYERS FOR PERFORMANCE
-        const playersToEnhance = filteredPlayers.slice(0, 100);
-        
-        if (playersToEnhance.length > 100) {
-            console.warn('⚠️ Too many players for fantasy mode, limiting to 100');
-        }
-        
-        filteredPlayers = await window.statsAPI.enhancePlayersWithRankings(
-            currentFilters.league,
-            playersToEnhance
-        );
-        
-        // Sort by overall rank if we have rankings
-        filteredPlayers = filteredPlayers.sort((a, b) => {
-            if (a.overallRank && b.overallRank) {
-                return a.overallRank - b.overallRank;
-            }
-            return 0;
-        });
-        
-        console.log(`📊 Using ${filteredPlayers.length} ranked players`);
-    }
-    
     if (searchQuery) {
         filteredPlayers = filteredPlayers.filter(player => {
             return player.name.toLowerCase().includes(searchQuery) ||
@@ -638,6 +613,38 @@ async function getFilteredPlayers() {
     }
     
     return filteredPlayers;
+}
+
+// NEW: Async function to enhance players with rankings
+async function enhancePlayersWithRankings(players) {
+    if (!showFantasyStats || !currentFilters.league || !window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
+        return players;
+    }
+
+    console.log('🏆 Enhancing players with stored rankings');
+    
+    // LIMIT TO FIRST 100 PLAYERS FOR PERFORMANCE
+    const playersToEnhance = players.slice(0, 100);
+    
+    if (players.length > 100) {
+        console.warn('⚠️ Too many players for fantasy mode, limiting to 100');
+    }
+    
+    const enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
+        currentFilters.league,
+        playersToEnhance
+    );
+    
+    // Sort by overall rank if we have rankings
+    const sortedPlayers = enhancedPlayers.sort((a, b) => {
+        if (a.overallRank && b.overallRank) {
+            return a.overallRank - b.overallRank;
+        }
+        return 0;
+    });
+    
+    console.log(`📊 Using ${sortedPlayers.length} ranked players`);
+    return sortedPlayers;
 }
 
 // FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
@@ -758,12 +765,12 @@ function sortTable(column) {
         tableSort.column = column;
         tableSort.direction = 'asc';
     }
-    render();
+    render(); // This will work since it's called from onclick which can handle promises
 }
 
 function clearAllFilters() {
     tableSort = { column: null, direction: 'asc' };
-    render();
+    render(); // This will work since it's called from onclick which can handle promises
 }
 
 function getSortedPlayers(players) {
@@ -804,9 +811,16 @@ function getSortedPlayers(players) {
 }
 
 // Render functions
-function render() {
+// FIXED: Make render function async and handle enhancement
+async function render() {
     const content = document.getElementById('content');
     let filteredPlayers = getFilteredPlayers();
+
+    // Ensure we have an array
+    if (!Array.isArray(filteredPlayers)) {
+        console.error('❌ filteredPlayers is not an array:', filteredPlayers);
+        filteredPlayers = [];
+    }
 
     if (filteredPlayers.length === 0) {
         content.innerHTML = `
@@ -817,6 +831,11 @@ function render() {
             </div>
         `;
         return;
+    }
+
+    // Enhance with rankings if needed (async)
+    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
+        filteredPlayers = await enhancePlayersWithRankings(filteredPlayers);
     }
 
     if (currentView === 'research') {
@@ -1160,10 +1179,8 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Initializing Fantasy Football Dashboard...');
     
-    // Clear any old localStorage scoring rules
     localStorage.removeItem('allScoringRules');
     
-    // Set up UI immediately
     const header = document.querySelector('.header');
     const filterControlsHtml = createFilterControls();
     if (filterControlsHtml && header) {
@@ -1176,16 +1193,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     
     console.log('📊 Loading initial stats data...');
-    // Load stats immediately
     await loadStats(true);
     
     console.log('🔄 Loading leagues and scoring rules...');
-    // Load leagues (which will store scoring rules in IndexedDB)
     try {
         await loadUserLeagues();
         console.log('✅ Leagues and scoring rules loaded, updating UI...');
         updateFilterControlsUI();
-        render(); // Re-render with scoring rules
+        await render(); // AWAIT the render call
     } catch (error) {
         console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
     }
