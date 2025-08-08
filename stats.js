@@ -177,7 +177,7 @@ async function loadUserLeagues() {
         }
         
         const data = await response.json();
-        console.log('📊 Leagues response received:', data);
+        //console.log('📊 Leagues response received:', data);
         
         if (data.needsImport) {
             console.log('⚠️ User needs to import leagues first');
