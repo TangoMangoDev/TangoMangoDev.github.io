@@ -883,7 +883,7 @@ async function render() {
             renderCardsView(filteredPlayers);
             break;
         case 'research':
-            renderResearchView(filteredPlayers);
+            (filteredPlayers);
             break;
         case 'stats':
             renderStatsView(filteredPlayers);
@@ -948,26 +948,25 @@ function renderPlayerCard(player) {
 }
 
 // FIXED: Render research view with separate bonus columns visible
+// ENHANCED: Render research view with ALL fantasy stats and bonus columns
 function renderResearchView(players) {
     const content = document.getElementById('content');
-    const stats = getStatsForPosition(currentFilters.position);
+    const allStats = getStatsForPosition(currentFilters.position);
     
-    // SAFETY: Disable fantasy mode if too many players
-    if (showFantasyStats && players.length > 100) {
-        console.warn('⚠️ Too many players for fantasy mode, switching to raw stats');
-        showFantasyStats = false;
-        document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.mode === 'raw') btn.classList.add('active');
-        });
-    }
+    // Get stats that have scoring rules and bonus rules
+    const fantasyStats = showFantasyStats ? allStats.filter(stat => {
+        const statId = Object.keys(STAT_ID_MAPPING).find(id => STAT_ID_MAPPING[id] === stat);
+        return statId && currentScoringRules[statId];
+    }) : allStats.slice(0, 8);
+    
+    const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
     
     content.innerHTML = `
         <div class="research-container fade-in">
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">Showing top ranked players with fantasy scoring</span>' : ''}
+                    ${showFantasyStats ? '<span class="bonus-note">Showing all fantasy scoring stats with bonus columns</span>' : ''}
                     <span class="player-count">Showing ${players.length} players</span>
                 </div>
             </div>
@@ -980,9 +979,12 @@ function renderResearchView(players) {
                             <th class="sortable" onclick="sortTable('name')">Player</th>
                             <th class="sortable" onclick="sortTable('position')">Pos</th>
                             <th class="sortable" onclick="sortTable('team')">Team</th>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Fantasy Pts</th>' : ''}
-                            ${stats.slice(0, 8).map(stat => `
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
+                            ${fantasyStats.map(stat => `
                                 <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
+                            `).join('')}
+                            ${bonusStats.map(stat => `
+                                <th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} Bonus</th>
                             `).join('')}
                         </tr>
                     </thead>
@@ -996,20 +998,29 @@ function renderResearchView(players) {
                                     <td>${player.position}</td>
                                     <td>${player.team}</td>
                                     ${showFantasyStats ? `
-                                        <td class="fantasy-stat-cell">
-                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : '0 pts'}
+                                        <td class="fantasy-stat-cell total-points">
+                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
                                         </td>
                                     ` : ''}
-                                    ${stats.slice(0, 8).map(stat => {
+                                    ${fantasyStats.map(stat => {
                                         const rawValue = player.stats[stat] || 0;
                                         const displayValue = getStatValue(player, stat);
                                         const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                        const hasBonus = showFantasyStats && hasBonusApplied(player, stat);
                                         
                                         return `
-                                            <td>
+                                            <td class="${hasBonus ? 'bonus-applied' : ''}">
                                                 <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
                                                     ${formatStatValue(displayValue, stat, isFantasyMode)}
                                                 </span>
+                                            </td>
+                                        `;
+                                    }).join('')}
+                                    ${bonusStats.map(stat => {
+                                        const bonusPoints = getBonusPoints(player, stat);
+                                        return `
+                                            <td class="bonus-cell">
+                                                ${bonusPoints > 0 ? `+${bonusPoints} pts` : '-'}
                                             </td>
                                         `;
                                     }).join('')}
