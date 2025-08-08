@@ -683,39 +683,46 @@ function calculateTotalFantasyPoints(player) {
         return 0;
     }
     
-    // SAFE: If no scoring rules, return 0
     if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+        console.log('❌ No scoring rules for total calculation');
         return 0;
     }
     
     let totalPoints = 0;
     
+    console.log(`🧮 Calculating total for ${player.name}:`);
+    
     try {
-        // Use RAW stats for calculation - INCLUDE ALL STATS WITH SCORING RULES
         Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-            if (currentScoringRules[statId] && statValue !== 0) { // Changed from > 0 to !== 0
+            if (currentScoringRules[statId] && statValue !== 0) {
                 const rule = currentScoringRules[statId];
+                const statName = STAT_ID_MAPPING[statId];
                 
-                // Base points - NEGATIVE STATS WILL CALCULATE AS NEGATIVE POINTS
+                // Base points
                 let points = statValue * parseFloat(rule.points || 0);
                 
-                // Add bonuses - BONUSES CAN ALSO BE NEGATIVE
+                // Add bonuses
                 if (rule.bonuses && Array.isArray(rule.bonuses)) {
                     rule.bonuses.forEach(bonusRule => {
                         const target = parseFloat(bonusRule.bonus.target || 0);
                         const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
                         
-                        if (statValue >= target) {
-                            points += bonusPoints;
+                        if (statValue >= target && target > 0) {
+                            const bonusesEarned = Math.floor(statValue / target);
+                            points += bonusesEarned * bonusPoints;
+                            console.log(`💰 ${statName}: ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
                         }
                     });
                 }
                 
-                // ADD ALL POINTS - POSITIVE AND NEGATIVE
-                totalPoints += points;
+                if (points !== 0) {
+                    console.log(`📊 ${statName}: ${statValue} × ${rule.points} = ${points}`);
+                    totalPoints += points;
+                }
             }
         });
         
+        console.log(`🏆 ${player.name} TOTAL: ${totalPoints}`);
         return Math.round(totalPoints * 100) / 100;
     } catch (error) {
         console.error(`Error calculating total fantasy points for ${player.name}:`, error);
