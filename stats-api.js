@@ -1,11 +1,13 @@
 // stats-api.js - Pure API layer with IndexedDB caching
+// stats-api.js - FIXED with proper composite keys and efficient querying
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 10;
+        this.version = 12; // Increment for this fix
         this.storeName = 'stats';
         this.scoringRulesStore = 'scoring_rules';
         this.rawDataStore = 'raw_data';
+        this.rankingsStore = 'rankings';
         this.db = null;
         this.cacheExpiryMinutes = 60;
     }
@@ -40,145 +42,48 @@ class StatsCache {
                     rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
 
-                // Raw data store for 9999 calls by year
+                // Raw data store
                 if (!db.objectStoreNames.contains(this.rawDataStore)) {
                     const rawStore = db.createObjectStore(this.rawDataStore, { keyPath: 'year' });
                     rawStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
                 
-                // NOTE: Rankings stores are created dynamically per league-year
-            };
-        });
-    }
-
-    // Get rankings store name for specific league-year
-    getRankingsStoreName(leagueId, year) {
-        return `rankings_${year}_${leagueId}`;
-    }
-
-    // Create rankings store for specific league-year if it doesn't exist
-    async ensureRankingsStore(leagueId, year) {
-        await this.init();
-        const storeName = this.getRankingsStoreName(leagueId, year);
-        
-        if (this.db.objectStoreNames.contains(storeName)) {
-            return storeName;
-        }
-
-        // Close current connection and reopen with new version to add store
-        const currentVersion = this.db.version;
-        this.db.close();
-        
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, currentVersion + 1);
-            
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-                this.db = request.result;
-                this.version = this.db.version; // Update version
-                resolve(storeName);
-            };
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                if (!db.objectStoreNames.contains(storeName)) {
-                    const rankStore = db.createObjectStore(storeName, { keyPath: 'playerId' });
+                // UNIFIED rankings store with proper composite key structure
+                if (!db.objectStoreNames.contains(this.rankingsStore)) {
+                    const rankStore = db.createObjectStore(this.rankingsStore, { keyPath: 'compositeKey' });
+                    // Key index for efficient league-year queries
+                    rankStore.createIndex('leagueYear', 'leagueYear', { unique: false });
                     rankStore.createIndex('overallRank', 'overallRank', { unique: false });
                     rankStore.createIndex('positionRank', 'positionRank', { unique: false });
                     rankStore.createIndex('position', 'position', { unique: false });
                     rankStore.createIndex('fantasyPoints', 'fantasyPoints', { unique: false });
                     rankStore.createIndex('timestamp', 'timestamp', { unique: false });
-                    console.log(`✅ Created rankings store: ${storeName}`);
+                    console.log(`✅ Created unified rankings store`);
                 }
             };
         });
     }
 
-    // Raw data methods
-    async getRawDataForYear(year) {
-        try {
-            await this.init();
-            
-            const transaction = this.db.transaction([this.rawDataStore], 'readonly');
-            const store = transaction.objectStore(this.rawDataStore);
-            
-            return new Promise((resolve) => {
-                const request = store.get(year);
-                
-                request.onsuccess = () => {
-                    const result = request.result;
-                    
-                    if (!result) {
-                        resolve(null);
-                        return;
-                    }
-                    
-                    const now = new Date();
-                    const cachedTime = new Date(result.timestamp);
-                    const diffHours = (now - cachedTime) / (1000 * 60 * 60);
-                    
-                    if (diffHours > 24) {
-                        console.log(`Raw data cache expired for year ${year}`);
-                        resolve(null);
-                        return;
-                    }
-                    
-                    console.log(`✅ Raw data cache hit for year ${year} (${result.data.length} players)`);
-                    resolve(result.data);
-                };
-                
-                request.onerror = () => resolve(null);
-            });
-        } catch (error) {
-            console.error('Error getting raw data from cache:', error);
-            return null;
-        }
+    // Generate proper composite keys
+    getRankingKey(leagueId, year, playerId) {
+        return `${leagueId}_${year}_${playerId}`;
     }
 
-    async setRawDataForYear(year, data) {
-        try {
-            await this.init();
-            
-            const cacheEntry = {
-                year,
-                data,
-                timestamp: new Date().toISOString()
-            };
-            
-            const transaction = this.db.transaction([this.rawDataStore], 'readwrite');
-            const store = transaction.objectStore(this.rawDataStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(cacheEntry);
-                
-                request.onsuccess = () => {
-                    console.log(`✅ Cached raw data for year ${year} (${data.length} players)`);
-                    resolve();
-                };
-                
-                request.onerror = () => reject(request.error);
-            });
-        } catch (error) {
-            console.error('Error setting raw data cache:', error);
-        }
+    getLeagueYearKey(leagueId, year) {
+        return `${leagueId}_${year}`;
     }
 
-    // Rankings methods using YOUR specified store naming
     async hasRankingsForLeague(leagueId, year) {
         try {
             await this.init();
-            const storeName = this.getRankingsStoreName(leagueId, year);
             
-            if (!this.db.objectStoreNames.contains(storeName)) {
-                return false;
-            }
-
-            const transaction = this.db.transaction([storeName], 'readonly');
-            const store = transaction.objectStore(storeName);
+            const transaction = this.db.transaction([this.rankingsStore], 'readonly');
+            const store = transaction.objectStore(this.rankingsStore);
+            const index = store.index('leagueYear');
             
             return new Promise((resolve) => {
-                const countRequest = store.count();
+                const leagueYearKey = this.getLeagueYearKey(leagueId, year);
+                const countRequest = index.count(IDBKeyRange.only(leagueYearKey));
                 
                 countRequest.onsuccess = () => {
                     const count = countRequest.result;
@@ -195,22 +100,38 @@ class StatsCache {
 
     async setPlayerRankings(leagueId, year, rankedPlayers) {
         try {
-            const storeName = await this.ensureRankingsStore(leagueId, year);
+            await this.init();
             
-            const transaction = this.db.transaction([storeName], 'readwrite');
-            const store = transaction.objectStore(storeName);
+            const transaction = this.db.transaction([this.rankingsStore], 'readwrite');
+            const store = transaction.objectStore(this.rankingsStore);
             
-            // Clear existing rankings
+            // Clear existing rankings for this league-year using the index
+            const index = store.index('leagueYear');
+            const leagueYearKey = this.getLeagueYearKey(leagueId, year);
+            const keyRange = IDBKeyRange.only(leagueYearKey);
+            
             await new Promise((resolve, reject) => {
-                const clearRequest = store.clear();
-                clearRequest.onsuccess = () => resolve();
-                clearRequest.onerror = () => reject(clearRequest.error);
+                const deleteRequest = index.openCursor(keyRange);
+                
+                deleteRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        cursor.delete();
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+                
+                deleteRequest.onerror = () => reject(deleteRequest.error);
             });
             
-            // Add new rankings - just player data + ranks + points
+            // Add new rankings with proper composite keys
             const addPromises = rankedPlayers.map(player => {
                 return new Promise((addResolve, addReject) => {
                     const rankData = {
+                        compositeKey: this.getRankingKey(leagueId, year, player.id),
+                        leagueYear: this.getLeagueYearKey(leagueId, year),
                         playerId: player.id,
                         overallRank: player.overallRank,
                         positionRank: player.positionRank,
@@ -226,7 +147,7 @@ class StatsCache {
             });
             
             await Promise.all(addPromises);
-            console.log(`✅ Stored ${rankedPlayers.length} rankings in ${storeName}`);
+            console.log(`✅ Stored ${rankedPlayers.length} rankings for ${leagueId}-${year}`);
             
         } catch (error) {
             console.error('Error storing player rankings:', error);
@@ -236,15 +157,9 @@ class StatsCache {
     async getPlayerRankings(leagueId, year, playerIds) {
         try {
             await this.init();
-            const storeName = this.getRankingsStoreName(leagueId, year);
             
-            if (!this.db.objectStoreNames.contains(storeName)) {
-                console.log(`❌ No rankings store found: ${storeName}`);
-                return new Map();
-            }
-
-            const transaction = this.db.transaction([storeName], 'readonly');
-            const store = transaction.objectStore(storeName);
+            const transaction = this.db.transaction([this.rankingsStore], 'readonly');
+            const store = transaction.objectStore(this.rankingsStore);
             
             return new Promise((resolve, reject) => {
                 const rankings = new Map();
@@ -257,7 +172,8 @@ class StatsCache {
                 }
                 
                 playerIds.forEach(playerId => {
-                    const request = store.get(playerId);
+                    const compositeKey = this.getRankingKey(leagueId, year, playerId);
+                    const request = store.get(compositeKey);
                     
                     request.onsuccess = () => {
                         const result = request.result;
@@ -273,7 +189,7 @@ class StatsCache {
                         
                         completed++;
                         if (completed === total) {
-                            console.log(`✅ Retrieved ${rankings.size}/${total} player rankings from ${storeName}`);
+                            console.log(`✅ Retrieved ${rankings.size}/${total} player rankings`);
                             resolve(rankings);
                         }
                     };
@@ -292,7 +208,57 @@ class StatsCache {
         }
     }
 
-    // Rest of the methods stay the same...
+    // NEW: Get top 50 ranked players efficiently using index
+    async getTop50Rankings(leagueId, year) {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.rankingsStore], 'readonly');
+            const store = transaction.objectStore(this.rankingsStore);
+            const leagueYearIndex = store.index('leagueYear');
+            
+            return new Promise((resolve, reject) => {
+                const rankings = [];
+                const leagueYearKey = this.getLeagueYearKey(leagueId, year);
+                const keyRange = IDBKeyRange.only(leagueYearKey);
+                
+                const request = leagueYearIndex.openCursor(keyRange);
+                
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const ranking = cursor.value;
+                        
+                        // Check if not expired
+                        const now = new Date();
+                        const cachedTime = new Date(ranking.timestamp);
+                        const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                        
+                        if (diffHours < 24) {
+                            rankings.push(ranking);
+                        }
+                        
+                        cursor.continue();
+                    } else {
+                        // Sort by overall rank and take top 50
+                        const top50 = rankings
+                            .sort((a, b) => a.overallRank - b.overallRank)
+                            .slice(0, 50);
+                        
+                        console.log(`✅ Retrieved top 50 rankings from ${rankings.length} total for ${leagueId}-${year}`);
+                        resolve(top50);
+                    }
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error getting top 50 rankings:', error);
+            return [];
+        }
+    }
+
+    // All other methods stay exactly the same...
     async getScoringRules(leagueId) {
         try {
             await this.init();
@@ -359,6 +325,74 @@ class StatsCache {
             });
         } catch (error) {
             console.error('Error setting scoring rules cache:', error);
+        }
+    }
+
+    async getRawDataForYear(year) {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.rawDataStore], 'readonly');
+            const store = transaction.objectStore(this.rawDataStore);
+            
+            return new Promise((resolve) => {
+                const request = store.get(year);
+                
+                request.onsuccess = () => {
+                    const result = request.result;
+                    
+                    if (!result) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const now = new Date();
+                    const cachedTime = new Date(result.timestamp);
+                    const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                    
+                    if (diffHours > 24) {
+                        console.log(`Raw data cache expired for year ${year}`);
+                        resolve(null);
+                        return;
+                    }
+                    
+                    console.log(`✅ Raw data cache hit for year ${year} (${result.data.length} players)`);
+                    resolve(result.data);
+                };
+                
+                request.onerror = () => resolve(null);
+            });
+        } catch (error) {
+            console.error('Error getting raw data from cache:', error);
+            return null;
+        }
+    }
+
+    async setRawDataForYear(year, data) {
+        try {
+            await this.init();
+            
+            const cacheEntry = {
+                year,
+                data,
+                timestamp: new Date().toISOString()
+            };
+            
+            const transaction = this.db.transaction([this.rawDataStore], 'readwrite');
+            const store = transaction.objectStore(this.rawDataStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(cacheEntry);
+                
+                request.onsuccess = () => {
+                    console.log(`✅ Cached raw data for year ${year} (${data.length} players)`);
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error setting raw data cache:', error);
         }
     }
 
@@ -473,7 +507,7 @@ class StatsCache {
         try {
             await this.init();
             
-            const storeNames = [this.storeName, this.scoringRulesStore, this.rawDataStore];
+            const storeNames = [this.storeName, this.scoringRulesStore, this.rawDataStore, this.rankingsStore];
             const transaction = this.db.transaction(storeNames, 'readwrite');
             
             const clearPromises = storeNames.map(storeName => {
@@ -492,7 +526,6 @@ class StatsCache {
         }
     }
 }
-
 // StatsAPI class remains exactly the same as before...
 class StatsAPI {
     constructor() {
