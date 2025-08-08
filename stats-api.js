@@ -237,33 +237,34 @@ async getPlayerRankings(leagueId, year, playerIds) {
         }
     }
 
-    async setScoringRules(leagueId, rules) {
-        try {
-            await this.init();
+async setScoringRules(leagueId, rules, leagueName = null) {
+    try {
+        await this.init();
+        
+        const cacheEntry = {
+            leagueId,
+            rules,
+            leagueName, // ADD league name to cache
+            timestamp: new Date().toISOString()
+        };
+        
+        const transaction = this.db.transaction([this.scoringRulesStore], 'readwrite');
+        const store = transaction.objectStore(this.scoringRulesStore);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(cacheEntry);
             
-            const cacheEntry = {
-                leagueId,
-                rules,
-                timestamp: new Date().toISOString()
+            request.onsuccess = () => {
+                console.log(`✅ Cached scoring rules for ${leagueId}${leagueName ? ` (${leagueName})` : ''}`);
+                resolve();
             };
             
-            const transaction = this.db.transaction([this.scoringRulesStore], 'readwrite');
-            const store = transaction.objectStore(this.scoringRulesStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(cacheEntry);
-                
-                request.onsuccess = () => {
-                    console.log(`✅ Cached scoring rules for ${leagueId}`);
-                    resolve();
-                };
-                
-                request.onerror = () => reject(request.error);
-            });
-        } catch (error) {
-            console.error('Error setting scoring rules cache:', error);
-        }
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Error setting scoring rules cache:', error);
     }
+}
 
     generateCacheKey(year, week, position, page) {
         return `${year}_${week}_${position}_${page}`;
