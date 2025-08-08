@@ -510,6 +510,48 @@ class StatsAPI {
         this.currentRequests.delete(requestKey);
     }
 }
+        async getTop50RankedPlayers(leagueId, year) {
+        console.log(`🏆 Getting top 50 ranked players for ${leagueId}-${year}`);
+        
+        // Get cached raw data
+        const cachedData = await this.cache.getRawDataForYear(year);
+        if (!cachedData) {
+            console.log(`❌ No cached raw data for year ${year}`);
+            return null;
+        }
+        
+        const playersWithStats = cachedData.map(player => ({
+            ...player,
+            rawStats: player.stats,
+            stats: this.convertStatsForDisplay ? this.convertStatsForDisplay(player.stats) : player.stats
+        }));
+        
+        // Enhance with rankings
+        const playerIds = playersWithStats.map(p => p.id);
+        const rankings = await this.cache.getPlayerRankings(leagueId, year, playerIds);
+        
+        const enhancedPlayers = playersWithStats.map(player => {
+            const ranking = rankings.get(player.id);
+            if (ranking) {
+                return {
+                    ...player,
+                    overallRank: ranking.overallRank,
+                    positionRank: ranking.positionRank,
+                    fantasyPoints: ranking.fantasyPoints
+                };
+            }
+            return player;
+        });
+        
+        // Sort by overall rank and return top 50
+        const sortedPlayers = enhancedPlayers
+            .filter(p => p.overallRank) // Only players with rankings
+            .sort((a, b) => a.overallRank - b.overallRank)
+            .slice(0, 50);
+        
+        console.log(`✅ Retrieved top 50 ranked players from stored rankings`);
+        return sortedPlayers;
+    }
 // NEW: Get all players for ranking calculation ONLY - not for UI
 async getAllPlayersForRanking(year) {
     console.log('🔍 Getting ALL players for ranking calculation only...');
