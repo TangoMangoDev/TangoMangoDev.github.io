@@ -1228,18 +1228,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     setupEventListeners();
     
-    console.log('📊 Loading initial stats data...');
-    await loadStats(true);
-    
-    console.log('🔄 Loading leagues and scoring rules...');
+    console.log('🔄 Loading leagues and scoring rules first...');
     try {
         await loadUserLeagues();
-        console.log('✅ Leagues and scoring rules loaded, updating UI...');
+        console.log('✅ Leagues and scoring rules loaded');
         updateFilterControlsUI();
-        await render(); // AWAIT the render call
     } catch (error) {
         console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
     }
+    
+    console.log('📊 Loading initial stats data...');
+    await loadStats(true);
     
     console.log('🎉 Dashboard initialization complete!');
 });
