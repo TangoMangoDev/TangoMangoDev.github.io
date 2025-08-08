@@ -357,6 +357,7 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
+// ENHANCED: Load ALL players for ranking, but only show filtered subset
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -374,21 +375,31 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Calculate rankings if we have scoring rules and this is first load
-        if (!allPlayersLoaded && currentFilters.week === 'total' && currentFilters.position === 'ALL') {
-            console.log('🚀 Initial load - calculating rankings...');
+        // STEP 1: ALWAYS check if we need to calculate rankings
+        const shouldCalculateRankings = !allPlayersLoaded && 
+                                      currentFilters.week === 'total' && 
+                                      currentFilters.league && 
+                                      currentScoringRules && 
+                                      Object.keys(currentScoringRules).length > 0;
+        
+        if (shouldCalculateRankings) {
+            console.log('🚀 Calculating rankings for league:', currentFilters.league);
             
-            // Load ALL players for ranking calculation ONLY
-            const allPlayersForRankingOnly = await window.statsAPI.getAllPlayersForRanking(
-                currentFilters.year
-            );
+            // Check if rankings already exist for this league-year
+            const hasExistingRankings = await window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
             
-            console.log(`📊 Loaded ${allPlayersForRankingOnly.length} total players for ranking calculation ONLY`);
-            console.log('🔍 Sample player raw stats:', allPlayersForRankingOnly[0]?.rawStats);
-            console.log('🔍 Current scoring rules:', Object.keys(currentScoringRules).length, 'rules');
-            
-            // Calculate rankings if we have scoring rules
-            if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+            if (!hasExistingRankings) {
+                console.log('📊 Loading ALL players for ranking calculation...');
+                
+                // Load ALL players for ranking calculation ONLY
+                const allPlayersForRankingOnly = await window.statsAPI.getAllPlayersForRanking(
+                    currentFilters.year
+                );
+                
+                console.log(`📊 Loaded ${allPlayersForRankingOnly.length} total players for ranking calculation`);
+                console.log('🔍 Current scoring rules:', Object.keys(currentScoringRules).length, 'rules');
+                
+                // Calculate rankings
                 console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRankingOnly.length} players...`);
                 
                 const success = await window.statsAPI.calculateFantasyRankings(
@@ -404,9 +415,7 @@ async function loadStats(resetPage = true) {
                     console.log(`❌ Rankings calculation failed`);
                 }
             } else {
-                console.log('❌ Missing requirements for ranking calculation');
-                console.log(`League: ${currentFilters.league}`);
-                console.log(`Scoring rules count: ${Object.keys(currentScoringRules).length}`);
+                console.log(`✅ Rankings already exist for league ${currentFilters.league}-${currentFilters.year}`);
             }
             
             allPlayersLoaded = true;
@@ -445,19 +454,17 @@ async function loadStats(resetPage = true) {
                 currentPlayers
             );
             
-            // Sort by rank
-            currentPlayers.sort((a, b) => {
-                if (showFantasyStats) {
+            // Sort by rank if in fantasy mode
+            if (showFantasyStats) {
+                currentPlayers.sort((a, b) => {
                     if (a.overallRank && b.overallRank) {
                         return a.overallRank - b.overallRank;
                     }
                     const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
                     const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
                     return bPoints - aPoints;
-                } else {
-                    return 0;
-                }
-            });
+                });
+            }
         }
         
         apiState.totalPages = Math.ceil(requestedData.pagination.totalRecords / 50);
@@ -479,105 +486,7 @@ async function loadStats(resetPage = true) {
 }
 
 // Event listeners
-function setupEventListeners() {
-    if (eventListenersSetup) {
-        return;
-    }
-
-    const yearSelect = document.getElementById('year-select');
-    if (yearSelect) {
-        yearSelect.addEventListener('change', async (e) => {
-            currentFilters.year = e.target.value;
-            currentFilters.week = 'total';
-            await loadStats(true);
-        });
-    }
-    
-    const weekSelect = document.getElementById('week-select');
-    if (weekSelect) {
-        weekSelect.addEventListener('change', async (e) => {
-            currentFilters.week = e.target.value;
-            saveWeekPreference(e.target.value);
-            await loadStats(true);
-        });
-    }
-    
-    const leagueSelect = document.getElementById('league-select');
-    if (leagueSelect) {
-        leagueSelect.addEventListener('change', async (e) => {
-            currentFilters.league = e.target.value;
-            localStorage.setItem('activeLeagueId', e.target.value);
-            
-            await loadScoringRulesForActiveLeague(e.target.value);
-            
-            updateFilterControlsUI();
-            await render(); // AWAIT
-        });
-    }
-    
-    const teamSelect = document.getElementById('team-select');
-    if (teamSelect) {
-        teamSelect.addEventListener('change', async (e) => {
-            currentFilters.team = e.target.value;
-            await render(); // AWAIT
-        });
-    }
-    
-    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            showFantasyStats = e.target.dataset.mode === 'fantasy';
-            console.log(`🔄 Switched to ${showFantasyStats ? 'Fantasy' : 'Raw'} stats mode`);
-            await render(); // AWAIT
-        });
-    });
-    
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', async () => {
-            if (apiState.hasMore && !apiState.loading) {
-                apiState.currentPage++;
-                await loadStats(false);
-            }
-        });
-    }
-    
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentView = e.target.dataset.view;
-            await render(); // AWAIT
-        });
-    });
-
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', async (e) => {
-            searchQuery = e.target.value.toLowerCase();
-            await render(); // AWAIT
-        });
-    }
-    
-    const positionFilter = document.getElementById('positionFilter');
-    if (positionFilter) {
-        positionFilter.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('position-btn')) {
-                if (e.target.classList.contains('active')) {
-                    return;
-                }
-                
-                document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentFilters.position = e.target.dataset.position;
-                await loadStats(true);
-            }
-        });
-    }
-
-    eventListenersSetup = true;
-}
+eventListenersSetup = true
 
 function updateFilterControlsUI() {
     const filterContainer = document.querySelector('.filter-controls-container');
@@ -1305,6 +1214,7 @@ async function checkCachedRankings() {
         return false;
     }
 }
+
 // Update the initialization
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Initializing Fantasy Football Dashboard...');
@@ -1327,8 +1237,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadUserLeagues();
         console.log('✅ Leagues and scoring rules loaded');
         
-        // CHECK FOR CACHED RANKINGS FIRST
-        await checkCachedRankings();
+        // ALWAYS force ranking calculation on page load if we have scoring rules
+        allPlayersLoaded = false;
         
         updateFilterControlsUI();
     } catch (error) {
