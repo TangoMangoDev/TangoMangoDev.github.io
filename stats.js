@@ -1093,22 +1093,22 @@ function getBonusPoints(player, statName) {
     let totalBonusPoints = 0;
     
     rule.bonuses.forEach((bonusRule, index) => {
-        console.log(`🎯 Bonus rule ${index}:`, bonusRule);
+        //console.log(`🎯 Bonus rule ${index}:`, bonusRule);
         
         const target = parseFloat(bonusRule.bonus.target || 0);
         const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
         
-        console.log(`🎯 Target: ${target}, Points: ${bonusPoints}, Raw: ${rawValue}`);
+        ///console.log(`🎯 Target: ${target}, Points: ${bonusPoints}, Raw: ${rawValue}`);
         
         if (target > 0 && rawValue >= target) {
             const bonusesEarned = Math.floor(rawValue / target);
             totalBonusPoints += bonusesEarned * bonusPoints;
             
-            console.log(`💰 BONUS EARNED! ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
+            //console.log(`💰 BONUS EARNED! ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
         }
     });
     
-    console.log(`🏆 Total bonus points for ${player.name} ${statName}: ${totalBonusPoints}`);
+    //console.log(`🏆 Total bonus points for ${player.name} ${statName}: ${totalBonusPoints}`);
     return Math.round(totalBonusPoints * 100) / 100;
 }
 
