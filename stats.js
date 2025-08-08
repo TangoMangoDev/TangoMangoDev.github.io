@@ -819,12 +819,10 @@ function getSortedPlayers(players) {
 }
 
 // Render functions
-// FIXED: Make render function async and handle enhancement
 async function render() {
     const content = document.getElementById('content');
     let filteredPlayers = getFilteredPlayers();
 
-    // Ensure we have an array
     if (!Array.isArray(filteredPlayers)) {
         console.error('❌ filteredPlayers is not an array:', filteredPlayers);
         filteredPlayers = [];
@@ -841,9 +839,22 @@ async function render() {
         return;
     }
 
-    // Enhance with rankings if needed (async)
-    if (showFantasyStats && currentFilters.league && window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
-        filteredPlayers = await enhancePlayersWithRankings(filteredPlayers);
+    // ALWAYS enhance with rankings if in fantasy mode and we have a league
+    if (showFantasyStats && currentFilters.league) {
+        console.log('🏆 Enhancing players with rankings...');
+        filteredPlayers = await window.statsAPI.enhancePlayersWithRankings(
+            currentFilters.league,
+            currentFilters.year,
+            filteredPlayers
+        );
+        
+        // If no rankings found, calculate fantasy points on the fly
+        filteredPlayers = filteredPlayers.map(player => {
+            if (!player.fantasyPoints && currentScoringRules) {
+                player.fantasyPoints = calculateTotalFantasyPoints(player);
+            }
+            return player;
+        });
     }
 
     if (currentView === 'research') {
@@ -862,6 +873,7 @@ async function render() {
             break;
     }
 }
+
 
 function renderCardsView(players) {
     const content = document.getElementById('content');
