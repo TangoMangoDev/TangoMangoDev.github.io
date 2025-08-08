@@ -1299,4 +1299,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     console.log('🎉 Dashboard initialization complete!');
 });
-});
