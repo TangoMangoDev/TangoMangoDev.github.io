@@ -136,17 +136,17 @@ function convertStatsForDisplay(rawStats) {
 
 // Position stat mappings
 const positionStats = {
-    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
-    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
-    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
-    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Rec"],
+    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sacks Taken", "Rush Att", "Rush Yds", "Rush TD", "Fum", "Fum Lost", "Fum Rec", "Off Fum Ret TD", "2-PT"],
+    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
+    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
+    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
     "K": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "FG Miss 0-19", "FG Miss 20-29", "FG Miss 30-39", "FG Miss 40-49", "FG Miss 50+", "XP Made", "XP Miss"],
-    "DST": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+", "Sack", "Int", "Fum Rec", "Safe", "Def TD", "ST TD"],
-    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "DT": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"]
+    "DST": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+", "Sack", "Int", "Fum Rec", "Fum Force", "Safe", "Def TD", "ST TD", "Blk Kick", "Kick Ret TD", "Punt Ret TD"],
+    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "QB Hits", "Hurries", "Tack Loss"],
+    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "QB Hits", "Hurries", "Tack Loss"],
+    "DT": ["Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD", "QB Hits", "Hurries", "Tack Loss"]
 };
 
 // Key stats for card view
@@ -966,12 +966,8 @@ function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
     
-    // Get stats that have scoring rules and bonus rules
-    const fantasyStats = showFantasyStats ? allStats.filter(stat => {
-        const statId = Object.keys(STAT_ID_MAPPING).find(id => STAT_ID_MAPPING[id] === stat);
-        return statId && currentScoringRules[statId];
-    }) : allStats.slice(0, 8);
-    
+    // SHOW ALL STATS - not just filtered ones
+    const displayStats = showFantasyStats ? allStats : allStats;
     const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
     
     content.innerHTML = `
@@ -979,7 +975,7 @@ function renderResearchView(players) {
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">Showing all fantasy scoring stats with bonus columns</span>' : ''}
+                    ${showFantasyStats ? '<span class="bonus-note">Showing ALL fantasy scoring stats with bonus columns</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
                     <span class="player-count">Showing ${players.length} players</span>
                 </div>
             </div>
@@ -993,7 +989,7 @@ function renderResearchView(players) {
                             <th class="sortable" onclick="sortTable('position')">Pos</th>
                             <th class="sortable" onclick="sortTable('team')">Team</th>
                             ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
-                            ${fantasyStats.map(stat => `
+                            ${displayStats.map(stat => `
                                 <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
                             `).join('')}
                             ${bonusStats.map(stat => `
@@ -1015,7 +1011,7 @@ function renderResearchView(players) {
                                             ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
                                         </td>
                                     ` : ''}
-                                    ${fantasyStats.map(stat => {
+                                    ${displayStats.map(stat => {
                                         const rawValue = player.stats[stat] || 0;
                                         const displayValue = getStatValue(player, stat);
                                         const isFantasyMode = showFantasyStats && displayValue !== rawValue;
