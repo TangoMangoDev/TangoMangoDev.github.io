@@ -502,43 +502,40 @@ class StatsAPI {
         this.rankingsCalculated = new Set();
     }
 
-  async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
-    const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
-    
-    // Check if request is already in flight
-    if (this.currentRequests.has(requestKey)) {
-        console.log(`⏳ Waiting for pending request: ${requestKey}`);
-        return await this.currentRequests.get(requestKey);
-    }
-
-    // CHECK CACHE FIRST - THIS WAS MISSING
-    const cachedData = await this.cache.get(year, week, position, page);
-    if (cachedData) {
-        console.log(`✅ Cache hit for ${year}_${week}_${position}_${page}`);
-        return cachedData;
-    }
-
-    // Make the API call
-    const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
-    this.currentRequests.set(requestKey, fetchPromise);
-
-    try {
-        const data = await fetchPromise;
+    async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
+        const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
         
-        // CACHE THE RESPONSE - THIS WAS MISSING  
-        if (data.success) {
-            await this.cache.set(year, week, position, page, data);
-            console.log(`✅ Cached response for ${year}_${week}_${position}_${page}`);
+        if (this.currentRequests.has(requestKey)) {
+            console.log(`⏳ Waiting for pending request: ${requestKey}`);
+            return await this.currentRequests.get(requestKey);
         }
-        
-        return data;
-    } catch (error) {
-        console.error('Stats fetch error:', error);
-        throw error;
-    } finally {
-        this.currentRequests.delete(requestKey);
+
+        const cachedData = await this.cache.get(year, week, position, page);
+        if (cachedData) {
+            console.log(`✅ Cache hit for ${year}_${week}_${position}_${page}`);
+            return cachedData;
+        }
+
+        const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
+        this.currentRequests.set(requestKey, fetchPromise);
+
+        try {
+            const data = await fetchPromise;
+            
+            if (data.success) {
+                await this.cache.set(year, week, position, page, data);
+                console.log(`✅ Cached response for ${year}_${week}_${position}_${page}`);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Stats fetch error:', error);
+            throw error;
+        } finally {
+            this.currentRequests.delete(requestKey);
+        }
     }
-}
+
     async getAllPlayersForRanking(year) {
         console.log(`🔍 Getting ALL players for year ${year}...`);
         
@@ -567,41 +564,38 @@ class StatsAPI {
     async getTop50RankedPlayers(leagueId, year) {
         console.log(`🏆 Getting top 50 ranked players for ${leagueId}-${year}`);
         
+        const top50Rankings = await this.cache.getTop50Rankings(leagueId, year);
+        
+        if (!top50Rankings || top50Rankings.length === 0) {
+            console.log(`❌ No rankings found for ${leagueId}-${year}`);
+            return null;
+        }
+        
         const cachedData = await this.cache.getRawDataForYear(year);
         if (!cachedData) {
             console.log(`❌ No cached raw data for year ${year}`);
             return null;
         }
         
-        const playersWithStats = cachedData.map(player => ({
-            ...player,
-            rawStats: player.stats,
-            stats: convertStatsForDisplay(player.stats)
-        }));
+        const playersMap = new Map(cachedData.map(p => [p.id, p]));
         
-        const playerIds = playersWithStats.map(p => p.id);
-        const rankings = await this.cache.getPlayerRankings(leagueId, year, playerIds);
-        
-        const enhancedPlayers = playersWithStats.map(player => {
-            const ranking = rankings.get(player.id);
-            if (ranking) {
+        const enhancedPlayers = top50Rankings.map(ranking => {
+            const player = playersMap.get(ranking.playerId);
+            if (player) {
                 return {
                     ...player,
+                    rawStats: player.stats,
+                    stats: convertStatsForDisplay(player.stats),
                     overallRank: ranking.overallRank,
                     positionRank: ranking.positionRank,
                     fantasyPoints: ranking.fantasyPoints
                 };
             }
-            return player;
-        });
+            return null;
+        }).filter(Boolean);
         
-        const sortedPlayers = enhancedPlayers
-            .filter(p => p.overallRank)
-            .sort((a, b) => a.overallRank - b.overallRank)
-            .slice(0, 50);
-        
-        console.log(`✅ Retrieved top 50 ranked players from stored rankings`);
-        return sortedPlayers;
+        console.log(`✅ Retrieved ${enhancedPlayers.length} top ranked players`);
+        return enhancedPlayers;
     }
 
     async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
