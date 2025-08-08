@@ -196,29 +196,17 @@ async function loadUserLeagues() {
                 await window.statsAPI.cache.setScoringRules(defaultLeagueId, rulesForDefault);
                 currentScoringRules = rulesForDefault;
                 
-                // FIXED: Use the correct method name
-                if (allPlayersLoaded && currentPlayers.length > 0) {
-                    console.log(`🏆 Triggering ranking calculation with loaded players...`);
-                    await window.statsAPI.calculateFantasyRankings( // FIXED NAME
-                        defaultLeagueId,
-                        currentPlayers,
-                        currentScoringRules
-                    );
-                    
-                    console.log(`✅ Rankings calculated post-league load`);
-                }
+                localStorage.setItem('activeLeagueId', defaultLeagueId);
+                currentFilters.league = defaultLeagueId;
+                
+                // Force reload stats to trigger ranking calculation
+                allPlayersLoaded = false;
                 
                 console.log(`✅ Stored and set scoring rules for league ${defaultLeagueId}`);
             } else {
                 console.log(`⚠️ No scoring rules to store for league ${defaultLeagueId}`);
                 currentScoringRules = {};
             }
-            
-            localStorage.setItem('activeLeagueId', defaultLeagueId);
-            currentFilters.league = defaultLeagueId;
-            
-            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
-            console.log(`🎯 Set default league: ${defaultLeagueId} with ${Object.keys(currentScoringRules).length} scoring rules`);
             
             localStorage.setItem('userLeagues', JSON.stringify({
                 leagues: userLeagues,
