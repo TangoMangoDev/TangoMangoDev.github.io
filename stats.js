@@ -377,35 +377,45 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Only calculate rankings ONCE on initial load - SEPARATE FROM UI DATA
+        // STEP 1: Calculate rankings if we have scoring rules and this is first load
         if (!allPlayersLoaded && currentFilters.week === 'total' && currentFilters.position === 'ALL') {
             console.log('🚀 Initial load - calculating rankings...');
             
-            // Load ALL players for ranking calculation ONLY - NOT FOR UI
+            // Load ALL players for ranking calculation ONLY
             const allPlayersForRankingOnly = await window.statsAPI.getAllPlayersForRanking(
                 currentFilters.year
             );
             
             console.log(`📊 Loaded ${allPlayersForRankingOnly.length} total players for ranking calculation ONLY`);
+            console.log('🔍 Sample player raw stats:', allPlayersForRankingOnly[0]?.rawStats);
+            console.log('🔍 Current scoring rules:', Object.keys(currentScoringRules).length, 'rules');
             
             // Calculate rankings if we have scoring rules
             if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
                 console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRankingOnly.length} players...`);
                 
-                await window.statsAPI.calculateFantasyRankings(
+                const success = await window.statsAPI.calculateFantasyRankings(
                     currentFilters.league,
                     currentFilters.year,
                     allPlayersForRankingOnly,
                     currentScoringRules
                 );
                 
-                console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
+                if (success) {
+                    console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
+                } else {
+                    console.log(`❌ Rankings calculation failed`);
+                }
+            } else {
+                console.log('❌ Missing requirements for ranking calculation');
+                console.log(`League: ${currentFilters.league}`);
+                console.log(`Scoring rules count: ${Object.keys(currentScoringRules).length}`);
             }
             
             allPlayersLoaded = true;
         }
         
-        // STEP 2: Load ONLY 50 players for UI display
+        // STEP 2: Load players for UI (limit to 50)
         const requestedData = await window.statsAPI.getPlayersData(
             currentFilters.year,
             currentFilters.week,
@@ -413,7 +423,6 @@ async function loadStats(resetPage = true) {
             apiState.currentPage
         );
         
-        // LIMIT TO 50 PLAYERS FOR UI
         const limitedForUI = requestedData.data.slice(0, 50);
         
         const requestedPlayersWithStats = limitedForUI.map(player => ({
@@ -424,22 +433,22 @@ async function loadStats(resetPage = true) {
         
         console.log(`📊 LIMITED TO ${requestedPlayersWithStats.length} players for UI display`);
         
-        // STEP 3: Handle pagination
         if (resetPage) {
             currentPlayers = requestedPlayersWithStats;
         } else {
-            currentPlayers = [...currentPlayers, ...requestedPlayersWithStats].slice(0, 50); // NEVER EXCEED 50
+            currentPlayers = [...currentPlayers, ...requestedPlayersWithStats].slice(0, 50);
         }
         
-        // STEP 4: For season totals, enhance with rankings and sort by rank
+        // STEP 3: Enhance with rankings if available
         if (currentFilters.week === 'total' && currentFilters.league) {
+            console.log('🏆 Enhancing players with rankings...');
             currentPlayers = await window.statsAPI.enhancePlayersWithRankings(
                 currentFilters.league,
                 currentFilters.year,
                 currentPlayers
             );
             
-            // Sort by overall rank if available, otherwise by fantasy points
+            // Sort by rank
             currentPlayers.sort((a, b) => {
                 if (showFantasyStats) {
                     if (a.overallRank && b.overallRank) {
@@ -456,7 +465,7 @@ async function loadStats(resetPage = true) {
         
         apiState.totalPages = Math.ceil(requestedData.pagination.totalRecords / 50);
         apiState.totalRecords = requestedData.pagination.totalRecords;
-        apiState.hasMore = false; // NO MORE LOADING - LIMIT TO 50
+        apiState.hasMore = false;
         apiState.loading = false;
         
         console.log(`✅ FINAL: Showing ${currentPlayers.length} players in UI (MAX 50)`);
@@ -471,6 +480,7 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     await render();
 }
+
 // Event listeners
 function setupEventListeners() {
     if (eventListenersSetup) {
@@ -1027,37 +1037,55 @@ function getBonusTarget(statName) {
 }
 // NEW: Function to get bonus points for a specific stat
 function getBonusPoints(player, statName) {
-    if (!showFantasyStats || !currentScoringRules || !player.rawStats) return 0;
+    if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
+        console.log(`❌ Bonus calc failed: showFantasyStats=${showFantasyStats}, rules=${!!currentScoringRules}, rawStats=${!!player.rawStats}`);
+        return 0;
+    }
     
     // Find the stat ID that matches this stat name
     const statId = Object.keys(STAT_ID_MAPPING).find(id => 
         STAT_ID_MAPPING[id] === statName
     );
     
-    if (!statId || !currentScoringRules[statId]) return 0;
+    console.log(`🔍 Looking for stat: ${statName} -> ID: ${statId}`);
+    
+    if (!statId || !currentScoringRules[statId]) {
+        console.log(`❌ No scoring rule for ${statName} (ID: ${statId})`);
+        return 0;
+    }
     
     const rule = currentScoringRules[statId];
-    
-    // USE THE RAW STAT VALUE DIRECTLY FROM THE STAT ID
     const rawValue = player.rawStats[statId] || 0;
     
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return 0;
+    console.log(`📊 ${player.name} ${statName}: rawValue=${rawValue}, rule=`, rule);
+    
+    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) {
+        console.log(`❌ No bonuses or zero value: bonuses=${!!rule.bonuses}, isArray=${Array.isArray(rule.bonuses)}, rawValue=${rawValue}`);
+        return 0;
+    }
     
     let totalBonusPoints = 0;
     
-    rule.bonuses.forEach(bonusRule => {
+    rule.bonuses.forEach((bonusRule, index) => {
+        console.log(`🎯 Bonus rule ${index}:`, bonusRule);
+        
         const target = parseFloat(bonusRule.bonus.target || 0);
         const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
         
-        // Calculate how many times the player hit the bonus target
+        console.log(`🎯 Target: ${target}, Points: ${bonusPoints}, Raw: ${rawValue}`);
+        
         if (target > 0 && rawValue >= target) {
             const bonusesEarned = Math.floor(rawValue / target);
             totalBonusPoints += bonusesEarned * bonusPoints;
+            
+            console.log(`💰 BONUS EARNED! ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
         }
     });
     
+    console.log(`🏆 Total bonus points for ${player.name} ${statName}: ${totalBonusPoints}`);
     return Math.round(totalBonusPoints * 100) / 100;
 }
+
 
 
 // NEW: Get stats that have bonus rules for position
