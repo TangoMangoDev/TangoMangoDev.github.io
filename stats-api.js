@@ -510,7 +510,7 @@ class StatsAPI {
         return await this.currentRequests.get(requestKey);
     }
 
-    // CHECK CACHE FIRST - THIS IS WHAT I STUPIDLY REMOVED
+    // CHECK CACHE FIRST
     const cachedData = await this.cache.get(year, week, position, page);
     if (cachedData) {
         console.log(`✅ Cache hit for ${year}_${week}_${position}_${page}`);
