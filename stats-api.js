@@ -440,7 +440,18 @@ class StatsAPI {
         this.currentRequests.delete(requestKey);
     }
 }
-
+// NEW: Get all players for ranking calculation ONLY - not for UI
+async getAllPlayersForRanking(year) {
+    console.log('🔍 Getting ALL players for ranking calculation only...');
+    
+    const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
+    
+    return allPlayersData.data.map(player => ({
+        ...player,
+        rawStats: player.stats,
+        stats: this.convertStatsForDisplay ? this.convertStatsForDisplay(player.stats) : player.stats
+    }));
+}
     // NEW: Calculate rankings efficiently (in background, don't render)
 // FIXED: Position ranking calculation in calculateFantasyRankings
 async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
