@@ -859,6 +859,7 @@ async function render() {
         `;
         return;
     }
+    console.log(`🎯 RENDERING ${filteredPlayers.length} players (MAX 50 ENFORCED)`);
 
     // ALWAYS enhance with rankings if in fantasy mode and we have a league
     if (showFantasyStats && currentFilters.league) {
