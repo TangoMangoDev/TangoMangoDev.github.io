@@ -10,6 +10,8 @@ class StatsCache {
         this.cacheExpiryMinutes = 60;
     }
 
+    
+
     async init() {
         if (this.db) return this.db;
 
@@ -52,6 +54,31 @@ class StatsCache {
             };
         });
     }
+
+    async hasRankingsForLeague(leagueId, year) {
+    try {
+        await this.init();
+        
+        const transaction = this.db.transaction([this.rankingsStore], 'readonly');
+        const store = transaction.objectStore(this.rankingsStore);
+        const index = store.index('leagueId');
+        const compositeKey = `${leagueId}-${year}`;
+        
+        return new Promise((resolve) => {
+            const countRequest = index.count(IDBKeyRange.only(compositeKey));
+            
+            countRequest.onsuccess = () => {
+                const count = countRequest.result;
+                resolve(count > 0);
+            };
+            
+            countRequest.onerror = () => resolve(false);
+        });
+    } catch (error) {
+        console.error('Error checking rankings in cache:', error);
+        return false;
+    }
+}
 
 // In stats-api.js, update the setPlayerRankings method
 async setPlayerRankings(leagueId, year, rankedPlayers) {
