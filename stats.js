@@ -357,7 +357,6 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
-// ENHANCED: Load ALL players for ranking, but only show filtered subset
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -375,104 +374,72 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: ON INITIAL PAGE LOAD - Calculate rankings from ALL players (limit 9999)
-        const shouldCalculateRankings = !allPlayersLoaded && 
-                                      currentFilters.league && 
+        // STEP 1: Check if we need to calculate rankings
+        const shouldCalculateRankings = currentFilters.league && 
                                       currentScoringRules && 
-                                      Object.keys(currentScoringRules).length > 0;
-        
-        let allPlayersForUI = null; // CACHE THE DATA HERE
+                                      Object.keys(currentScoringRules).length > 0 &&
+                                      !(await window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year));
         
         if (shouldCalculateRankings) {
-            console.log('🚀 INITIAL PAGE LOAD: Loading ALL players for ranking calculation...');
+            console.log('🚀 CALCULATING RANKINGS: Getting ALL players for ranking calculation...');
             
-            const hasExistingRankings = await window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
+            const allPlayersForRanking = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
             
-            if (!hasExistingRankings) {
-                // Load ALL players for ranking calculation (limit 9999) - STORE THE RESULT
-                allPlayersForUI = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-                
-                console.log(`🏆 Calculating fantasy rankings for ${allPlayersForUI.length} players...`);
-                
-                const success = await window.statsAPI.calculateFantasyRankings(
-                    currentFilters.league,
-                    currentFilters.year,
-                    allPlayersForUI,
-                    currentScoringRules
-                );
-                
-                if (success) {
-                    console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
-                }
-            } else {
-                console.log(`✅ Rankings already exist for league ${currentFilters.league}-${currentFilters.year}`);
+            console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRanking.length} players...`);
+            
+            const success = await window.statsAPI.calculateFantasyRankings(
+                currentFilters.league,
+                currentFilters.year,
+                allPlayersForRanking,
+                currentScoringRules
+            );
+            
+            if (success) {
+                console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
+                window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
             }
-            
-            allPlayersLoaded = true;
         }
         
-        // STEP 2: For season totals + all positions, use the CACHED data or get from IndexedDB
-        if (currentFilters.week === 'total' && currentFilters.position === 'ALL' && allPlayersLoaded) {
-            console.log('📊 USING CACHED OR INDEXED DATA FOR UI...');
+        // STEP 2: For season totals + all positions, use stored rankings
+        if (currentFilters.week === 'total' && currentFilters.position === 'ALL') {
+            console.log('📊 USING STORED RANKINGS FOR SEASON TOTALS...');
             
-            // REUSE the data from the first call if we just made it
-            if (allPlayersForUI) {
-                console.log('🔥 REUSING data from ranking calculation - NO SECOND API CALL!');
+            if (currentFilters.league) {
+                // Try to get top 50 from stored rankings
+                const top50Players = await window.statsAPI.getTop50RankedPlayers(currentFilters.league, currentFilters.year);
                 
-                const playersWithStats = allPlayersForUI.map(player => ({
-                    ...player,
-                    rawStats: player.stats,
-                    stats: convertStatsForDisplay(player.stats)
-                }));
-                
-                // Enhance with rankings
-                let enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
-                    currentFilters.league,
-                    currentFilters.year,
-                    playersWithStats
-                );
-                
-                // ALWAYS SORT BY OVERALL RANK
-                enhancedPlayers.sort((a, b) => {
-                    if (a.overallRank && b.overallRank) {
-                        return a.overallRank - b.overallRank;
-                    }
-                    const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
-                    const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
-                    return bPoints - aPoints;
-                });
-                
-                currentPlayers = enhancedPlayers.slice(0, 50);
-                apiState.totalRecords = enhancedPlayers.length;
-                
+                if (top50Players && top50Players.length > 0) {
+                    console.log(`✅ Using ${top50Players.length} players from stored rankings`);
+                    currentPlayers = top50Players;
+                    apiState.totalRecords = top50Players.length;
+                } else {
+                    // Fallback: get all players and enhance with rankings
+                    console.log('📊 Fallback: Getting all players and enhancing with rankings...');
+                    const allPlayers = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
+                    
+                    const enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
+                        currentFilters.league,
+                        currentFilters.year,
+                        allPlayers
+                    );
+                    
+                    const sortedPlayers = enhancedPlayers.sort((a, b) => {
+                        if (a.overallRank && b.overallRank) {
+                            return a.overallRank - b.overallRank;
+                        }
+                        const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
+                        const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
+                        return bPoints - aPoints;
+                    });
+                    
+                    currentPlayers = sortedPlayers.slice(0, 50);
+                    apiState.totalRecords = sortedPlayers.length;
+                }
             } else {
-                // If we didn't just calculate rankings, we still need the data for UI
-                console.log('📊 Getting data for UI from fresh API call...');
-                const allPlayersData = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-                
-                const playersWithStats = allPlayersData.map(player => ({
-                    ...player,
-                    rawStats: player.stats,
-                    stats: convertStatsForDisplay(player.stats)
-                }));
-                
-                let enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
-                    currentFilters.league,
-                    currentFilters.year,
-                    playersWithStats
-                );
-                
-                enhancedPlayers.sort((a, b) => {
-                    if (a.overallRank && b.overallRank) {
-                        return a.overallRank - b.overallRank;
-                    }
-                    const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
-                    const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
-                    return bPoints - aPoints;
-                });
-                
-                currentPlayers = enhancedPlayers.slice(0, 50);
-                apiState.totalRecords = enhancedPlayers.length;
+                // No league selected, just get raw data
+                const allPlayers = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
+                currentPlayers = allPlayers.slice(0, 50);
+                apiState.totalRecords = allPlayers.length;
             }
             
         } else {
@@ -513,7 +480,6 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     await render();
 }
-
 
 
 // FIXED: Complete setupEventListeners function
