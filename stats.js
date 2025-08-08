@@ -912,14 +912,13 @@ function renderPlayerCard(player) {
     `;
 }
 
-// FIXED: Render research view with separate bonus columns visible
 // ENHANCED: Render research view with ALL fantasy stats and bonus columns
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
     
     // SHOW ALL STATS - not just filtered ones
-    const displayStats = showFantasyStats ? allStats : allStats;
+    const displayStats = allStats;
     const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
     
     content.innerHTML = `
@@ -927,7 +926,7 @@ function renderResearchView(players) {
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">Showing ALL fantasy scoring stats with bonus columns</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
+                    ${showFantasyStats ? '<span class="bonus-note">All fantasy stats with bonus targets</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
                     <span class="player-count">Showing ${players.length} players</span>
                 </div>
             </div>
@@ -944,9 +943,11 @@ function renderResearchView(players) {
                             ${displayStats.map(stat => `
                                 <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
                             `).join('')}
-                            ${bonusStats.map(stat => `
-                                <th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} Bonus</th>
-                            `).join('')}
+                            ${bonusStats.map(stat => {
+                                const target = getBonusTarget(stat);
+                                const statAbbr = getStatAbbreviation(stat);
+                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${statAbbr} ${target}+</th>`;
+                            }).join('')}
                         </tr>
                     </thead>
                     <tbody>
@@ -967,10 +968,9 @@ function renderResearchView(players) {
                                         const rawValue = player.stats[stat] || 0;
                                         const displayValue = getStatValue(player, stat);
                                         const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        const hasBonus = showFantasyStats && hasBonusApplied(player, stat);
                                         
                                         return `
-                                            <td class="${hasBonus ? 'bonus-applied' : ''}">
+                                            <td>
                                                 <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
                                                     ${formatStatValue(displayValue, stat, isFantasyMode)}
                                                 </span>
@@ -979,9 +979,13 @@ function renderResearchView(players) {
                                     }).join('')}
                                     ${bonusStats.map(stat => {
                                         const bonusPoints = getBonusPoints(player, stat);
+                                        const target = getBonusTarget(stat);
+                                        const rawValue = player.stats[stat] || 0;
+                                        const achieved = rawValue >= target;
+                                        
                                         return `
                                             <td class="bonus-cell">
-                                                ${bonusPoints > 0 ? `+${bonusPoints} pts` : '-'}
+                                                ${achieved ? `+${bonusPoints}` : '0'}
                                             </td>
                                         `;
                                     }).join('')}
@@ -993,6 +997,39 @@ function renderResearchView(players) {
             </div>
         </div>
     `;
+}
+
+function getStatAbbreviation(statName) {
+    const abbreviations = {
+        "Pass Yds": "PY",
+        "Pass TD": "PTD",
+        "Rush Yds": "RY", 
+        "Rush TD": "RTD",
+        "Rec Yds": "ReY",
+        "Rec TD": "ReTD",
+        "Rec": "Rec",
+        "FG": "FG",
+        "Tack Solo": "Solo",
+        "Sack": "Sack",
+        "Int": "Int"
+    };
+    
+    return abbreviations[statName] || statName.slice(0, 3);
+}
+
+function getBonusTarget(statName) {
+    if (!currentScoringRules) return 0;
+    
+    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+        STAT_ID_MAPPING[id] === statName
+    );
+    
+    if (!statId || !currentScoringRules[statId]) return 0;
+    
+    const rule = currentScoringRules[statId];
+    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return 0;
+    
+    return parseFloat(rule.bonuses[0].bonus.target || 0);
 }
 
 // NEW: Function to get bonus points for a specific stat
@@ -1022,7 +1059,6 @@ function getBonusPoints(player, statName) {
     
     return Math.round(totalBonusPoints * 100) / 100;
 }
-
 // NEW: Get stats that have bonus rules for position
 function getBonusStatsForPosition(position) {
     const stats = getStatsForPosition(position);
