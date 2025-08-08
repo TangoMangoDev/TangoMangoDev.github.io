@@ -415,6 +415,7 @@ class StatsAPI {
     }
 
     // NEW: Calculate rankings efficiently (in background, don't render)
+// FIXED: Position ranking calculation in calculateFantasyRankings
 async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
     if (!leagueId || !year || !allPlayers || !scoringRules) {
         console.log('❌ Missing data for fantasy rankings calculation');
@@ -461,22 +462,28 @@ async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
             overallRank: index + 1
         }));
 
-    // Assign position ranks
-    const playersByPosition = rankedPlayers.reduce((acc, player) => {
-        if (!acc[player.position]) acc[player.position] = [];
-        acc[player.position].push(player);
-        return acc;
-    }, {});
+    // FIXED: Assign position ranks correctly - group by position FIRST
+    const playersByPosition = {};
+    rankedPlayers.forEach(player => {
+        if (!playersByPosition[player.position]) {
+            playersByPosition[player.position] = [];
+        }
+        playersByPosition[player.position].push(player);
+    });
 
-    Object.entries(playersByPosition).forEach(([position, players]) => {
-        players
+    // FIXED: Sort each position group by fantasy points and assign position ranks
+    Object.keys(playersByPosition).forEach(position => {
+        playersByPosition[position]
             .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
             .forEach((player, index) => {
                 player.positionRank = index + 1;
             });
     });
 
-    await this.cache.setPlayerRankings(leagueId, year, rankedPlayers);
+    // Flatten back to single array
+    const finalRankedPlayers = Object.values(playersByPosition).flat();
+
+    await this.cache.setPlayerRankings(leagueId, year, finalRankedPlayers);
     this.rankingsCalculated.add(`${leagueId}-${year}`);
 
     console.log(`✅ BACKGROUND: Fantasy rankings calculated and stored for league ${leagueId}-${year}`);
