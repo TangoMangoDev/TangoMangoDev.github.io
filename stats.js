@@ -398,6 +398,7 @@ function createFilterControls() {
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
 // FIXED: Restore pagination while keeping ranking calculation
+// FIXED: Only load 50 players for display, but calculate rankings from ALL players
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -415,15 +416,17 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Only calculate rankings ONCE on initial load for season totals
+        // STEP 1: Only calculate rankings ONCE on initial load for season totals - but don't load all players in UI
         if (!allPlayersLoaded && currentFilters.week === 'total' && currentFilters.position === 'ALL') {
             console.log('🚀 Initial load - calculating rankings...');
             
+            // Load ALL players for ranking calculation (but don't store in currentPlayers)
             const allPlayersData = await window.statsAPI.getPlayersData(
                 currentFilters.year,
                 'total',
                 'ALL',
-                1
+                1,
+                9999 // Get all players for ranking calculation
             );
             
             const allPlayersWithStats = allPlayersData.data.map(player => ({
@@ -432,7 +435,7 @@ async function loadStats(resetPage = true) {
                 stats: convertStatsForDisplay(player.stats)
             }));
             
-            console.log(`📊 Loaded ${allPlayersWithStats.length} total players for ranking`);
+            console.log(`📊 Loaded ${allPlayersWithStats.length} total players for ranking calculation`);
             
             // Calculate rankings if we have scoring rules
             if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
@@ -451,12 +454,13 @@ async function loadStats(resetPage = true) {
             allPlayersLoaded = true;
         }
         
-        // STEP 2: Load the requested data (normal pagination logic)
+        // STEP 2: Load ONLY 50 players for display (normal pagination logic)
         const requestedData = await window.statsAPI.getPlayersData(
             currentFilters.year,
             currentFilters.week,
             currentFilters.position,
-            apiState.currentPage
+            apiState.currentPage,
+            50 // LIMIT TO 50 PLAYERS FOR UI
         );
         
         const requestedPlayersWithStats = requestedData.data.map(player => ({
@@ -472,8 +476,8 @@ async function loadStats(resetPage = true) {
             currentPlayers = [...currentPlayers, ...requestedPlayersWithStats];
         }
         
-        // STEP 4: For season totals in fantasy mode, sort by rank
-        if (currentFilters.week === 'total' && showFantasyStats && currentFilters.league) {
+        // STEP 4: For season totals, enhance with rankings and sort by rank
+        if (currentFilters.week === 'total' && currentFilters.league) {
             currentPlayers = await window.statsAPI.enhancePlayersWithRankings(
                 currentFilters.league,
                 currentFilters.year,
@@ -482,12 +486,17 @@ async function loadStats(resetPage = true) {
             
             // Sort by overall rank if available, otherwise by fantasy points
             currentPlayers.sort((a, b) => {
-                if (a.overallRank && b.overallRank) {
-                    return a.overallRank - b.overallRank;
+                if (showFantasyStats) {
+                    if (a.overallRank && b.overallRank) {
+                        return a.overallRank - b.overallRank;
+                    }
+                    const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
+                    const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
+                    return bPoints - aPoints;
+                } else {
+                    // For raw stats, sort by a default stat or keep original order
+                    return 0;
                 }
-                const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
-                const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
-                return bPoints - aPoints;
             });
         }
         
@@ -1227,6 +1236,39 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 }
 
 // Initialize
+// NEW: Check for cached rankings on page load
+async function checkCachedRankings() {
+    if (!currentFilters.league) return;
+    
+    console.log('🔍 Checking for cached rankings...');
+    
+    const hasRankings = window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
+    if (hasRankings) {
+        console.log('✅ Found cached rankings, skipping calculation');
+        allPlayersLoaded = true; // Skip recalculation
+        return true;
+    }
+    
+    // Try to get a sample of rankings from cache
+    const samplePlayerIds = ['sample']; // We'll use a real check
+    const cachedRankings = await window.statsAPI.cache.getPlayerRankings(
+        currentFilters.league, 
+        currentFilters.year, 
+        samplePlayerIds
+    );
+    
+    if (cachedRankings.size > 0) {
+        console.log('✅ Found rankings in IndexedDB cache');
+        window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
+        allPlayersLoaded = true;
+        return true;
+    }
+    
+    console.log('❌ No cached rankings found');
+    return false;
+}
+
+// Update the initialization
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Initializing Fantasy Football Dashboard...');
     
@@ -1247,6 +1289,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await loadUserLeagues();
         console.log('✅ Leagues and scoring rules loaded');
+        
+        // CHECK FOR CACHED RANKINGS FIRST
+        await checkCachedRankings();
+        
         updateFilterControlsUI();
     } catch (error) {
         console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
@@ -1256,4 +1302,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadStats(true);
     
     console.log('🎉 Dashboard initialization complete!');
+});
 });
