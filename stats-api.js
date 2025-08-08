@@ -58,7 +58,7 @@ class StatsCache {
                     rankStore.createIndex('position', 'position', { unique: false });
                     rankStore.createIndex('fantasyPoints', 'fantasyPoints', { unique: false });
                     rankStore.createIndex('timestamp', 'timestamp', { unique: false });
-                    console.log(`✅ Created unified rankings store`);
+                    //console.log(`✅ Created unified rankings store`);
                 }
             };
         });
@@ -756,7 +756,7 @@ class StatsAPI {
             }
             
             const data = await response.json();
-            console.log(`📊 API response received:`, data);
+            //console.log(`📊 API response received:`, data);
             
             if (data.success && data.scoringRules && data.scoringRules[leagueId]) {
                 const rulesForLeague = data.scoringRules[leagueId];
