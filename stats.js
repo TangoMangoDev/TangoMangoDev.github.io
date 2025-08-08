@@ -33,91 +33,53 @@ let eventListenersSetup = false;
 
 // COMPLETE Yahoo stat ID mapping - ALL STATS FROM YOUR SCORING RULES
 const STAT_ID_MAPPING = {
-    "0": "Games Played",
-    "1": "Pass Att",
-    "2": "Comp",
-    "3": "Inc", 
-    "4": "Pass Yds",
-    "5": "Pass TD",
-    "6": "Int",
-    "7": "Sacks Taken", // Offensive sacks (negative)
-    "8": "Rush Att",
-    "9": "Rush Yds", 
-    "10": "Rush TD",
-    "11": "Rec",
-    "12": "Rec Yds",
-    "13": "Rec TD",
-    "14": "Ret Yds",
-    "15": "Ret TD",
-    "16": "Off Fum Ret TD",
-    "17": "Fum Lost", // Usually negative
-    "18": "Fum", // Fumbles (negative)
-    "19": "Fum Rec",
-    "20": "FG 0-19",
-    "21": "FG 20-29",
-    "22": "FG 30-39",
-    "23": "FG 40-49",
-    "24": "FG 50+", // Your data shows negative - missed kicks?
-    "25": "FG Miss 0-19",
-    "26": "FG Miss 20-29", 
-    "27": "FG Miss 30-39",
-    "28": "FG Miss 40-49",
-    "29": "FG Miss 50+",
-    "30": "XP Made",
-    "31": "XP Miss",
-    "32": "Pts Allow 0",
-    "33": "Pts Allow 1-6", 
-    "34": "Pts Allow 7-13",
-    "35": "Pts Allow 14-20",
-    "36": "Pts Allow 21-27",
-    "37": "Pts Allow 28-34",
-    "38": "Pts Allow 35+",
-    "39": "Tack Solo",
-    "40": "Tack Ast",
-    "41": "Sack", // Defensive sacks (positive)
-    "42": "Int", // Defensive interceptions (positive)
-    "43": "Fum Force",
-    "44": "Fum Rec TD",
-    "45": "Int TD",
-    "46": "Blk Kick",
-    "47": "Safe",
-    "48": "Pass Def",
-    "49": "Kick Ret TD",
-    "50": "Punt Ret TD",
-    "51": "FG Ret TD",
-    "52": "Blk FG TD",
-    "53": "Blk Punt TD",
-    "54": "Blk PAT TD",
-    "55": "Fum Ret TD",
-    "56": "Int Ret TD",
-    "57": "Off Snaps",
-    "58": "Off Snap %",
-    "59": "Def Snaps", 
-    "60": "Def Snap %",
-    "61": "ST Snaps",
-    "62": "ST Snap %",
-    "63": "Games Started",
-    "64": "Off Plays",
-    "65": "Yds Allow 0-99",
-    "66": "Yds Allow 100-199",
-    "67": "Yds Allow 200-299",
-    "68": "Yds Allow 300-399",
-    "69": "Yds Allow 400-499",
-    "70": "Yds Allow 500+",
-    "71": "Rush Yds Allow 0-99",
-    "72": "Rush Yds Allow 100-149", 
-    "73": "Rush Yds Allow 150+",
-    "74": "Pass Yds Allow 0-199",
-    "75": "Pass Yds Allow 200-299",
-    "76": "Pass Yds Allow 300+",
-    "77": "Tack Total",
-    "78": "Tack Total Alt",
-    "79": "Tack Loss",
-    "80": "QB Hits",
-    "81": "Hurries",
-    "82": "Def TD",
-    "83": "ST TD",
-    "84": "4th Down Stops"
+  0:  "Games Played",
+  1:  "Pass Att",
+  2:  "Comp",
+  3:  "Inc",
+  4:  "Pass Yds",
+  5:  "Pass TD",
+  6:  "Int",
+  7:  "Sack",
+  8:  "Rush Att",
+  9:  "Rush Yds",
+  10: "Rush TD",
+  11: "Rec",
+  12: "Rec Yds",
+  13: "Rec TD",
+  14: "Ret Yds",
+  15: "Ret TD",
+  16: "Off Fum Ret TD",
+  17: "2-PT",
+  18: "Fum",
+  19: "Fum Lost",
+  20: "FG",
+  21: "FGM",
+  22: "Pts Allow",
+  23: "Tack Solo",
+  24: "Tack Ast",
+  25: "Pass Def",
+  26: "Sack",
+  27: "Int",
+  28: "Fum Rec",
+  29: "Fum Force",
+  30: "TD",
+  31: "Safe",
+  32: "Blk Kick",
+  33: "Ret Yds",
+  34: "Ret TD",
+  57: "Off Snaps",
+  58: "Off Snap %",
+  59: "Def Snaps",
+  60: "Def Snap %",
+  61: "ST Snaps",
+  62: "ST Snap %",
+  63: "Games Started",
+  64: "Off Plays",
+  78: "Tack Total",
+  79: "Tack Loss",
+  80: "Rec 1st Downs",
+  81: "Rush 1st Downs"
 };
 
 // Convert Yahoo stat IDs to readable names
@@ -135,18 +97,19 @@ function convertStatsForDisplay(rawStats) {
 }
 
 // Position stat mappings
+// Position stat mappings - UPDATED TO MATCH YOUR STAT NAMES
 const positionStats = {
-    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sacks Taken", "Rush Att", "Rush Yds", "Rush TD", "Fum", "Fum Lost", "Fum Rec", "Off Fum Ret TD", "2-PT"],
-    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
-    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
-    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Fum Rec"],
-    "K": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "FG Miss 0-19", "FG Miss 20-29", "FG Miss 30-39", "FG Miss 40-49", "FG Miss 50+", "XP Made", "XP Miss"],
-    "DST": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+", "Sack", "Int", "Fum Rec", "Fum Force", "Safe", "Def TD", "ST TD", "Blk Kick", "Kick Ret TD", "Punt Ret TD"],
-    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "QB Hits", "Hurries", "Tack Loss"],
-    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "QB Hits", "Hurries", "Tack Loss"],
-    "DT": ["Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Int TD", "Fum Rec", "Fum Rec TD", "Fum Force", "Def TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD", "QB Hits", "Hurries", "Tack Loss"]
+    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Fum", "Fum Lost", "Off Fum Ret TD", "2-PT"],
+    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rush 1st Downs"],
+    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rec 1st Downs"],
+    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rec 1st Downs"],
+    "K": ["FG", "FGM"],
+    "DST": ["Pts Allow", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"],
+    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Tack Loss"],
+    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Tack Loss"],
+    "DT": ["Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD", "Tack Loss"]
 };
 
 // Key stats for card view
@@ -672,7 +635,6 @@ function calculateFantasyPoints(statName, rawStatValue) {
     
     // SAFE: If no scoring rules, just return raw value
     if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
-        console.warn('⚠️ No scoring rules available, showing raw stats');
         return rawStatValue || 0;
     }
     
@@ -687,17 +649,17 @@ function calculateFantasyPoints(statName, rawStatValue) {
     
     const rule = currentScoringRules[statId];
     
-    // Base points calculation
+    // Base points calculation - THIS WILL BE NEGATIVE FOR NEGATIVE STATS
     let points = rawStatValue * parseFloat(rule.points || 0);
     
-    // Add bonus points if applicable
+    // Add bonus points if applicable (bonuses can also be negative)
     if (rule.bonuses && Array.isArray(rule.bonuses)) {
         rule.bonuses.forEach(bonusRule => {
             const target = parseFloat(bonusRule.bonus.target || 0);
             const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
             
             if (rawStatValue >= target) {
-                points += bonusPoints;
+                points += bonusPoints; // This can add negative points too
             }
         });
     }
@@ -719,15 +681,15 @@ function calculateTotalFantasyPoints(player) {
     let totalPoints = 0;
     
     try {
-        // Use RAW stats for calculation
+        // Use RAW stats for calculation - INCLUDE ALL STATS WITH SCORING RULES
         Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-            if (currentScoringRules[statId] && statValue > 0) {
+            if (currentScoringRules[statId] && statValue !== 0) { // Changed from > 0 to !== 0
                 const rule = currentScoringRules[statId];
                 
-                // Base points
+                // Base points - NEGATIVE STATS WILL CALCULATE AS NEGATIVE POINTS
                 let points = statValue * parseFloat(rule.points || 0);
                 
-                // Add bonuses
+                // Add bonuses - BONUSES CAN ALSO BE NEGATIVE
                 if (rule.bonuses && Array.isArray(rule.bonuses)) {
                     rule.bonuses.forEach(bonusRule => {
                         const target = parseFloat(bonusRule.bonus.target || 0);
@@ -739,9 +701,8 @@ function calculateTotalFantasyPoints(player) {
                     });
                 }
                 
-                if (points !== 0) {
-                    totalPoints += points;
-                }
+                // ADD ALL POINTS - POSITIVE AND NEGATIVE
+                totalPoints += points;
             }
         });
         
@@ -751,7 +712,6 @@ function calculateTotalFantasyPoints(player) {
         return 0;
     }
 }
-
 // FIXED: Get stat value for display - PROPER conversion
 function getStatValue(player, statName) {
     const rawValue = player.stats[statName] || 0;
