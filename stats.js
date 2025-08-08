@@ -374,39 +374,32 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Load ALL players once and use for both ranking and display
-        console.log('📊 Loading ALL players for ranking and display...');
-        
-        const allPlayersData = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-        
-        console.log(`📊 Loaded ${allPlayersData.length} total players`);
-        
-        // STEP 2: Calculate rankings if needed
+        // STEP 1: ON INITIAL PAGE LOAD - Calculate rankings from ALL players (limit 9999)
         const shouldCalculateRankings = !allPlayersLoaded && 
-                                      currentFilters.week === 'total' && 
                                       currentFilters.league && 
                                       currentScoringRules && 
                                       Object.keys(currentScoringRules).length > 0;
         
         if (shouldCalculateRankings) {
-            console.log('🚀 Calculating rankings for league:', currentFilters.league);
+            console.log('🚀 INITIAL PAGE LOAD: Loading ALL players for ranking calculation...');
             
             const hasExistingRankings = await window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
             
             if (!hasExistingRankings) {
-                console.log(`🏆 Calculating fantasy rankings for ${allPlayersData.length} players...`);
+                // Load ALL players for ranking calculation (limit 9999)
+                const allPlayersForRankingOnly = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
+                
+                console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRankingOnly.length} players...`);
                 
                 const success = await window.statsAPI.calculateFantasyRankings(
                     currentFilters.league,
                     currentFilters.year,
-                    allPlayersData,
+                    allPlayersForRankingOnly,
                     currentScoringRules
                 );
                 
                 if (success) {
                     console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
-                } else {
-                    console.log(`❌ Rankings calculation failed`);
                 }
             } else {
                 console.log(`✅ Rankings already exist for league ${currentFilters.league}-${currentFilters.year}`);
@@ -415,56 +408,67 @@ async function loadStats(resetPage = true) {
             allPlayersLoaded = true;
         }
         
-        // STEP 3: Filter and limit players for display (NO MORE API CALLS)
-        let filteredPlayers = allPlayersData;
-        
-        // Apply position filter
-        if (currentFilters.position !== 'ALL') {
-            filteredPlayers = filteredPlayers.filter(player => player.position === currentFilters.position);
-        }
-        
-        // Apply week filter (if not total, we'd need different data, but for now assume total)
-        // For week-specific data, you'd need to make a different API call
-        
-        // Convert stats for display
-        const playersWithStats = filteredPlayers.map(player => ({
-            ...player,
-            rawStats: player.stats,
-            stats: convertStatsForDisplay(player.stats)
-        }));
-        
-        // STEP 4: Enhance with rankings if available
-        let enhancedPlayers = playersWithStats;
-        if (currentFilters.week === 'total' && currentFilters.league) {
-            console.log('🏆 Enhancing players with rankings...');
-            enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
+        // STEP 2: For season totals + all positions, query ranked data from IndexedDB for top 50
+        if (currentFilters.week === 'total' && currentFilters.position === 'ALL' && allPlayersLoaded) {
+            console.log('📊 QUERYING TOP 50 FROM RANKED INDEXEDDB DATA...');
+            
+            // Get all players from the 9999 call
+            const allPlayersData = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
+            
+            const playersWithStats = allPlayersData.map(player => ({
+                ...player,
+                rawStats: player.stats,
+                stats: convertStatsForDisplay(player.stats)
+            }));
+            
+            // Enhance with rankings
+            let enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
                 currentFilters.league,
                 currentFilters.year,
                 playersWithStats
             );
             
-            // Sort by rank if in fantasy mode
-            if (showFantasyStats) {
-                enhancedPlayers.sort((a, b) => {
-                    if (a.overallRank && b.overallRank) {
-                        return a.overallRank - b.overallRank;
-                    }
-                    const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
-                    const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
-                    return bPoints - aPoints;
-                });
-            }
+            // ALWAYS SORT BY OVERALL RANK (even when showing raw stats)
+            enhancedPlayers.sort((a, b) => {
+                if (a.overallRank && b.overallRank) {
+                    return a.overallRank - b.overallRank;
+                }
+                const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
+                const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
+                return bPoints - aPoints;
+            });
+            
+            // Take top 50 by rank
+            currentPlayers = enhancedPlayers.slice(0, 50);
+            apiState.totalRecords = enhancedPlayers.length;
+            
+        } else {
+            // STEP 3: For week/position changes, make API call with limit 50
+            console.log('📊 MAKING API CALL FOR WEEK/POSITION FILTER...');
+            
+            const requestedData = await window.statsAPI.getPlayersData(
+                currentFilters.year,
+                currentFilters.week,
+                currentFilters.position,
+                apiState.currentPage,
+                50
+            );
+            
+            const requestedPlayersWithStats = requestedData.data.map(player => ({
+                ...player,
+                rawStats: player.stats,
+                stats: convertStatsForDisplay(player.stats)
+            }));
+            
+            currentPlayers = requestedPlayersWithStats;
+            apiState.totalRecords = requestedData.pagination.totalRecords;
         }
         
-        // STEP 5: Limit to top 50 for display
-        currentPlayers = enhancedPlayers.slice(0, 50);
-        
-        apiState.totalPages = 1; // Only showing top 50
-        apiState.totalRecords = filteredPlayers.length;
+        apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
         apiState.hasMore = false;
         apiState.loading = false;
         
-        console.log(`✅ FINAL: Showing top ${currentPlayers.length} players from ${filteredPlayers.length} total`);
+        console.log(`✅ FINAL: Showing ${currentPlayers.length} players (total: ${apiState.totalRecords})`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -476,6 +480,9 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     await render();
 }
+
+
+
 // FIXED: Complete setupEventListeners function
 function setupEventListeners() {
     if (eventListenersSetup) {
