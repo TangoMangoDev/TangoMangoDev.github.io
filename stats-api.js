@@ -1,11 +1,12 @@
+// stats-api.js - Pure API layer with IndexedDB caching
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 4; // Increment for new stores
+        this.version = 5; // Increment for correct stores
         this.storeName = 'stats';
         this.scoringRulesStore = 'scoring_rules';
-        this.rankingsStore = 'rankings';
-        this.rawDataStore = 'raw_data'; // NEW: Store raw API responses
+        this.rawDataStore = 'raw_data'; // Store 9999 API calls by year
+        this.rankingsStorePrefix = 'rankings_'; // e.g., 'rankings_2024_461.l.1085101'
         this.db = null;
         this.cacheExpiryMinutes = 60;
     }
@@ -25,7 +26,7 @@ class StatsCache {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 
-                // Existing stores...
+                // Stats store
                 if (!db.objectStoreNames.contains(this.storeName)) {
                     const store = db.createObjectStore(this.storeName, { keyPath: 'cacheKey' });
                     store.createIndex('timestamp', 'timestamp', { unique: false });
@@ -34,21 +35,13 @@ class StatsCache {
                     store.createIndex('position', 'position', { unique: false });
                 }
 
+                // Scoring rules store
                 if (!db.objectStoreNames.contains(this.scoringRulesStore)) {
                     const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
                     rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
 
-                // SIMPLIFIED: Rankings store with composite key
-                if (!db.objectStoreNames.contains(this.rankingsStore)) {
-                    const rankingsStore = db.createObjectStore(this.rankingsStore, { keyPath: 'compositeKey' });
-                    rankingsStore.createIndex('leagueYear', 'leagueYear', { unique: false });
-                    rankingsStore.createIndex('overallRank', 'overallRank', { unique: false });
-                    rankingsStore.createIndex('position', 'position', { unique: false });
-                    rankingsStore.createIndex('timestamp', 'timestamp', { unique: false });
-                }
-
-                // NEW: Raw data store for 9999 calls
+                // Raw data store for 9999 calls by year
                 if (!db.objectStoreNames.contains(this.rawDataStore)) {
                     const rawStore = db.createObjectStore(this.rawDataStore, { keyPath: 'year' });
                     rawStore.createIndex('timestamp', 'timestamp', { unique: false });
@@ -56,7 +49,50 @@ class StatsCache {
             };
         });
     }
-async getRawDataForYear(year) {
+
+    // NEW: Get rankings store name for specific league-year
+    getRankingsStoreName(leagueId, year) {
+        return `${this.rankingsStorePrefix}${year}_${leagueId}`;
+    }
+
+    // NEW: Create rankings store for specific league-year if it doesn't exist
+    async ensureRankingsStore(leagueId, year) {
+        const storeName = this.getRankingsStoreName(leagueId, year);
+        
+        if (this.db.objectStoreNames.contains(storeName)) {
+            return storeName;
+        }
+
+        // Need to upgrade database to add new store
+        this.db.close();
+        
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.db.version + 1);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve(storeName);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains(storeName)) {
+                    const rankStore = db.createObjectStore(storeName, { keyPath: 'playerId' });
+                    rankStore.createIndex('overallRank', 'overallRank', { unique: false });
+                    rankStore.createIndex('positionRank', 'positionRank', { unique: false });
+                    rankStore.createIndex('position', 'position', { unique: false });
+                    rankStore.createIndex('fantasyPoints', 'fantasyPoints', { unique: false });
+                    rankStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    console.log(`✅ Created rankings store: ${storeName}`);
+                }
+            };
+        });
+    }
+
+    // Raw data methods
+    async getRawDataForYear(year) {
         try {
             await this.init();
             
@@ -96,7 +132,8 @@ async getRawDataForYear(year) {
             return null;
         }
     }
-async setRawDataForYear(year, data) {
+
+    async setRawDataForYear(year, data) {
         try {
             await this.init();
             
@@ -124,97 +161,88 @@ async setRawDataForYear(year, data) {
         }
     }
 
+    // Rankings methods - FIXED: Use separate stores per league-year
     async hasRankingsForLeague(leagueId, year) {
-    try {
-        await this.init();
-        
-        const transaction = this.db.transaction([this.rankingsStore], 'readonly');
-        const store = transaction.objectStore(this.rankingsStore);
-        const index = store.index('leagueId');
-        const compositeKey = `${leagueId}-${year}`;
-        
-        return new Promise((resolve) => {
-            const countRequest = index.count(IDBKeyRange.only(compositeKey));
-            
-            countRequest.onsuccess = () => {
-                const count = countRequest.result;
-                resolve(count > 0);
-            };
-            
-            countRequest.onerror = () => resolve(false);
-        });
-    } catch (error) {
-        console.error('Error checking rankings in cache:', error);
-        return false;
-    }
-}
-
-// In stats-api.js, update the setPlayerRankings method
-async setPlayerRankings(leagueId, year, rankedPlayers) {
         try {
             await this.init();
+            const storeName = this.getRankingsStoreName(leagueId, year);
             
-            const transaction = this.db.transaction([this.rankingsStore], 'readwrite');
-            const store = transaction.objectStore(this.rankingsStore);
-            const leagueYear = `${leagueId}-${year}`;
+            if (!this.db.objectStoreNames.contains(storeName)) {
+                return false;
+            }
+
+            const transaction = this.db.transaction([storeName], 'readonly');
+            const store = transaction.objectStore(storeName);
             
-            // Clear old rankings for this league-year
-            const index = store.index('leagueYear');
-            const deleteRange = IDBKeyRange.only(leagueYear);
-            
-            return new Promise((resolve, reject) => {
-                const deleteRequest = index.openCursor(deleteRange);
+            return new Promise((resolve) => {
+                const countRequest = store.count();
                 
-                deleteRequest.onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        cursor.delete();
-                        cursor.continue();
-                    } else {
-                        // Add new rankings - SIMPLIFIED STRUCTURE
-                        const addPromises = rankedPlayers.map(player => {
-                            return new Promise((addResolve, addReject) => {
-                                const rankData = {
-                                    compositeKey: `${leagueYear}-${player.id}`, // Unique key
-                                    leagueYear: leagueYear,
-                                    playerId: player.id,
-                                    overallRank: player.overallRank,
-                                    positionRank: player.positionRank,
-                                    position: player.position,
-                                    fantasyPoints: player.fantasyPoints,
-                                    timestamp: new Date().toISOString()
-                                };
-                                
-                                const addRequest = store.put(rankData);
-                                addRequest.onsuccess = () => addResolve();
-                                addRequest.onerror = () => addReject(addRequest.error);
-                            });
-                        });
-                        
-                        Promise.all(addPromises)
-                            .then(() => {
-                                console.log(`✅ Stored ${rankedPlayers.length} rankings for ${leagueYear}`);
-                                resolve();
-                            })
-                            .catch(reject);
-                    }
+                countRequest.onsuccess = () => {
+                    const count = countRequest.result;
+                    resolve(count > 0);
                 };
                 
-                deleteRequest.onerror = () => reject(deleteRequest.error);
+                countRequest.onerror = () => resolve(false);
             });
+        } catch (error) {
+            console.error('Error checking rankings in cache:', error);
+            return false;
+        }
+    }
+
+    async setPlayerRankings(leagueId, year, rankedPlayers) {
+        try {
+            await this.init();
+            const storeName = await this.ensureRankingsStore(leagueId, year);
+            
+            const transaction = this.db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            
+            // Clear existing rankings
+            await new Promise((resolve, reject) => {
+                const clearRequest = store.clear();
+                clearRequest.onsuccess = () => resolve();
+                clearRequest.onerror = () => reject(clearRequest.error);
+            });
+            
+            // Add new rankings - SIMPLIFIED: Just player data + ranks + points
+            const addPromises = rankedPlayers.map(player => {
+                return new Promise((addResolve, addReject) => {
+                    const rankData = {
+                        playerId: player.id,
+                        overallRank: player.overallRank,
+                        positionRank: player.positionRank,
+                        position: player.position,
+                        fantasyPoints: player.fantasyPoints,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    const addRequest = store.put(rankData);
+                    addRequest.onsuccess = () => addResolve();
+                    addRequest.onerror = () => addReject(addRequest.error);
+                });
+            });
+            
+            await Promise.all(addPromises);
+            console.log(`✅ Stored ${rankedPlayers.length} rankings in ${storeName}`);
+            
         } catch (error) {
             console.error('Error storing player rankings:', error);
         }
     }
-    
-// Update getPlayerRankings to use league-year key
+
     async getPlayerRankings(leagueId, year, playerIds) {
         try {
             await this.init();
+            const storeName = this.getRankingsStoreName(leagueId, year);
             
-            const transaction = this.db.transaction([this.rankingsStore], 'readonly');
-            const store = transaction.objectStore(this.rankingsStore);
-            const leagueYear = `${leagueId}-${year}`;
+            if (!this.db.objectStoreNames.contains(storeName)) {
+                console.log(`❌ No rankings store found: ${storeName}`);
+                return new Map();
+            }
+
+            const transaction = this.db.transaction([storeName], 'readonly');
+            const store = transaction.objectStore(storeName);
             
             return new Promise((resolve, reject) => {
                 const rankings = new Map();
@@ -227,8 +255,7 @@ async setPlayerRankings(leagueId, year, rankedPlayers) {
                 }
                 
                 playerIds.forEach(playerId => {
-                    const compositeKey = `${leagueYear}-${playerId}`;
-                    const request = store.get(compositeKey);
+                    const request = store.get(playerId);
                     
                     request.onsuccess = () => {
                         const result = request.result;
@@ -245,7 +272,7 @@ async setPlayerRankings(leagueId, year, rankedPlayers) {
                         
                         completed++;
                         if (completed === total) {
-                            console.log(`✅ Retrieved ${rankings.size}/${total} player rankings from cache`);
+                            console.log(`✅ Retrieved ${rankings.size}/${total} player rankings from ${storeName}`);
                             resolve(rankings);
                         }
                     };
@@ -306,35 +333,36 @@ async setPlayerRankings(leagueId, year, rankedPlayers) {
         }
     }
 
-async setScoringRules(leagueId, rules, leagueName = null) {
-    try {
-        await this.init();
-        
-        const cacheEntry = {
-            leagueId,
-            rules,
-            leagueName, // ADD league name to cache
-            timestamp: new Date().toISOString()
-        };
-        
-        const transaction = this.db.transaction([this.scoringRulesStore], 'readwrite');
-        const store = transaction.objectStore(this.scoringRulesStore);
-        
-        return new Promise((resolve, reject) => {
-            const request = store.put(cacheEntry);
+    async setScoringRules(leagueId, rules, leagueName = null) {
+        try {
+            await this.init();
             
-            request.onsuccess = () => {
-                console.log(`✅ Cached scoring rules for ${leagueId}${leagueName ? ` (${leagueName})` : ''}`);
-                resolve();
+            const cacheEntry = {
+                leagueId,
+                rules,
+                leagueName,
+                timestamp: new Date().toISOString()
             };
             
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.error('Error setting scoring rules cache:', error);
+            const transaction = this.db.transaction([this.scoringRulesStore], 'readwrite');
+            const store = transaction.objectStore(this.scoringRulesStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(cacheEntry);
+                
+                request.onsuccess = () => {
+                    console.log(`✅ Cached scoring rules for ${leagueId}${leagueName ? ` (${leagueName})` : ''}`);
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error setting scoring rules cache:', error);
+        }
     }
-}
 
+    // Regular cache methods (existing)
     generateCacheKey(year, week, position, page) {
         return `${year}_${week}_${position}_${page}`;
     }
@@ -475,42 +503,71 @@ class StatsAPI {
         this.baseUrl = '/data/stats/stats';
         this.cache = new StatsCache();
         this.currentRequests = new Map();
-        this.allPlayersCache = null; // Cache all players data
-        this.rankingsCalculated = new Set(); // Track which leagues have rankings
+        this.rankingsCalculated = new Set();
     }
 
-   async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
-    const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
-    
-    if (this.currentRequests.has(requestKey)) {
-        console.log(`⏳ Waiting for pending request: ${requestKey}`);
-        return await this.currentRequests.get(requestKey);
-    }
-
-    const cachedData = await this.cache.get(year, week, position, page);
-    if (cachedData) {
-        return cachedData;
-    }
-
-    const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
-    this.currentRequests.set(requestKey, fetchPromise);
-
-    try {
-        const data = await fetchPromise;
+    async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
+        const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
         
-        if (data.success) {
-            await this.cache.set(year, week, position, page, data);
+        if (this.currentRequests.has(requestKey)) {
+            console.log(`⏳ Waiting for pending request: ${requestKey}`);
+            return await this.currentRequests.get(requestKey);
+        }
+
+        const cachedData = await this.cache.get(year, week, position, page);
+        if (cachedData) {
+            return cachedData;
+        }
+
+        const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
+        this.currentRequests.set(requestKey, fetchPromise);
+
+        try {
+            const data = await fetchPromise;
+            
+            if (data.success) {
+                await this.cache.set(year, week, position, page, data);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Stats fetch error:', error);
+            throw error;
+        } finally {
+            this.currentRequests.delete(requestKey);
+        }
+    }
+
+    // ENHANCED: Get all players with caching by year
+    async getAllPlayersForRanking(year) {
+        console.log(`🔍 Getting ALL players for year ${year}...`);
+        
+        // Check cache first
+        const cachedData = await this.cache.getRawDataForYear(year);
+        if (cachedData) {
+            console.log(`✅ Using cached raw data for year ${year} (${cachedData.length} players)`);
+            return cachedData.map(player => ({
+                ...player,
+                rawStats: player.stats,
+                stats: convertStatsForDisplay(player.stats)
+            }));
         }
         
-        return data;
-    } catch (error) {
-        console.error('Stats fetch error:', error);
-        throw error;
-    } finally {
-        this.currentRequests.delete(requestKey);
+        console.log(`🌐 Fetching fresh data for year ${year} from API...`);
+        const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
+        
+        // Cache the raw data
+        await this.cache.setRawDataForYear(year, allPlayersData.data);
+        
+        return allPlayersData.data.map(player => ({
+            ...player,
+            rawStats: player.stats,
+            stats: convertStatsForDisplay(player.stats)
+        }));
     }
-}
-        async getTop50RankedPlayers(leagueId, year) {
+
+    // Get top 50 ranked players from stored rankings
+    async getTop50RankedPlayers(leagueId, year) {
         console.log(`🏆 Getting top 50 ranked players for ${leagueId}-${year}`);
         
         // Get cached raw data
@@ -523,7 +580,7 @@ class StatsAPI {
         const playersWithStats = cachedData.map(player => ({
             ...player,
             rawStats: player.stats,
-            stats: this.convertStatsForDisplay ? this.convertStatsForDisplay(player.stats) : player.stats
+            stats: convertStatsForDisplay(player.stats)
         }));
         
         // Enhance with rankings
@@ -552,140 +609,115 @@ class StatsAPI {
         console.log(`✅ Retrieved top 50 ranked players from stored rankings`);
         return sortedPlayers;
     }
-// NEW: Get all players for ranking calculation ONLY - not for UI
-async getAllPlayersForRanking(year) {
-    console.log('🔍 Getting ALL players for ranking calculation only...');
-    
-    const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
-    
-    return allPlayersData.data.map(player => ({
-        ...player,
-        rawStats: player.stats,
-        stats: this.convertStatsForDisplay ? this.convertStatsForDisplay(player.stats) : player.stats
-    }));
-}
-// FIXED: Position ranking calculation in calculateFantasyRankings
-async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
-    if (!leagueId || !year || !allPlayers || !scoringRules) {
-        console.log('❌ Missing data for fantasy rankings calculation');
-        return false;
-    }
 
-    console.log(`🏆 BACKGROUND: Calculating fantasy rankings for league ${leagueId}-${year} with ${allPlayers.length} players`);
-
-    // Calculate fantasy points for each player
-    const playersWithFantasyPoints = allPlayers.map(player => {
-        let totalFantasyPoints = 0;
-
-        Object.entries(player.rawStats || {}).forEach(([statId, statValue]) => {
-            if (scoringRules[statId] && statValue !== 0) { // Changed from > 0 to !== 0
-                const rule = scoringRules[statId];
-                let points = statValue * parseFloat(rule.points || 0);
-                
-                if (rule.bonuses && Array.isArray(rule.bonuses)) {
-                    rule.bonuses.forEach(bonusRule => {
-                        const target = parseFloat(bonusRule.bonus.target || 0);
-                        const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                        
-                        if (statValue >= target) {
-                            points += bonusPoints;
-                        }
-                    });
-                }
-                
-                totalFantasyPoints += points; // ADD ALL POINTS INCLUDING NEGATIVE
-            }
-        });
-
-        return {
-            ...player,
-            fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
-        };
-    });
-
-    // Sort by fantasy points and assign overall ranks
-    const rankedPlayers = playersWithFantasyPoints
-        .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-        .map((player, index) => ({
-            ...player,
-            overallRank: index + 1
-        }));
-
-    // FIXED: Assign position ranks correctly - group by position FIRST
-    const playersByPosition = {};
-    rankedPlayers.forEach(player => {
-        if (!playersByPosition[player.position]) {
-            playersByPosition[player.position] = [];
-        }
-        playersByPosition[player.position].push(player);
-    });
-
-    // FIXED: Sort each position group by fantasy points and assign position ranks
-    Object.keys(playersByPosition).forEach(position => {
-        playersByPosition[position]
-            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-            .forEach((player, index) => {
-                player.positionRank = index + 1;
-            });
-    });
-
-    // Flatten back to single array
-    const finalRankedPlayers = Object.values(playersByPosition).flat();
-
-    await this.cache.setPlayerRankings(leagueId, year, finalRankedPlayers);
-    this.rankingsCalculated.add(`${leagueId}-${year}`);
-
-    console.log(`✅ BACKGROUND: Fantasy rankings calculated and stored for league ${leagueId}-${year}`);
-    return true;
-}
-
-    // NEW: Enhance players with their rankings (for display)
-async enhancePlayersWithRankings(leagueId, year, players) {
-    if (!leagueId || !year || !players.length) return players;
-
-    const playerIds = players.map(p => p.id);
-    const rankings = await this.cache.getPlayerRankings(leagueId, year, playerIds);
-
-    return players.map(player => {
-        const ranking = rankings.get(player.id);
-        if (ranking) {
-            return {
-                ...player,
-                overallRank: ranking.overallRank,
-                positionRank: ranking.positionRank,
-                fantasyPoints: ranking.fantasyPoints
-            };
-        }
-        return player;
-    });
-}
-
-// Update hasRankingsForLeague to include year
-async hasRankingsForLeague(leagueId, year) {
-        try {
-            await this.init();
-            
-            const transaction = this.db.transaction([this.rankingsStore], 'readonly');
-            const store = transaction.objectStore(this.rankingsStore);
-            const index = store.index('leagueYear');
-            const leagueYear = `${leagueId}-${year}`;
-            
-            return new Promise((resolve) => {
-                const countRequest = index.count(IDBKeyRange.only(leagueYear));
-                
-                countRequest.onsuccess = () => {
-                    const count = countRequest.result;
-                    resolve(count > 0);
-                };
-                
-                countRequest.onerror = () => resolve(false);
-            });
-        } catch (error) {
-            console.error('Error checking rankings in cache:', error);
+    async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
+        if (!leagueId || !year || !allPlayers || !scoringRules) {
+            console.log('❌ Missing data for fantasy rankings calculation');
             return false;
         }
+
+        console.log(`🏆 BACKGROUND: Calculating fantasy rankings for league ${leagueId}-${year} with ${allPlayers.length} players`);
+
+        // Calculate fantasy points for each player
+        const playersWithFantasyPoints = allPlayers.map(player => {
+            let totalFantasyPoints = 0;
+
+            Object.entries(player.rawStats || {}).forEach(([statId, statValue]) => {
+                if (scoringRules[statId] && statValue !== 0) {
+                    const rule = scoringRules[statId];
+                    let points = statValue * parseFloat(rule.points || 0);
+                    
+                    if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                        rule.bonuses.forEach(bonusRule => {
+                            const target = parseFloat(bonusRule.bonus.target || 0);
+                            const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                            
+                            if (statValue >= target) {
+                                points += bonusPoints;
+                            }
+                        });
+                    }
+                    
+                    totalFantasyPoints += points;
+                }
+            });
+
+            return {
+                ...player,
+                fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
+            };
+        });
+
+        // Sort by fantasy points and assign overall ranks
+        const rankedPlayers = playersWithFantasyPoints
+            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+            .map((player, index) => ({
+                ...player,
+                overallRank: index + 1
+            }));
+
+        // Assign position ranks
+        const playersByPosition = {};
+        rankedPlayers.forEach(player => {
+            if (!playersByPosition[player.position]) {
+                playersByPosition[player.position] = [];
+            }
+            playersByPosition[player.position].push(player);
+        });
+
+        Object.keys(playersByPosition).forEach(position => {
+            playersByPosition[position]
+                .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+                .forEach((player, index) => {
+                    player.positionRank = index + 1;
+                });
+        });
+
+        // Flatten back to single array
+        const finalRankedPlayers = Object.values(playersByPosition).flat();
+
+        await this.cache.setPlayerRankings(leagueId, year, finalRankedPlayers);
+        this.rankingsCalculated.add(`${leagueId}-${year}`);
+
+        console.log(`✅ BACKGROUND: Fantasy rankings calculated and stored for league ${leagueId}-${year}`);
+        return true;
     }
-}
+
+    async enhancePlayersWithRankings(leagueId, year, players) {
+        if (!leagueId || !year || !players.length) return players;
+
+        const playerIds = players.map(p => p.id);
+        const rankings = await this.cache.getPlayerRankings(leagueId, year, playerIds);
+
+        return players.map(player => {
+            const ranking = rankings.get(player.id);
+            if (ranking) {
+                return {
+                    ...player,
+                    overallRank: ranking.overallRank,
+                    positionRank: ranking.positionRank,
+                    fantasyPoints: ranking.fantasyPoints
+                };
+            }
+            return player;
+        });
+    }
+
+    async hasRankingsForLeague(leagueId, year) {
+        // Check in-memory first
+        if (this.rankingsCalculated.has(`${leagueId}-${year}`)) {
+            return true;
+        }
+        
+        // Check IndexedDB
+        const hasInDB = await this.cache.hasRankingsForLeague(leagueId, year);
+        if (hasInDB) {
+            // Mark as calculated in memory too
+            this.rankingsCalculated.add(`${leagueId}-${year}`);
+        }
+        
+        return hasInDB;
+    }
 
     async getScoringRules(leagueId) {
         console.log(`🔍 getScoringRules called for league: ${leagueId}`);
@@ -731,38 +763,39 @@ async hasRankingsForLeague(leagueId, year) {
     }
 
     async fetchFromAPI(year, week, position, page, limit = 50) {
-    const params = new URLSearchParams({
-        year,
-        week,
-        position,
-        page: page.toString(),
-        limit: limit.toString()
-    });
+        const params = new URLSearchParams({
+            year,
+            week,
+            position,
+            page: page.toString(),
+            limit: limit.toString()
+        });
 
-    const url = `${this.baseUrl}?${params}`;
-    console.log(`🌐 Fetching from API: ${url}`);
+        const url = `${this.baseUrl}?${params}`;
+        console.log(`🌐 Fetching from API: ${url}`);
 
-    const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json'
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'API request failed');
+        }
+
+        console.log(`✅ Fetched ${data.count} players from API`);
+        return data;
     }
 
-    const data = await response.json();
-    
-    if (!data.success) {
-        throw new Error(data.error || 'API request failed');
-    }
-
-    console.log(`✅ Fetched ${data.count} players from API`);
-    return data;
-}
     async clearCache(year = null) {
         if (year) {
             await this.cache.clear(year);
@@ -770,7 +803,6 @@ async hasRankingsForLeague(leagueId, year) {
             await this.cache.clearAll();
         }
         
-        this.allPlayersCache = null;
         this.rankingsCalculated.clear();
         console.log('🗑️ Cleared all caches and rankings');
     }
