@@ -1,5 +1,4 @@
 // stats-api.js - Pure API layer with IndexedDB caching
-// stats-api.js - FIXED with proper composite keys and efficient querying
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
