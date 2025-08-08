@@ -917,7 +917,6 @@ function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
     
-    // SHOW ALL STATS - not just filtered ones
     const displayStats = allStats;
     const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
     
@@ -945,8 +944,7 @@ function renderResearchView(players) {
                             `).join('')}
                             ${bonusStats.map(stat => {
                                 const target = getBonusTarget(stat);
-                                const statAbbr = getStatAbbreviation(stat);
-                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${statAbbr} ${target}+</th>`;
+                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
                             }).join('')}
                         </tr>
                     </thead>
@@ -979,13 +977,9 @@ function renderResearchView(players) {
                                     }).join('')}
                                     ${bonusStats.map(stat => {
                                         const bonusPoints = getBonusPoints(player, stat);
-                                        const target = getBonusTarget(stat);
-                                        const rawValue = player.stats[stat] || 0;
-                                        const achieved = rawValue >= target;
-                                        
                                         return `
                                             <td class="bonus-cell">
-                                                ${achieved ? `+${bonusPoints}` : '0'}
+                                                ${bonusPoints}
                                             </td>
                                         `;
                                     }).join('')}
@@ -1018,20 +1012,19 @@ function getStatAbbreviation(statName) {
 }
 
 function getBonusTarget(statName) {
-    if (!currentScoringRules) return 0;
+    if (!currentScoringRules) return '';
     
     const statId = Object.keys(STAT_ID_MAPPING).find(id => 
         STAT_ID_MAPPING[id] === statName
     );
     
-    if (!statId || !currentScoringRules[statId]) return 0;
+    if (!statId || !currentScoringRules[statId]) return '';
     
     const rule = currentScoringRules[statId];
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return 0;
+    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return '';
     
-    return parseFloat(rule.bonuses[0].bonus.target || 0);
+    return rule.bonuses[0].bonus.target || '';
 }
-
 // NEW: Function to get bonus points for a specific stat
 function getBonusPoints(player, statName) {
     if (!showFantasyStats || !currentScoringRules || !player.rawStats) return 0;
@@ -1045,15 +1038,19 @@ function getBonusPoints(player, statName) {
     const rule = currentScoringRules[statId];
     const rawValue = player.rawStats[statId] || 0;
     
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return 0;
+    if (!rule.bonuses || !Array.isArray(rule.bonuses)) return 0;
     
     let totalBonusPoints = 0;
+    
     rule.bonuses.forEach(bonusRule => {
         const target = parseFloat(bonusRule.bonus.target || 0);
         const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
         
-        if (rawValue >= target) {
-            totalBonusPoints += bonusPoints;
+        // Calculate how many times the player hit the bonus target
+        if (target > 0 && rawValue >= target) {
+            // For every X yards/attempts, award bonus points
+            const bonusesEarned = Math.floor(rawValue / target);
+            totalBonusPoints += bonusesEarned * bonusPoints;
         }
     });
     
