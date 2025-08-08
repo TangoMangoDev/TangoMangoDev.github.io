@@ -1233,37 +1233,57 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 
 // Initialize
 // NEW: Check for cached rankings on page load
+// FIXED: Check for cached rankings on page load
 async function checkCachedRankings() {
-    if (!currentFilters.league) return;
+    if (!currentFilters.league) return false;
     
     console.log('🔍 Checking for cached rankings...');
     
+    // First check the in-memory tracking
     const hasRankings = window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
     if (hasRankings) {
-        console.log('✅ Found cached rankings, skipping calculation');
-        allPlayersLoaded = true; // Skip recalculation
-        return true;
-    }
-    
-    // Try to get a sample of rankings from cache
-    const samplePlayerIds = ['sample']; // We'll use a real check
-    const cachedRankings = await window.statsAPI.cache.getPlayerRankings(
-        currentFilters.league, 
-        currentFilters.year, 
-        samplePlayerIds
-    );
-    
-    if (cachedRankings.size > 0) {
-        console.log('✅ Found rankings in IndexedDB cache');
-        window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
+        console.log('✅ Found cached rankings in memory, skipping calculation');
         allPlayersLoaded = true;
         return true;
     }
     
-    console.log('❌ No cached rankings found');
-    return false;
+    // Check IndexedDB directly for any rankings for this league-year
+    try {
+        await window.statsAPI.cache.init();
+        
+        const transaction = window.statsAPI.cache.db.transaction([window.statsAPI.cache.rankingsStore], 'readonly');
+        const store = transaction.objectStore(window.statsAPI.cache.rankingsStore);
+        const index = store.index('leagueId');
+        const compositeKey = `${currentFilters.league}-${currentFilters.year}`;
+        
+        return new Promise((resolve) => {
+            const countRequest = index.count(IDBKeyRange.only(compositeKey));
+            
+            countRequest.onsuccess = () => {
+                const count = countRequest.result;
+                
+                if (count > 0) {
+                    console.log(`✅ Found ${count} rankings in IndexedDB cache for ${compositeKey}`);
+                    // Mark as calculated so we don't recalculate
+                    window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
+                    allPlayersLoaded = true;
+                    resolve(true);
+                } else {
+                    console.log(`❌ No cached rankings found in IndexedDB for ${compositeKey}`);
+                    resolve(false);
+                }
+            };
+            
+            countRequest.onerror = () => {
+                console.log('❌ Error checking IndexedDB rankings');
+                resolve(false);
+            };
+        });
+    } catch (error) {
+        console.error('Error checking cached rankings:', error);
+        return false;
+    }
 }
-
 // Update the initialization
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Initializing Fantasy Football Dashboard...');
