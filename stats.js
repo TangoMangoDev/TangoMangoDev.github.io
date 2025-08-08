@@ -357,7 +357,7 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
-// ENHANCED: Load ALL players for ranking, but only show filtered subset
+// ENHANCED: Load players and lookup stored rankings (no recalculation)
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -375,7 +375,7 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Check if we need to calculate rankings for season totals
+        // STEP 1: ONLY calculate rankings for season totals if none exist
         const shouldCalculateRankings = currentFilters.league && 
                                       currentScoringRules && 
                                       Object.keys(currentScoringRules).length > 0 &&
@@ -407,7 +407,6 @@ async function loadStats(resetPage = true) {
             console.log('📊 USING STORED RANKINGS FOR SEASON TOTALS...');
             
             if (currentFilters.league) {
-                // Try to get top 50 from stored rankings
                 const top50Players = await window.statsAPI.getTop50RankedPlayers(currentFilters.league, currentFilters.year);
                 
                 if (top50Players && top50Players.length > 0) {
@@ -429,8 +428,8 @@ async function loadStats(resetPage = true) {
                         if (a.overallRank && b.overallRank) {
                             return a.overallRank - b.overallRank;
                         }
-                        const aPoints = a.fantasyPoints || calculateTotalFantasyPoints(a);
-                        const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
+                        const aPoints = a.fantasyPoints || 0;
+                        const bPoints = b.fantasyPoints || 0;
                         return bPoints - aPoints;
                     });
                     
@@ -438,15 +437,14 @@ async function loadStats(resetPage = true) {
                     apiState.totalRecords = sortedPlayers.length;
                 }
             } else {
-                // No league selected, just get raw data
                 const allPlayers = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
                 currentPlayers = allPlayers.slice(0, 50);
                 apiState.totalRecords = allPlayers.length;
             }
             
         } else {
-            // STEP 3: For week/position changes, make API call with limit 50
-            console.log('📊 MAKING API CALL FOR WEEK/POSITION FILTER...');
+            // STEP 3: For week/position filters, just get the data and lookup stored rankings
+            console.log('📊 FETCHING FILTERED DATA AND LOOKING UP STORED RANKINGS...');
             
             const requestedData = await window.statsAPI.getPlayersData(
                 currentFilters.year,
@@ -462,24 +460,41 @@ async function loadStats(resetPage = true) {
                 stats: convertStatsForDisplay(player.stats)
             }));
             
-            // CRUCIAL FIX: Calculate fantasy points for filtered data if we have scoring rules
-            if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-                console.log(`🏆 Calculating fantasy points for ${requestedPlayersWithStats.length} filtered players...`);
+            // LOOKUP stored rankings for these players (no calculation)
+            if (currentFilters.league) {
+                console.log(`🔍 Looking up stored rankings for ${requestedPlayersWithStats.length} players...`);
+                
+                const playerIds = requestedPlayersWithStats.map(p => p.id);
+                const rankings = await window.statsAPI.cache.getPlayerRankings(
+                    currentFilters.league, 
+                    currentFilters.year, 
+                    playerIds
+                );
                 
                 currentPlayers = requestedPlayersWithStats.map(player => {
-                    const fantasyPoints = calculateTotalFantasyPoints(player);
+                    const ranking = rankings.get(player.id);
+                    if (ranking) {
+                        return {
+                            ...player,
+                            overallRank: ranking.overallRank,
+                            positionRank: ranking.positionRank,
+                            fantasyPoints: ranking.fantasyPoints
+                        };
+                    }
+                    
+                    // If no stored ranking, calculate fantasy points for this week's stats only
+                    const weeklyFantasyPoints = currentScoringRules && Object.keys(currentScoringRules).length > 0 
+                        ? calculateTotalFantasyPoints(player) 
+                        : 0;
+                    
                     return {
                         ...player,
-                        fantasyPoints: fantasyPoints
+                        fantasyPoints: weeklyFantasyPoints
+                        // Note: no overallRank/positionRank since those are season-long
                     };
                 });
                 
-                // Sort by fantasy points if in fantasy mode
-                if (showFantasyStats) {
-                    currentPlayers.sort((a, b) => b.fantasyPoints - a.fantasyPoints);
-                }
-                
-                console.log(`✅ Fantasy points calculated for filtered data`);
+                console.log(`✅ Enhanced ${currentPlayers.length} players with stored rankings`);
             } else {
                 currentPlayers = requestedPlayersWithStats;
             }
@@ -880,26 +895,15 @@ async function render() {
     
     console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
 
-    // ALWAYS ensure fantasy points are calculated if we have scoring rules and are in fantasy mode
-    if (showFantasyStats && currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-        console.log('🏆 Ensuring fantasy points are calculated for all players...');
-        
+    // Only calculate weekly fantasy points if needed (no ranking recalculation)
+    if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
         filteredPlayers = filteredPlayers.map(player => {
-            // If player doesn't have fantasy points, calculate them
+            // Only calculate weekly fantasy points if not already set
             if (!player.fantasyPoints && player.rawStats) {
                 player.fantasyPoints = calculateTotalFantasyPoints(player);
             }
             return player;
         });
-        
-        // For season totals, try to enhance with rankings if available
-        if (currentFilters.week === 'total') {
-            filteredPlayers = await window.statsAPI.enhancePlayersWithRankings(
-                currentFilters.league,
-                currentFilters.year,
-                filteredPlayers
-            );
-        }
     }
 
     if (currentView === 'research') {
@@ -918,6 +922,7 @@ async function render() {
             break;
     }
 }
+
 function renderCardsView(players) {
     const content = document.getElementById('content');
     content.innerHTML = `
