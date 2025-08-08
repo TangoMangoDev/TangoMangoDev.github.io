@@ -128,10 +128,9 @@ const keyStats = {
 };
 
 // Backend API functions
-
 async function loadUserLeagues() {
     try {
-        console.log('🔄 Loading user leagues...');
+        console.log('🔄 Loading ALL user leagues...');
         const response = await fetch('/data/stats/rules');
         
         if (!response.ok) {
@@ -140,37 +139,40 @@ async function loadUserLeagues() {
         }
         
         const data = await response.json();
-        //console.log('📊 Leagues response received:', data);
+        console.log('📊 Backend response received:', data);
         
         if (data.needsImport) {
             console.log('⚠️ User needs to import leagues first');
             return setEmptyDefaults();
         }
         
-        if (data.leagues && data.defaultLeagueId && data.scoringRules) {
+        if (data.leagues && data.scoringRules) {
             userLeagues = data.leagues;
+            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues:`, Object.keys(userLeagues));
             
-            const defaultLeagueId = data.defaultLeagueId;
-            const rulesForDefault = data.scoringRules[defaultLeagueId];
-            
-            if (rulesForDefault && Object.keys(rulesForDefault).length > 0) {
-                console.log(`💾 STORING ${Object.keys(rulesForDefault).length} scoring rules in IndexedDB for default league ${defaultLeagueId}`);
-                
-                await window.statsAPI.cache.setScoringRules(defaultLeagueId, rulesForDefault);
-                currentScoringRules = rulesForDefault;
-                
-                localStorage.setItem('activeLeagueId', defaultLeagueId);
-                currentFilters.league = defaultLeagueId;
-                
-                // Force reload stats to trigger ranking calculation
-                allPlayersLoaded = false;
-                
-                console.log(`✅ Stored and set scoring rules for league ${defaultLeagueId}`);
-            } else {
-                console.log(`⚠️ No scoring rules to store for league ${defaultLeagueId}`);
-                currentScoringRules = {};
+            // STORE ALL SCORING RULES IN INDEXDB
+            for (const [leagueId, scoringRules] of Object.entries(data.scoringRules)) {
+                if (scoringRules && Object.keys(scoringRules).length > 0) {
+                    console.log(`💾 Storing ${Object.keys(scoringRules).length} scoring rules for league ${leagueId}`);
+                    await window.statsAPI.cache.setScoringRules(leagueId, scoringRules);
+                }
             }
             
+            // Set default league (first one or the one specified by backend)
+            const defaultLeagueId = data.defaultLeagueId || Object.keys(userLeagues)[0];
+            
+            if (defaultLeagueId) {
+                currentFilters.league = defaultLeagueId;
+                localStorage.setItem('activeLeagueId', defaultLeagueId);
+                
+                // Load scoring rules for default league
+                if (data.scoringRules[defaultLeagueId]) {
+                    currentScoringRules = data.scoringRules[defaultLeagueId];
+                    console.log(`✅ Set default league ${defaultLeagueId} with ${Object.keys(currentScoringRules).length} scoring rules`);
+                }
+            }
+            
+            // Cache the leagues data
             localStorage.setItem('userLeagues', JSON.stringify({
                 leagues: userLeagues,
                 timestamp: Date.now()
@@ -179,22 +181,13 @@ async function loadUserLeagues() {
             return userLeagues;
         }
         
-        userLeagues = data.leagues || {};
-        currentScoringRules = {};
-        
-        localStorage.setItem('userLeagues', JSON.stringify({
-            leagues: userLeagues,
-            timestamp: Date.now()
-        }));
-        
-        return userLeagues;
+        return setEmptyDefaults();
         
     } catch (error) {
         console.error('❌ Error loading leagues:', error);
         return setEmptyDefaults();
     }
 }
-
 
 function setEmptyDefaults() {
     userLeagues = {};
@@ -233,8 +226,12 @@ async function loadScoringRulesForActiveLeague(leagueId) {
             currentScoringRules = rulesData[leagueId];
             console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules from IndexedDB for league ${leagueId}`);
             
-            // Re-render with new scoring rules
-            render();
+            // IMPORTANT: Reset ranking calculation flags when switching leagues
+            allPlayersLoaded = false;
+            window.statsAPI.rankingsCalculated.delete(`${leagueId}-${currentFilters.year}`);
+            
+            // Trigger fresh ranking calculation for this league
+            await loadStats(true);
         } else {
             console.log(`⚠️ No scoring rules found for league ${leagueId}`);
             currentScoringRules = {};
