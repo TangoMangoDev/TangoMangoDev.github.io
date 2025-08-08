@@ -455,20 +455,23 @@ async function loadStats(resetPage = true) {
         }
         
         // STEP 2: Load ONLY 50 players for display (normal pagination logic)
-        const requestedData = await window.statsAPI.getPlayersData(
-            currentFilters.year,
-            currentFilters.week,
-            currentFilters.position,
-            apiState.currentPage,
-            50 // LIMIT TO 50 PLAYERS FOR UI
-        );
-        
-        const requestedPlayersWithStats = requestedData.data.map(player => ({
-            ...player,
-            rawStats: player.stats,
-            stats: convertStatsForDisplay(player.stats)
-        }));
-        
+// STEP 2: Load ONLY 50 players for display (normal pagination logic)
+const requestedData = await window.statsAPI.getPlayersData(
+    currentFilters.year,
+    currentFilters.week,
+    currentFilters.position,
+    apiState.currentPage
+    // Remove the limit parameter here since your API might not support it
+);
+
+// LIMIT to 50 players after getting the data
+const limitedPlayers = requestedData.data.slice(0, 50);
+
+const requestedPlayersWithStats = limitedPlayers.map(player => ({
+    ...player,
+    rawStats: player.stats,
+    stats: convertStatsForDisplay(player.stats)
+}));
         // STEP 3: Handle pagination
         if (resetPage) {
             currentPlayers = requestedPlayersWithStats;
