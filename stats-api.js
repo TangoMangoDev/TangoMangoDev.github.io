@@ -466,7 +466,7 @@ async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
         let totalFantasyPoints = 0;
 
         Object.entries(player.rawStats || {}).forEach(([statId, statValue]) => {
-            if (scoringRules[statId] && statValue > 0) {
+            if (scoringRules[statId] && statValue !== 0) { // Changed from > 0 to !== 0
                 const rule = scoringRules[statId];
                 let points = statValue * parseFloat(rule.points || 0);
                 
@@ -481,7 +481,7 @@ async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
                     });
                 }
                 
-                totalFantasyPoints += points;
+                totalFantasyPoints += points; // ADD ALL POINTS INCLUDING NEGATIVE
             }
         });
 
