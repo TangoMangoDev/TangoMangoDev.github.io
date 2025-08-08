@@ -315,6 +315,7 @@ function initializeActiveLeague() {
 }
 
 // Filter controls
+// ENHANCED: createFilterControls with proper pagination display
 function createFilterControls() {
     const activeLeagueId = currentFilters.league || initializeActiveLeague();
     const activeLeague = userLeagues[activeLeagueId];
@@ -380,7 +381,7 @@ function createFilterControls() {
             <div class="api-info">
                 ${apiState.loading ? 
                     '<span class="loading">Loading...</span>' : 
-                    `<span class="record-count">${apiState.totalRecords} total records | ${showFantasyStats ? 'Fantasy Mode (' + Object.keys(currentScoringRules).length + ' rules)' : 'Raw Stats'}</span>`
+                    `<span class="record-count">Showing ${currentPlayers.length} of ${apiState.totalRecords} total records | ${showFantasyStats ? 'Fantasy Mode (' + Object.keys(currentScoringRules).length + ' rules)' : 'Raw Stats'}</span>`
                 }
                 ${apiState.error ? `<span class="error">${apiState.error}</span>` : ''}
             </div>
