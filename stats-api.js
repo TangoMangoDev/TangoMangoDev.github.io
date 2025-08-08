@@ -503,37 +503,40 @@ class StatsAPI {
     }
 
     async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
-        const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
-        
-        if (this.currentRequests.has(requestKey)) {
-            console.log(`⏳ Waiting for pending request: ${requestKey}`);
-            return await this.currentRequests.get(requestKey);
-        }
-
-        const cachedData = await this.cache.get(year, week, position, page);
-        if (cachedData) {
-            return cachedData;
-        }
-
-        const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
-        this.currentRequests.set(requestKey, fetchPromise);
-
-        try {
-            const data = await fetchPromise;
-            
-            if (data.success) {
-                await this.cache.set(year, week, position, page, data);
-            }
-            
-            return data;
-        } catch (error) {
-            console.error('Stats fetch error:', error);
-            throw error;
-        } finally {
-            this.currentRequests.delete(requestKey);
-        }
+    const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
+    
+    if (this.currentRequests.has(requestKey)) {
+        console.log(`⏳ Waiting for pending request: ${requestKey}`);
+        return await this.currentRequests.get(requestKey);
     }
 
+    // CHECK CACHE FIRST - THIS IS WHAT I STUPIDLY REMOVED
+    const cachedData = await this.cache.get(year, week, position, page);
+    if (cachedData) {
+        console.log(`✅ Cache hit for ${year}_${week}_${position}_${page}`);
+        return cachedData;
+    }
+
+    const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
+    this.currentRequests.set(requestKey, fetchPromise);
+
+    try {
+        const data = await fetchPromise;
+        
+        // CACHE THE RESPONSE - THIS IS WHAT I STUPIDLY REMOVED
+        if (data.success) {
+            await this.cache.set(year, week, position, page, data);
+            console.log(`✅ Cached response for ${year}_${week}_${position}_${page}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Stats fetch error:', error);
+        throw error;
+    } finally {
+        this.currentRequests.delete(requestKey);
+    }
+}
     async getAllPlayersForRanking(year) {
         console.log(`🔍 Getting ALL players for year ${year}...`);
         
