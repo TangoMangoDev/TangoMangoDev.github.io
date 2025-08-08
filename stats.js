@@ -484,10 +484,125 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     await render();
 }
+// FIXED: Complete setupEventListeners function
+function setupEventListeners() {
+    if (eventListenersSetup) {
+        return;
+    }
 
-// Event listeners
-eventListenersSetup = true
+    // Year selector
+    const yearSelect = document.getElementById('year-select');
+    if (yearSelect) {
+        yearSelect.addEventListener('change', async (e) => {
+            currentFilters.year = e.target.value;
+            currentFilters.week = 'total';
+            
+            // Reset ranking calculation for new year
+            allPlayersLoaded = false;
+            if (currentFilters.league) {
+                window.statsAPI.rankingsCalculated.delete(`${currentFilters.league}-${currentFilters.year}`);
+            }
+            
+            await loadStats(true);
+        });
+    }
+    
+    // Week selector
+    const weekSelect = document.getElementById('week-select');
+    if (weekSelect) {
+        weekSelect.addEventListener('change', async (e) => {
+            currentFilters.week = e.target.value;
+            saveWeekPreference(e.target.value);
+            await loadStats(true);
+        });
+    }
+    
+    // League selector
+    const leagueSelect = document.getElementById('league-select');
+    if (leagueSelect) {
+        leagueSelect.addEventListener('change', async (e) => {
+            const newLeagueId = e.target.value;
+            console.log(`🔄 League switched to: ${newLeagueId}`);
+            
+            currentFilters.league = newLeagueId;
+            localStorage.setItem('activeLeagueId', newLeagueId);
+            
+            allPlayersLoaded = false;
+            window.statsAPI.rankingsCalculated.delete(`${newLeagueId}-${currentFilters.year}`);
+            
+            await loadScoringRulesForActiveLeague(newLeagueId);
+            updateFilterControlsUI();
+        });
+    }
+    
+    // Team selector
+    const teamSelect = document.getElementById('team-select');
+    if (teamSelect) {
+        teamSelect.addEventListener('change', async (e) => {
+            currentFilters.team = e.target.value;
+            await render();
+        });
+    }
+    
+    // Stats mode toggle
+    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            showFantasyStats = e.target.dataset.mode === 'fantasy';
+            await render();
+        });
+    });
+    
+    // Load more button
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', async () => {
+            if (apiState.hasMore && !apiState.loading) {
+                apiState.currentPage++;
+                await loadStats(false);
+            }
+        });
+    }
+    
+    // View toggle buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentView = e.target.dataset.view;
+            await render();
+        });
+    });
 
+    // Search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', async (e) => {
+            searchQuery = e.target.value.toLowerCase();
+            await render();
+        });
+    }
+    
+    // Position filter
+    const positionFilter = document.getElementById('positionFilter');
+    if (positionFilter) {
+        positionFilter.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('position-btn')) {
+                if (e.target.classList.contains('active')) {
+                    return;
+                }
+                
+                document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilters.position = e.target.dataset.position;
+                await loadStats(true);
+            }
+        });
+    }
+
+    eventListenersSetup = true;
+}
 function updateFilterControlsUI() {
     const filterContainer = document.querySelector('.filter-controls-container');
     if (filterContainer) {
