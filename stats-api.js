@@ -382,37 +382,37 @@ class StatsAPI {
         this.rankingsCalculated = new Set(); // Track which leagues have rankings
     }
 
-    async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1) {
-        const requestKey = `${year}_${week}_${position}_${page}`;
-        
-        if (this.currentRequests.has(requestKey)) {
-            console.log(`⏳ Waiting for pending request: ${requestKey}`);
-            return await this.currentRequests.get(requestKey);
-        }
-
-        const cachedData = await this.cache.get(year, week, position, page);
-        if (cachedData) {
-            return cachedData;
-        }
-
-        const fetchPromise = this.fetchFromAPI(year, week, position, page);
-        this.currentRequests.set(requestKey, fetchPromise);
-
-        try {
-            const data = await fetchPromise;
-            
-            if (data.success) {
-                await this.cache.set(year, week, position, page, data);
-            }
-            
-            return data;
-        } catch (error) {
-            console.error('Stats fetch error:', error);
-            throw error;
-        } finally {
-            this.currentRequests.delete(requestKey);
-        }
+   async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
+    const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
+    
+    if (this.currentRequests.has(requestKey)) {
+        console.log(`⏳ Waiting for pending request: ${requestKey}`);
+        return await this.currentRequests.get(requestKey);
     }
+
+    const cachedData = await this.cache.get(year, week, position, page);
+    if (cachedData) {
+        return cachedData;
+    }
+
+    const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
+    this.currentRequests.set(requestKey, fetchPromise);
+
+    try {
+        const data = await fetchPromise;
+        
+        if (data.success) {
+            await this.cache.set(year, week, position, page, data);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Stats fetch error:', error);
+        throw error;
+    } finally {
+        this.currentRequests.delete(requestKey);
+    }
+}
 
     // NEW: Calculate rankings efficiently (in background, don't render)
 // FIXED: Position ranking calculation in calculateFantasyRankings
@@ -559,39 +559,39 @@ hasRankingsForLeague(leagueId, year) {
         }
     }
 
-    async fetchFromAPI(year, week, position, page) {
-        const params = new URLSearchParams({
-            year,
-            week,
-            position,
-            page: page.toString()
-        });
+    async fetchFromAPI(year, week, position, page, limit = 50) {
+    const params = new URLSearchParams({
+        year,
+        week,
+        position,
+        page: page.toString(),
+        limit: limit.toString()
+    });
 
-        const url = `${this.baseUrl}?${params}`;
-        console.log(`🌐 Fetching from API: ${url}`);
+    const url = `${this.baseUrl}?${params}`;
+    console.log(`🌐 Fetching from API: ${url}`);
 
-        const response = await fetch(url, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
         }
+    });
 
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error(data.error || 'API request failed');
-        }
-
-        console.log(`✅ Fetched ${data.count} players from API`);
-        return data;
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    const data = await response.json();
+    
+    if (!data.success) {
+        throw new Error(data.error || 'API request failed');
+    }
+
+    console.log(`✅ Fetched ${data.count} players from API`);
+    return data;
+}
     async clearCache(year = null) {
         if (year) {
             await this.cache.clear(year);
