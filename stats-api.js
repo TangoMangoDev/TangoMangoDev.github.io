@@ -2,7 +2,7 @@
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 6;
+        this.version = 9;
         this.storeName = 'stats';
         this.scoringRulesStore = 'scoring_rules';
         this.rawDataStore = 'raw_data';
