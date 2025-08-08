@@ -2,11 +2,10 @@
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 5; // Increment for correct stores
+        this.version = 6;
         this.storeName = 'stats';
         this.scoringRulesStore = 'scoring_rules';
-        this.rawDataStore = 'raw_data'; // Store 9999 API calls by year
-        this.rankingsStorePrefix = 'rankings_'; // e.g., 'rankings_2024_461.l.1085101'
+        this.rawDataStore = 'raw_data';
         this.db = null;
         this.cacheExpiryMinutes = 60;
     }
@@ -46,32 +45,37 @@ class StatsCache {
                     const rawStore = db.createObjectStore(this.rawDataStore, { keyPath: 'year' });
                     rawStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
+                
+                // NOTE: Rankings stores are created dynamically per league-year
             };
         });
     }
 
-    // NEW: Get rankings store name for specific league-year
+    // Get rankings store name for specific league-year
     getRankingsStoreName(leagueId, year) {
-        return `${this.rankingsStorePrefix}${year}_${leagueId}`;
+        return `rankings_${year}_${leagueId}`;
     }
 
-    // NEW: Create rankings store for specific league-year if it doesn't exist
+    // Create rankings store for specific league-year if it doesn't exist
     async ensureRankingsStore(leagueId, year) {
+        await this.init();
         const storeName = this.getRankingsStoreName(leagueId, year);
         
         if (this.db.objectStoreNames.contains(storeName)) {
             return storeName;
         }
 
-        // Need to upgrade database to add new store
+        // Close current connection and reopen with new version to add store
+        const currentVersion = this.db.version;
         this.db.close();
         
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, this.db.version + 1);
+            const request = indexedDB.open(this.dbName, currentVersion + 1);
             
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                this.version = this.db.version; // Update version
                 resolve(storeName);
             };
             
@@ -110,7 +114,6 @@ class StatsCache {
                         return;
                     }
                     
-                    // Check if cached data is still fresh (24 hours)
                     const now = new Date();
                     const cachedTime = new Date(result.timestamp);
                     const diffHours = (now - cachedTime) / (1000 * 60 * 60);
@@ -161,7 +164,7 @@ class StatsCache {
         }
     }
 
-    // Rankings methods - FIXED: Use separate stores per league-year
+    // Rankings methods using YOUR specified store naming
     async hasRankingsForLeague(leagueId, year) {
         try {
             await this.init();
@@ -192,7 +195,6 @@ class StatsCache {
 
     async setPlayerRankings(leagueId, year, rankedPlayers) {
         try {
-            await this.init();
             const storeName = await this.ensureRankingsStore(leagueId, year);
             
             const transaction = this.db.transaction([storeName], 'readwrite');
@@ -205,7 +207,7 @@ class StatsCache {
                 clearRequest.onerror = () => reject(clearRequest.error);
             });
             
-            // Add new rankings - SIMPLIFIED: Just player data + ranks + points
+            // Add new rankings - just player data + ranks + points
             const addPromises = rankedPlayers.map(player => {
                 return new Promise((addResolve, addReject) => {
                     const rankData = {
@@ -260,7 +262,6 @@ class StatsCache {
                     request.onsuccess = () => {
                         const result = request.result;
                         if (result) {
-                            // Check if data is fresh (24 hours)
                             const now = new Date();
                             const cachedTime = new Date(result.timestamp);
                             const diffHours = (now - cachedTime) / (1000 * 60 * 60);
@@ -291,7 +292,7 @@ class StatsCache {
         }
     }
 
-    // Scoring rules methods
+    // Rest of the methods stay the same...
     async getScoringRules(leagueId) {
         try {
             await this.init();
@@ -310,7 +311,6 @@ class StatsCache {
                         return;
                     }
                     
-                    // Check if cached data is still fresh (24 hours)
                     const now = new Date();
                     const cachedTime = new Date(result.timestamp);
                     const diffHours = (now - cachedTime) / (1000 * 60 * 60);
@@ -362,7 +362,6 @@ class StatsCache {
         }
     }
 
-    // Regular cache methods (existing)
     generateCacheKey(year, week, position, page) {
         return `${year}_${week}_${position}_${page}`;
     }
@@ -474,30 +473,27 @@ class StatsCache {
         try {
             await this.init();
             
-            const transaction = this.db.transaction([this.storeName, this.scoringRulesStore], 'readwrite');
-            const statsStore = transaction.objectStore(this.storeName);
-            const rulesStore = transaction.objectStore(this.scoringRulesStore);
+            const storeNames = [this.storeName, this.scoringRulesStore, this.rawDataStore];
+            const transaction = this.db.transaction(storeNames, 'readwrite');
             
-            await Promise.all([
-                new Promise((resolve, reject) => {
-                    const request = statsStore.clear();
+            const clearPromises = storeNames.map(storeName => {
+                return new Promise((resolve, reject) => {
+                    const store = transaction.objectStore(storeName);
+                    const request = store.clear();
                     request.onsuccess = () => resolve();
                     request.onerror = () => reject(request.error);
-                }),
-                new Promise((resolve, reject) => {
-                    const request = rulesStore.clear();
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                })
-            ]);
+                });
+            });
             
-            console.log('🗑️ Cleared all cached data and scoring rules');
+            await Promise.all(clearPromises);
+            console.log('🗑️ Cleared all cached data');
         } catch (error) {
             console.error('Cache clear all error:', error);
         }
     }
 }
 
+// StatsAPI class remains exactly the same as before...
 class StatsAPI {
     constructor() {
         this.baseUrl = '/data/stats/stats';
@@ -538,11 +534,9 @@ class StatsAPI {
         }
     }
 
-    // ENHANCED: Get all players with caching by year
     async getAllPlayersForRanking(year) {
         console.log(`🔍 Getting ALL players for year ${year}...`);
         
-        // Check cache first
         const cachedData = await this.cache.getRawDataForYear(year);
         if (cachedData) {
             console.log(`✅ Using cached raw data for year ${year} (${cachedData.length} players)`);
@@ -556,7 +550,6 @@ class StatsAPI {
         console.log(`🌐 Fetching fresh data for year ${year} from API...`);
         const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
         
-        // Cache the raw data
         await this.cache.setRawDataForYear(year, allPlayersData.data);
         
         return allPlayersData.data.map(player => ({
@@ -566,11 +559,9 @@ class StatsAPI {
         }));
     }
 
-    // Get top 50 ranked players from stored rankings
     async getTop50RankedPlayers(leagueId, year) {
         console.log(`🏆 Getting top 50 ranked players for ${leagueId}-${year}`);
         
-        // Get cached raw data
         const cachedData = await this.cache.getRawDataForYear(year);
         if (!cachedData) {
             console.log(`❌ No cached raw data for year ${year}`);
@@ -583,7 +574,6 @@ class StatsAPI {
             stats: convertStatsForDisplay(player.stats)
         }));
         
-        // Enhance with rankings
         const playerIds = playersWithStats.map(p => p.id);
         const rankings = await this.cache.getPlayerRankings(leagueId, year, playerIds);
         
@@ -600,9 +590,8 @@ class StatsAPI {
             return player;
         });
         
-        // Sort by overall rank and return top 50
         const sortedPlayers = enhancedPlayers
-            .filter(p => p.overallRank) // Only players with rankings
+            .filter(p => p.overallRank)
             .sort((a, b) => a.overallRank - b.overallRank)
             .slice(0, 50);
         
@@ -618,7 +607,6 @@ class StatsAPI {
 
         console.log(`🏆 BACKGROUND: Calculating fantasy rankings for league ${leagueId}-${year} with ${allPlayers.length} players`);
 
-        // Calculate fantasy points for each player
         const playersWithFantasyPoints = allPlayers.map(player => {
             let totalFantasyPoints = 0;
 
@@ -648,7 +636,6 @@ class StatsAPI {
             };
         });
 
-        // Sort by fantasy points and assign overall ranks
         const rankedPlayers = playersWithFantasyPoints
             .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
             .map((player, index) => ({
@@ -656,7 +643,6 @@ class StatsAPI {
                 overallRank: index + 1
             }));
 
-        // Assign position ranks
         const playersByPosition = {};
         rankedPlayers.forEach(player => {
             if (!playersByPosition[player.position]) {
@@ -673,7 +659,6 @@ class StatsAPI {
                 });
         });
 
-        // Flatten back to single array
         const finalRankedPlayers = Object.values(playersByPosition).flat();
 
         await this.cache.setPlayerRankings(leagueId, year, finalRankedPlayers);
@@ -704,15 +689,12 @@ class StatsAPI {
     }
 
     async hasRankingsForLeague(leagueId, year) {
-        // Check in-memory first
         if (this.rankingsCalculated.has(`${leagueId}-${year}`)) {
             return true;
         }
         
-        // Check IndexedDB
         const hasInDB = await this.cache.hasRankingsForLeague(leagueId, year);
         if (hasInDB) {
-            // Mark as calculated in memory too
             this.rankingsCalculated.add(`${leagueId}-${year}`);
         }
         
@@ -808,5 +790,4 @@ class StatsAPI {
     }
 }
 
-// Global API instance
 window.statsAPI = new StatsAPI();
