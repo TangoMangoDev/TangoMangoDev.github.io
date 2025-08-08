@@ -452,7 +452,6 @@ async getAllPlayersForRanking(year) {
         stats: this.convertStatsForDisplay ? this.convertStatsForDisplay(player.stats) : player.stats
     }));
 }
-    // NEW: Calculate rankings efficiently (in background, don't render)
 // FIXED: Position ranking calculation in calculateFantasyRankings
 async calculateFantasyRankings(leagueId, year, allPlayers, scoringRules) {
     if (!leagueId || !year || !allPlayers || !scoringRules) {
