@@ -397,8 +397,6 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
-// FIXED: Restore pagination while keeping ranking calculation
-// FIXED: Only load 50 players for display, but calculate rankings from ALL players
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -416,35 +414,25 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Only calculate rankings ONCE on initial load for season totals - but don't load all players in UI
+        // STEP 1: Only calculate rankings ONCE on initial load - SEPARATE FROM UI DATA
         if (!allPlayersLoaded && currentFilters.week === 'total' && currentFilters.position === 'ALL') {
             console.log('🚀 Initial load - calculating rankings...');
             
-            // Load ALL players for ranking calculation (but don't store in currentPlayers)
-            const allPlayersData = await window.statsAPI.getPlayersData(
-                currentFilters.year,
-                'total',
-                'ALL',
-                1,
-                9999 // Get all players for ranking calculation
+            // Load ALL players for ranking calculation ONLY - NOT FOR UI
+            const allPlayersForRankingOnly = await window.statsAPI.getAllPlayersForRanking(
+                currentFilters.year
             );
             
-            const allPlayersWithStats = allPlayersData.data.map(player => ({
-                ...player,
-                rawStats: player.stats,
-                stats: convertStatsForDisplay(player.stats)
-            }));
-            
-            console.log(`📊 Loaded ${allPlayersWithStats.length} total players for ranking calculation`);
+            console.log(`📊 Loaded ${allPlayersForRankingOnly.length} total players for ranking calculation ONLY`);
             
             // Calculate rankings if we have scoring rules
             if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-                console.log(`🏆 Calculating fantasy rankings for ${allPlayersWithStats.length} players...`);
+                console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRankingOnly.length} players...`);
                 
                 await window.statsAPI.calculateFantasyRankings(
                     currentFilters.league,
                     currentFilters.year,
-                    allPlayersWithStats,
+                    allPlayersForRankingOnly,
                     currentScoringRules
                 );
                 
@@ -454,29 +442,30 @@ async function loadStats(resetPage = true) {
             allPlayersLoaded = true;
         }
         
-        // STEP 2: Load ONLY 50 players for display (normal pagination logic)
-// STEP 2: Load ONLY 50 players for display (normal pagination logic)
-const requestedData = await window.statsAPI.getPlayersData(
-    currentFilters.year,
-    currentFilters.week,
-    currentFilters.position,
-    apiState.currentPage
-    // Remove the limit parameter here since your API might not support it
-);
-
-// LIMIT to 50 players after getting the data
-const limitedPlayers = requestedData.data.slice(0, 50);
-
-const requestedPlayersWithStats = limitedPlayers.map(player => ({
-    ...player,
-    rawStats: player.stats,
-    stats: convertStatsForDisplay(player.stats)
-}));
+        // STEP 2: Load ONLY 50 players for UI display
+        const requestedData = await window.statsAPI.getPlayersData(
+            currentFilters.year,
+            currentFilters.week,
+            currentFilters.position,
+            apiState.currentPage
+        );
+        
+        // LIMIT TO 50 PLAYERS FOR UI
+        const limitedForUI = requestedData.data.slice(0, 50);
+        
+        const requestedPlayersWithStats = limitedForUI.map(player => ({
+            ...player,
+            rawStats: player.stats,
+            stats: convertStatsForDisplay(player.stats)
+        }));
+        
+        console.log(`📊 LIMITED TO ${requestedPlayersWithStats.length} players for UI display`);
+        
         // STEP 3: Handle pagination
         if (resetPage) {
             currentPlayers = requestedPlayersWithStats;
         } else {
-            currentPlayers = [...currentPlayers, ...requestedPlayersWithStats];
+            currentPlayers = [...currentPlayers, ...requestedPlayersWithStats].slice(0, 50); // NEVER EXCEED 50
         }
         
         // STEP 4: For season totals, enhance with rankings and sort by rank
@@ -497,18 +486,17 @@ const requestedPlayersWithStats = limitedPlayers.map(player => ({
                     const bPoints = b.fantasyPoints || calculateTotalFantasyPoints(b);
                     return bPoints - aPoints;
                 } else {
-                    // For raw stats, sort by a default stat or keep original order
                     return 0;
                 }
             });
         }
         
-        apiState.totalPages = requestedData.pagination.totalPages;
+        apiState.totalPages = Math.ceil(requestedData.pagination.totalRecords / 50);
         apiState.totalRecords = requestedData.pagination.totalRecords;
-        apiState.hasMore = requestedData.pagination.hasNext;
+        apiState.hasMore = false; // NO MORE LOADING - LIMIT TO 50
         apiState.loading = false;
         
-        console.log(`✅ Loaded ${requestedPlayersWithStats.length} players for display, total: ${currentPlayers.length}`);
+        console.log(`✅ FINAL: Showing ${currentPlayers.length} players in UI (MAX 50)`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
