@@ -502,28 +502,30 @@ class StatsAPI {
         this.rankingsCalculated = new Set();
     }
 
-    async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
+  async getPlayersData(year = '2024', week = 'total', position = 'ALL', page = 1, limit = 50) {
     const requestKey = `${year}_${week}_${position}_${page}_${limit}`;
     
+    // Check if request is already in flight
     if (this.currentRequests.has(requestKey)) {
         console.log(`⏳ Waiting for pending request: ${requestKey}`);
         return await this.currentRequests.get(requestKey);
     }
 
-    // CHECK CACHE FIRST
+    // CHECK CACHE FIRST - THIS WAS MISSING
     const cachedData = await this.cache.get(year, week, position, page);
     if (cachedData) {
         console.log(`✅ Cache hit for ${year}_${week}_${position}_${page}`);
         return cachedData;
     }
 
+    // Make the API call
     const fetchPromise = this.fetchFromAPI(year, week, position, page, limit);
     this.currentRequests.set(requestKey, fetchPromise);
 
     try {
         const data = await fetchPromise;
         
-        // CACHE THE RESPONSE - THIS IS WHAT I STUPIDLY REMOVED
+        // CACHE THE RESPONSE - THIS WAS MISSING  
         if (data.success) {
             await this.cache.set(year, week, position, page, data);
             console.log(`✅ Cached response for ${year}_${week}_${position}_${page}`);
