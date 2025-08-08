@@ -396,6 +396,7 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load ALL players for ranking, but only show filtered subset
+// FIXED: Load stats function that calculates rankings but only shows top 50
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -413,69 +414,91 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: Always load ALL players for ranking calculation (position=ALL, week=total)
-        if (!allPlayersLoaded || resetPage) {
-            console.log('🚀 Loading ALL players for ranking calculation...');
-            
-            const allPlayersData = await window.statsAPI.getPlayersData(
-                currentFilters.year,
-                'total', // Always use total for rankings
-                'ALL',   // Always load all positions for rankings
-                1
-            );
-            
-            const allPlayersWithStats = allPlayersData.data.map(player => ({
-                ...player,
-                rawStats: player.stats,
-                stats: convertStatsForDisplay(player.stats)
-            }));
-            
-            console.log(`📊 Loaded ${allPlayersWithStats.length} total players for ranking`);
-            
-            // STEP 2: Calculate rankings for ALL players if we have scoring rules
-            if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-                console.log(`🏆 Calculating fantasy rankings for ${allPlayersWithStats.length} players...`);
-                
-                await window.statsAPI.calculateFantasyRankings(
-                    currentFilters.league,
-                    currentFilters.year,
-                    allPlayersWithStats,
-                    currentScoringRules
-                );
-                
-                console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
-            }
-            
-            allPlayersLoaded = true;
-        }
-        
-        // STEP 3: Load the specific data the user requested (with filters)
-        const requestedData = await window.statsAPI.getPlayersData(
+        // STEP 1: Load ALL players data for ranking calculation (but don't show all)
+        const allPlayersData = await window.statsAPI.getPlayersData(
             currentFilters.year,
-            currentFilters.week,
-            currentFilters.position,
-            apiState.currentPage
+            'total', // Always use total for rankings
+            'ALL',   // Always load all positions for rankings
+            1
         );
         
-        const requestedPlayersWithStats = requestedData.data.map(player => ({
+        const allPlayersWithStats = allPlayersData.data.map(player => ({
             ...player,
             rawStats: player.stats,
             stats: convertStatsForDisplay(player.stats)
         }));
         
-        // STEP 4: Set current players for display
-        if (resetPage) {
-            currentPlayers = requestedPlayersWithStats;
-        } else {
-            currentPlayers = [...currentPlayers, ...requestedPlayersWithStats];
+        console.log(`📊 Loaded ${allPlayersWithStats.length} total players for ranking`);
+        
+        // STEP 2: Calculate rankings for ALL players if we have scoring rules
+        if (currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+            console.log(`🏆 Calculating fantasy rankings for ${allPlayersWithStats.length} players...`);
+            
+            await window.statsAPI.calculateFantasyRankings(
+                currentFilters.league,
+                currentFilters.year,
+                allPlayersWithStats,
+                currentScoringRules
+            );
+            
+            console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
+            allPlayersLoaded = true;
         }
         
-        apiState.totalPages = requestedData.pagination.totalPages;
-        apiState.totalRecords = requestedData.pagination.totalRecords;
-        apiState.hasMore = requestedData.pagination.hasNext;
+        // STEP 3: Get the user's requested data (with filters applied)
+        let displayData;
+        if (currentFilters.week === 'total' && currentFilters.position === 'ALL') {
+            // For total/all, use the ranked players and show top 50
+            if (showFantasyStats && currentFilters.league) {
+                const rankedPlayers = await window.statsAPI.enhancePlayersWithRankings(
+                    currentFilters.league,
+                    currentFilters.year,
+                    allPlayersWithStats
+                );
+                
+                // Sort by overall rank and take top 50
+                displayData = rankedPlayers
+                    .filter(p => p.overallRank)
+                    .sort((a, b) => a.overallRank - b.overallRank)
+                    .slice(0, 50);
+                    
+                console.log(`📊 Showing top 50 ranked players out of ${rankedPlayers.length} total`);
+            } else {
+                // Raw stats mode - just show first 50
+                displayData = allPlayersWithStats.slice(0, 50);
+            }
+        } else {
+            // For other filters, load specific data
+            const requestedData = await window.statsAPI.getPlayersData(
+                currentFilters.year,
+                currentFilters.week,
+                currentFilters.position,
+                apiState.currentPage
+            );
+            
+            displayData = requestedData.data.map(player => ({
+                ...player,
+                rawStats: player.stats,
+                stats: convertStatsForDisplay(player.stats)
+            }));
+            
+            // Enhance with rankings if available
+            if (showFantasyStats && currentFilters.league) {
+                displayData = await window.statsAPI.enhancePlayersWithRankings(
+                    currentFilters.league,
+                    currentFilters.year,
+                    displayData
+                );
+            }
+        }
+        
+        currentPlayers = displayData;
+        apiState.totalRecords = allPlayersData.pagination.totalRecords;
+        apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
+        apiState.hasMore = currentPlayers.length < 50 && allPlayersData.pagination.hasNext;
         apiState.loading = false;
         
-        console.log(`✅ Loaded ${requestedPlayersWithStats.length} players for display, total: ${currentPlayers.length}`);
+        console.log(`✅ Displaying ${currentPlayers.length} players`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -784,9 +807,15 @@ function getSortedPlayers(players) {
         } else if (tableSort.column === 'team') {
             aValue = a.team;
             bValue = b.team;
-        } else if (tableSort.column === 'totalPts') {
-            aValue = calculateTotalFantasyPoints(a);
-            bValue = calculateTotalFantasyPoints(b);
+        } else if (tableSort.column === 'overallRank') {
+            aValue = a.overallRank || 999999;
+            bValue = b.overallRank || 999999;
+        } else if (tableSort.column === 'positionRank') {
+            aValue = a.positionRank || 999999;
+            bValue = b.positionRank || 999999;
+        } else if (tableSort.column === 'fantasyPoints') {
+            aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
+            bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
         } else {
             aValue = getStatValue(a, tableSort.column);
             bValue = getStatValue(b, tableSort.column);
@@ -938,7 +967,6 @@ function renderResearchView(players) {
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    <button class="clear-filters-btn" onclick="clearAllFilters()">Clear Sort</button>
                     ${showFantasyStats ? '<span class="bonus-note">Showing top ranked players with fantasy scoring</span>' : ''}
                     <span class="player-count">Showing ${players.length} players</span>
                 </div>
