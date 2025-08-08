@@ -539,8 +539,20 @@ async enhancePlayersWithRankings(leagueId, year, players) {
 }
 
 // Update hasRankingsForLeague to include year
-hasRankingsForLeague(leagueId, year) {
-    return this.rankingsCalculated.has(`${leagueId}-${year}`);
+async hasRankingsForLeague(leagueId, year) {
+    // Check in-memory first
+    if (this.rankingsCalculated.has(`${leagueId}-${year}`)) {
+        return true;
+    }
+    
+    // Check IndexedDB
+    const hasInDB = await this.cache.hasRankingsForLeague(leagueId, year);
+    if (hasInDB) {
+        // Mark as calculated in memory too
+        this.rankingsCalculated.add(`${leagueId}-${year}`);
+    }
+    
+    return hasInDB;
 }
 
     async getScoringRules(leagueId) {
