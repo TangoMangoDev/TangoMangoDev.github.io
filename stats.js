@@ -1029,6 +1029,7 @@ function getBonusTarget(statName) {
 function getBonusPoints(player, statName) {
     if (!showFantasyStats || !currentScoringRules || !player.rawStats) return 0;
     
+    // Find the stat ID that matches this stat name
     const statId = Object.keys(STAT_ID_MAPPING).find(id => 
         STAT_ID_MAPPING[id] === statName
     );
@@ -1036,9 +1037,11 @@ function getBonusPoints(player, statName) {
     if (!statId || !currentScoringRules[statId]) return 0;
     
     const rule = currentScoringRules[statId];
+    
+    // USE THE RAW STAT VALUE DIRECTLY FROM THE STAT ID
     const rawValue = player.rawStats[statId] || 0;
     
-    if (!rule.bonuses || !Array.isArray(rule.bonuses)) return 0;
+    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return 0;
     
     let totalBonusPoints = 0;
     
@@ -1048,7 +1051,6 @@ function getBonusPoints(player, statName) {
         
         // Calculate how many times the player hit the bonus target
         if (target > 0 && rawValue >= target) {
-            // For every X yards/attempts, award bonus points
             const bonusesEarned = Math.floor(rawValue / target);
             totalBonusPoints += bonusesEarned * bonusPoints;
         }
@@ -1056,6 +1058,8 @@ function getBonusPoints(player, statName) {
     
     return Math.round(totalBonusPoints * 100) / 100;
 }
+
+
 // NEW: Get stats that have bonus rules for position
 function getBonusStatsForPosition(position) {
     const stats = getStatsForPosition(position);
