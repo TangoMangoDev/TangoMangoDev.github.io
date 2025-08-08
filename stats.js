@@ -1073,7 +1073,7 @@ function getBonusPoints(player, statName) {
         STAT_ID_MAPPING[id] === statName
     );
     
-    console.log(`🔍 Looking for stat: ${statName} -> ID: ${statId}`);
+    //console.log(`🔍 Looking for stat: ${statName} -> ID: ${statId}`);
     
     if (!statId || !currentScoringRules[statId]) {
         console.log(`❌ No scoring rule for ${statName} (ID: ${statId})`);
@@ -1086,7 +1086,7 @@ function getBonusPoints(player, statName) {
     console.log(`📊 ${player.name} ${statName}: rawValue=${rawValue}, rule=`, rule);
     
     if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) {
-        console.log(`❌ No bonuses or zero value: bonuses=${!!rule.bonuses}, isArray=${Array.isArray(rule.bonuses)}, rawValue=${rawValue}`);
+        ///console.log(`❌ No bonuses or zero value: bonuses=${!!rule.bonuses}, isArray=${Array.isArray(rule.bonuses)}, rawValue=${rawValue}`);
         return 0;
     }
     
