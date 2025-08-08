@@ -882,17 +882,17 @@ async function render() {
         filteredPlayers = getSortedPlayers(filteredPlayers);
     }
 
-    switch (currentView) {
-        case 'cards':
-            renderCardsView(filteredPlayers);
-            break;
-        case 'research':
-            (filteredPlayers);
-            break;
-        case 'stats':
-            renderStatsView(filteredPlayers);
-            break;
-    }
+switch (currentView) {
+    case 'cards':
+        renderCardsView(filteredPlayers);
+        break;
+    case 'research':
+        renderResearchView(filteredPlayers);  // <-- FIXED!
+        break;
+    case 'stats':
+        renderStatsView(filteredPlayers);
+        break;
+}
 }
 
 
