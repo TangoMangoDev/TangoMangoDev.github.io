@@ -55,54 +55,55 @@ request.onupgradeneeded = (event) => {
 
     // Store player with stats for specific week/total
     async setPlayerRecord(year, player, rank, week, stats) {
-        try {
-            await this.init();
+    try {
+        await this.init();
+        
+        const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
+        const yearPosition = `${year}_${player.position}`;
+        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`; // Pad rank for proper sorting
+        
+        // Get existing record or create new one
+        const transaction = this.db.transaction([this.playersStore], 'readwrite');
+        const store = transaction.objectStore(this.playersStore);
+        
+        return new Promise((resolve, reject) => {
+            const getRequest = store.get(playerKey);
             
-            const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
-            const yearPosition = `${year}_${player.position}`;
-            
-            // Get existing record or create new one
-            const transaction = this.db.transaction([this.playersStore], 'readwrite');
-            const store = transaction.objectStore(this.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const getRequest = store.get(playerKey);
+            getRequest.onsuccess = () => {
+                let playerRecord = getRequest.result;
                 
-                getRequest.onsuccess = () => {
-                    let playerRecord = getRequest.result;
-                    
-                    if (!playerRecord) {
-                        // Create new record
-                        playerRecord = {
-                            playerKey,
-                            year: parseInt(year),
-                            playerId: player.id,
-                            name: player.name,
-                            position: player.position,
-                            team: player.team,
-                            rank: rank,
-                            yearPosition,
-                            weeklyStats: {},
-                            timestamp: new Date().toISOString()
-                        };
-                    }
-                    
-                    // Add/update stats for this week
-                    playerRecord.weeklyStats[week] = stats;
-                    playerRecord.timestamp = new Date().toISOString();
-                    
-                    const putRequest = store.put(playerRecord);
-                    putRequest.onsuccess = () => resolve(playerRecord);
-                    putRequest.onerror = () => reject(putRequest.error);
-                };
+                if (!playerRecord) {
+                    // Create new record
+                    playerRecord = {
+                        playerKey,
+                        year: parseInt(year),
+                        playerId: player.id,
+                        name: player.name,
+                        position: player.position,
+                        team: player.team,
+                        rank: rank,
+                        yearPosition,
+                        yearRank, // Add this for sorting
+                        weeklyStats: {},
+                        timestamp: new Date().toISOString()
+                    };
+                }
                 
-                getRequest.onerror = () => reject(getRequest.error);
-            });
-        } catch (error) {
-            console.error('Error storing player record:', error);
-        }
+                // Add/update stats for this week
+                playerRecord.weeklyStats[week] = stats;
+                playerRecord.timestamp = new Date().toISOString();
+                
+                const putRequest = store.put(playerRecord);
+                putRequest.onsuccess = () => resolve(playerRecord);
+                putRequest.onerror = () => reject(putRequest.error);
+            };
+            
+            getRequest.onerror = () => reject(getRequest.error);
+        });
+    } catch (error) {
+        console.error('Error storing player record:', error);
     }
-
+}
     // Get ranked players by position for a year
  // FIXED: Get ranked players by position for a year - PROPERLY SORTED BY RANK
 async getRankedPlayersByPosition(year, position, limit = 50) {
