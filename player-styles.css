@@ -1,5 +1,52 @@
 /* player-styles.css - Clean styling for player detail page */
+/* TABLE ALIGNMENT FIX - Add to TOP of player-styles.css */
+.player-stats-table,
+.player-stats-table * {
+    box-sizing: border-box !important;
+}
 
+.player-stats-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.player-stats-table th,
+.player-stats-table td {
+    box-sizing: border-box !important;
+    padding: 12px 8px !important;
+    margin: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid #e9ecef !important;
+}
+
+.player-stats-table thead th {
+    width: calc(100% / 5) !important;
+    text-align: center !important;
+}
+
+.player-stats-table thead th:first-child {
+    width: 30% !important;
+    text-align: left !important;
+}
+
+.player-stats-table thead th:not(:first-child) {
+    width: 17.5% !important;
+    text-align: center !important;
+}
+
+.player-stats-table tbody td {
+    text-align: center !important;
+}
+
+.player-stats-table tbody td:first-child {
+    text-align: left !important;
+    font-weight: 600;
+}
+
+/* END TABLE ALIGNMENT FIX */
 .player-header-info {
     margin: 20px 0;
 }
