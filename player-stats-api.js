@@ -289,8 +289,17 @@ class PlayerStatsAPI extends StatsAPI {
                         }
                         
                         if (record.weeklyStats) {
-                            Object.entries(record.weeklyStats).forEach(([week, stats]) => {
-                                if (stats && this.hasNonZeroStats(stats)) {
+Object.entries(yearData.weeks).forEach(([week, weekData]) => {
+    // ADD this condition to exclude "total"
+    if (week !== 'total' && weekData && weekData.stats && this.hasNonZeroStats(weekData.stats)) {
+        gameData.push({
+            year: parseInt(year),
+            week: parseInt(week), // Also parse week as integer
+            stats: weekData.stats,
+            timestamp: weekData.timestamp
+        });
+    }
+});                                if (stats && this.hasNonZeroStats(stats)) {
                                     playerData.weeks[week] = {
                                         week,
                                         stats,
