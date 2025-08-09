@@ -43,10 +43,9 @@ request.onupgradeneeded = (event) => {
     playersStore.createIndex('timestamp', 'timestamp', { unique: false });
     
     console.log(`✅ Created new clean schema with proper rank indexing`);
-};
-            };
-        });
-    }
+        };
+    });
+}
 
     // Generate player key: YEAR.PlayerID.Position.Rank
     generatePlayerKey(year, playerId, position, rank) {
