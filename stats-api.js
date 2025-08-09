@@ -320,6 +320,7 @@ class StatsCache {
 
 // StatsAPI class
 // Updated StatsAPI class with weekly stats fetching
+// Updated StatsAPI class with proper ranking logic
 class StatsAPI {
     constructor() {
         this.baseUrl = '/data/stats/stats';
@@ -347,37 +348,164 @@ class StatsAPI {
         if (week !== 'total') {
             console.log(`📅 Fetching weekly stats for week ${week}...`);
             await this.fetchAndStoreWeeklyStats(year, week, rankedPlayers);
-        }
-        
-        // Convert to display format with stats for the requested week
-        const displayPlayers = rankedPlayers.map(playerRecord => {
-            const stats = this.cache.getPlayerStatsForWeek(playerRecord, week);
             
-            if (!stats) return null;
+            // After storing weekly stats, get updated player records
+            const updatedPlayers = await this.cache.getRankedPlayersByPosition(year, position, limit);
+            
+            // Convert to display format with weekly stats
+            const displayPlayers = updatedPlayers.map(playerRecord => {
+                const stats = this.cache.getPlayerStatsForWeek(playerRecord, week);
+                
+                if (!stats) return null;
+                
+                return {
+                    id: playerRecord.playerId,
+                    name: playerRecord.name,
+                    position: playerRecord.position,
+                    team: playerRecord.team,
+                    overallRank: playerRecord.rank,
+                    stats: convertStatsForDisplay(stats),
+                    rawStats: stats
+                };
+            }).filter(Boolean);
+            
+            console.log(`✅ Returning ${displayPlayers.length} players for display (week ${week})`);
             
             return {
-                id: playerRecord.playerId,
-                name: playerRecord.name,
-                position: playerRecord.position,
-                team: playerRecord.team,
-                overallRank: playerRecord.rank,
-                stats: convertStatsForDisplay(stats),
-                rawStats: stats
+                success: true,
+                data: displayPlayers,
+                count: displayPlayers.length,
+                pagination: {
+                    totalRecords: displayPlayers.length,
+                    currentPage: 1,
+                    totalPages: 1
+                }
             };
-        }).filter(Boolean);
+        } else {
+            // For season totals, use existing logic
+            const displayPlayers = rankedPlayers.map(playerRecord => {
+                const stats = this.cache.getPlayerStatsForWeek(playerRecord, week);
+                
+                if (!stats) return null;
+                
+                return {
+                    id: playerRecord.playerId,
+                    name: playerRecord.name,
+                    position: playerRecord.position,
+                    team: playerRecord.team,
+                    overallRank: playerRecord.rank,
+                    stats: convertStatsForDisplay(stats),
+                    rawStats: stats
+                };
+            }).filter(Boolean);
+            
+            console.log(`✅ Returning ${displayPlayers.length} players for display (season total)`);
+            
+            return {
+                success: true,
+                data: displayPlayers,
+                count: displayPlayers.length,
+                pagination: {
+                    totalRecords: displayPlayers.length,
+                    currentPage: 1,
+                    totalPages: 1
+                }
+            };
+        }
+    }
+
+    // FIXED: Load all players for a year and rank them by fantasy points
+    async loadAndRankAllPlayersForYear(year) {
+        if (this.yearDataLoaded.has(year)) {
+            console.log(`✅ Year ${year} already loaded and ranked`);
+            return;
+        }
         
-        console.log(`✅ Returning ${displayPlayers.length} players for display`);
+        console.log(`🚀 Loading and ranking ALL players for year ${year}...`);
         
-        return {
-            success: true,
-            data: displayPlayers,
-            count: displayPlayers.length,
-            pagination: {
-                totalRecords: displayPlayers.length,
-                currentPage: 1,
-                totalPages: 1
+        try {
+            // Fetch ALL players for the year (season totals)
+            const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
+            
+            if (!allPlayersData.success || !allPlayersData.data) {
+                throw new Error('Failed to fetch players from API');
             }
-        };
+            
+            console.log(`📊 Fetched ${allPlayersData.data.length} players from API for year ${year}`);
+            
+            // CALCULATE FANTASY POINTS AND RANK PLAYERS
+            console.log(`🏆 Calculating fantasy points and ranking players...`);
+            
+            // Calculate total fantasy points for each player
+            const playersWithFantasyPoints = allPlayersData.data.map(player => {
+                let totalFantasyPoints = 0;
+                
+                // Calculate fantasy points using season total stats
+                if (player.stats && typeof player.stats === 'object') {
+                    Object.entries(player.stats).forEach(([statId, statValue]) => {
+                        if (statValue && statValue !== 0) {
+                            // For now, use a simple scoring system
+                            // You can enhance this later with actual scoring rules
+                            switch(statId) {
+                                case '4': // Pass Yds
+                                    totalFantasyPoints += statValue * 0.04;
+                                    break;
+                                case '5': // Pass TD
+                                    totalFantasyPoints += statValue * 4;
+                                    break;
+                                case '6': // Int
+                                    totalFantasyPoints -= statValue * 2;
+                                    break;
+                                case '9': // Rush Yds
+                                    totalFantasyPoints += statValue * 0.1;
+                                    break;
+                                case '10': // Rush TD
+                                    totalFantasyPoints += statValue * 6;
+                                    break;
+                                case '11': // Rec
+                                    totalFantasyPoints += statValue * 1;
+                                    break;
+                                case '12': // Rec Yds
+                                    totalFantasyPoints += statValue * 0.1;
+                                    break;
+                                case '13': // Rec TD
+                                    totalFantasyPoints += statValue * 6;
+                                    break;
+                                // Add more stats as needed
+                            }
+                        }
+                    });
+                }
+                
+                return {
+                    ...player,
+                    fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
+                };
+            });
+            
+            // RANK PLAYERS BY FANTASY POINTS
+            const rankedPlayers = playersWithFantasyPoints
+                .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+                .map((player, index) => ({
+                    ...player,
+                    rank: index + 1
+                }));
+            
+            console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points`);
+            console.log(`🥇 Top 5 players:`, rankedPlayers.slice(0, 5).map(p => 
+                `${p.name} (${p.position}) - ${p.fantasyPoints} pts`
+            ));
+            
+            // Store ranked players in IndexedDB
+            await this.cache.storeRankedPlayersForYear(year, rankedPlayers);
+            
+            this.yearDataLoaded.add(year);
+            console.log(`✅ Completed loading and ranking for year ${year}`);
+            
+        } catch (error) {
+            console.error(`❌ Error loading players for year ${year}:`, error);
+            throw error;
+        }
     }
 
     // NEW: Fetch weekly stats for players and store in IndexedDB
@@ -439,37 +567,6 @@ class StatsAPI {
         } catch (error) {
             console.error(`❌ Error fetching weekly stats for week ${week}:`, error);
             // Don't throw - allow the system to continue with whatever data it has
-        }
-    }
-
-    // Load all players for a year and rank them
-    async loadAndRankAllPlayersForYear(year) {
-        if (this.yearDataLoaded.has(year)) {
-            console.log(`✅ Year ${year} already loaded and ranked`);
-            return;
-        }
-        
-        console.log(`🚀 Loading and ranking ALL players for year ${year}...`);
-        
-        try {
-            // Fetch ALL players for the year (season totals)
-            const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
-            
-            if (!allPlayersData.success || !allPlayersData.data) {
-                throw new Error('Failed to fetch players from API');
-            }
-            
-            console.log(`📊 Fetched ${allPlayersData.data.length} players from API for year ${year}`);
-            
-            // Store ranked players in IndexedDB
-            await this.cache.storeRankedPlayersForYear(year, allPlayersData.data);
-            
-            this.yearDataLoaded.add(year);
-            console.log(`✅ Completed loading and ranking for year ${year}`);
-            
-        } catch (error) {
-            console.error(`❌ Error loading players for year ${year}:`, error);
-            throw error;
         }
     }
 
