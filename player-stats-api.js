@@ -1,9 +1,10 @@
-// player-stats-api.js - FIXED version with proper IndexedDB initialization
+// player-stats-api.js - FIXED with complete week checking and fetching
 class PlayerStatsAPI extends StatsAPI {
     constructor() {
         super();
         this.playerDataCache = new Map();
-        this.basePlayerUrl = '/data/stats/player'; // New endpoint for player data
+        this.baseMissingWeeksUrl = '/data/stats/player/missing-weeks';
+        this.allWeeks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', 'total'];
     }
 
     // FIXED: Ensure IndexedDB is properly initialized
@@ -16,13 +17,13 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     // Main method to get ALL data for a specific player across years/weeks
-    async getPlayerCompleteStats(playerId, playerName = null) {
+    async getPlayerCompleteStats(playerId) {
         console.log(`🎯 Getting complete stats for player: ${playerId}`);
         
         try {
             const allPlayerData = {
                 playerId,
-                playerName: playerName || 'Unknown Player',
+                playerName: 'Unknown Player',
                 years: {},
                 position: null,
                 team: null,
@@ -57,38 +58,47 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Get all stats for a player in a specific year from backend + IndexedDB
+    // FIXED: Get all stats for a player in a specific year - CHECK ALL 18 WEEKS
     async getPlayerStatsForYear(playerId, year) {
         try {
-            // First, try to get from IndexedDB
-            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+            console.log(`📊 Getting player ${playerId} stats for year ${year}`);
             
-            // Check if cached data is complete (has reasonable number of weeks)
-            if (cachedData && cachedData.weeks && Object.keys(cachedData.weeks).length >= 5) {
-                console.log(`✅ Using cached data for player ${playerId} year ${year}`);
+            // First, check what we have in IndexedDB
+            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+            const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
+            
+            console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
+            
+            // Determine missing weeks (we need ALL 18 weeks + total)
+            const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
+            
+            console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
+            
+            // If we have missing weeks, fetch them from backend
+            if (missingWeeks.length > 0) {
+                console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
+                const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
+                
+                if (missingData) {
+                    // Merge missing data with existing data
+                    await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
+                    
+                    // Get updated data from IndexedDB
+                    const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
+                    if (updatedData) {
+                        console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
+                        return updatedData;
+                    }
+                }
+            }
+            
+            // Return cached data (if any)
+            if (cachedData) {
+                console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
                 return cachedData;
             }
 
-            // If not in cache or incomplete, fetch from backend
-            console.log(`🌐 Fetching player ${playerId} year ${year} from backend...`);
-            const backendData = await this.fetchPlayerFromBackend(playerId, year);
-            
-            if (backendData) {
-                // Store in IndexedDB for future use
-                await this.storePlayerInIndexedDB(backendData);
-                
-                // Convert to expected format
-                return {
-                    playerId: backendData.playerId,
-                    year: parseInt(year),
-                    playerName: backendData.name,
-                    position: backendData.position,
-                    team: backendData.team,
-                    rank: backendData.rank,
-                    weeks: this.convertWeeklyStatsToWeeksFormat(backendData.weeklyStats)
-                };
-            }
-
+            console.log(`⚠️ No data found for player ${playerId} year ${year}`);
             return null;
             
         } catch (error) {
@@ -97,16 +107,17 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Fetch player data from backend
-    async fetchPlayerFromBackend(playerId, year) {
+    // NEW: Fetch missing weeks from backend
+    async fetchMissingWeeksFromBackend(playerId, year, missingWeeks) {
         try {
             const params = new URLSearchParams({
                 playerId,
-                year
+                year,
+                missingWeeks: missingWeeks.join(',')
             });
 
-            const url = `${this.basePlayerUrl}?${params}`;
-            console.log(`🌐 Fetching player data: ${url}`);
+            const url = `${this.baseMissingWeeksUrl}?${params}`;
+            console.log(`🌐 Fetching missing weeks: ${url}`);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -127,20 +138,116 @@ class PlayerStatsAPI extends StatsAPI {
             }
 
             if (!data.data) {
-                console.log(`⚠️ No data returned for player ${playerId} year ${year}`);
+                console.log(`⚠️ No missing weeks data returned for player ${playerId} year ${year}`);
                 return null;
             }
 
-            console.log(`✅ Fetched player data for ${playerId} (${data.weeksFound} weeks)`);
+            console.log(`✅ Fetched ${data.weeksFound}/${missingWeeks.length} missing weeks for player ${playerId}`);
             return data.data;
             
         } catch (error) {
-            console.error(`❌ Error fetching player from backend:`, error);
-            throw error;
+            console.error(`❌ Error fetching missing weeks from backend:`, error);
+            return null;
         }
     }
 
-    // NEW: Get player data from IndexedDB
+    // NEW: Store missing weeks data in IndexedDB (merge with existing)
+    async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
+        try {
+            await this.ensureInitialized();
+            
+            const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
+            
+            // Get existing record or create new one
+            const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
+            
+            let playerRecord;
+            
+            if (existingRecord) {
+                // Merge with existing record
+                playerRecord = {
+                    ...existingRecord,
+                    weeklyStats: {
+                        ...existingRecord.weeklyStats,
+                        ...weeklyStats
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
+            } else {
+                // Create new record
+                playerRecord = {
+                    playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
+                    year: parseInt(year),
+                    playerId,
+                    name,
+                    position,
+                    team,
+                    rank: rank || 999999,
+                    yearPosition: `${year}_${position}`,
+                    yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
+                    weeklyStats,
+                    timestamp: new Date().toISOString()
+                };
+                console.log(`🆕 Creating new record for player ${playerId}`);
+            }
+
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+            const store = transaction.objectStore(this.cache.playersStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(playerRecord);
+                request.onsuccess = () => {
+                    console.log(`✅ Stored/updated player ${playerId} with missing weeks in IndexedDB`);
+                    resolve();
+                };
+                request.onerror = () => reject(request.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
+        }
+    }
+
+    // NEW: Get specific player record from IndexedDB
+    async getPlayerRecordFromIndexedDB(playerId, year) {
+        try {
+            await this.ensureInitialized();
+            
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+            const store = transaction.objectStore(this.cache.playersStore);
+            const yearIndex = store.index('year');
+            
+            return new Promise((resolve, reject) => {
+                const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+                
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    
+                    if (cursor) {
+                        const record = cursor.value;
+                        
+                        if (record.playerId === playerId) {
+                            resolve(record);
+                            return;
+                        }
+                        
+                        cursor.continue();
+                    } else {
+                        resolve(null);
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error getting player record from IndexedDB:`, error);
+            return null;
+        }
+    }
+
+    // EXISTING: Get player data from IndexedDB
     async getPlayerFromIndexedDB(playerId, year) {
         try {
             await this.ensureInitialized();
@@ -216,69 +323,13 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Store player data in IndexedDB
-    async storePlayerInIndexedDB(playerData) {
-        try {
-            await this.ensureInitialized();
-            
-            const { playerId, year, name, position, team, rank, weeklyStats } = playerData;
-            
-            // Create the player record in the format expected by IndexedDB
-            const playerRecord = {
-                playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
-                year: parseInt(year),
-                playerId,
-                name,
-                position,
-                team,
-                rank: rank || 999999,
-                yearPosition: `${year}_${position}`,
-                yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
-                weeklyStats,
-                timestamp: new Date().toISOString()
-            };
-
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
-            const store = transaction.objectStore(this.cache.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(playerRecord);
-                request.onsuccess = () => {
-                    console.log(`✅ Stored player ${playerId} in IndexedDB`);
-                    resolve();
-                };
-                request.onerror = () => reject(request.error);
-            });
-            
-        } catch (error) {
-            console.error(`❌ Error storing player in IndexedDB:`, error);
-        }
-    }
-
-    // Helper: Convert backend weeklyStats format to weeks format
-    convertWeeklyStatsToWeeksFormat(weeklyStats) {
-        const weeks = {};
-        
-        Object.entries(weeklyStats).forEach(([week, stats]) => {
-            if (stats && this.hasNonZeroStats(stats)) {
-                weeks[week] = {
-                    week,
-                    stats,
-                    timestamp: new Date().toISOString()
-                };
-            }
-        });
-        
-        return weeks;
-    }
-
     // Check if stats object has any non-zero values
     hasNonZeroStats(stats) {
         if (!stats || typeof stats !== 'object') return false;
         return Object.values(stats).some(value => value && value !== 0);
     }
 
-    // Rest of the methods remain the same...
+    // REST OF THE METHODS REMAIN THE SAME...
     calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
         console.log(`🧮 Calculating analytics for player data:`, playerData);
         
@@ -440,7 +491,6 @@ class PlayerStatsAPI extends StatsAPI {
 
     // Get readable stat name from stat ID
     getStatName(statId) {
-        // Use the existing STAT_ID_MAPPING from stats.js
         return window.STAT_ID_MAPPING ? window.STAT_ID_MAPPING[statId] : `Stat ${statId}`;
     }
 }
