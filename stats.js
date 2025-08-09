@@ -347,7 +347,6 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load stats using new player-centric approach
-// Replace the loadStats function with this:
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -740,24 +739,24 @@ async function render() {
                 <div class="empty-state-icon">🏈</div>
                 <h3>No players found</h3>
                 <p>Try adjusting your filters or search terms</p>
-                </div>
-       `;
-       return;
-   }
+            </div>
+        `;
+        return;
+    }
    
-   console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
+    console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
 
-   // Calculate fantasy points if needed
-   if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-       filteredPlayers = filteredPlayers.map(player => {
-           if (!player.fantasyPoints && player.rawStats) {
-               player.fantasyPoints = calculateTotalFantasyPoints(player);
-           }
-           return player;
-       });
-   }
+    // Calculate fantasy points if needed
+    if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+        filteredPlayers = filteredPlayers.map(player => {
+            if (!player.fantasyPoints && player.rawStats) {
+                player.fantasyPoints = calculateTotalFantasyPoints(player);
+            }
+            return player;
+        });
+    }
 
-   if (currentView === 'research') {
+if (currentView === 'research') {
        filteredPlayers = getSortedPlayers(filteredPlayers);
    }
 
@@ -785,12 +784,11 @@ function renderCardsView(players) {
 
 // Enhanced player card with rankings
 function renderPlayerCard(player) {
-    const stats = keyStats[player.position] || [];
-    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-    
+   const stats = keyStats[player.position] || [];
+   const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+   
    return `
-        return `
-        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
+       <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
            <div class="player-header">
                <div class="player-info">
                    <h3>${player.name}</h3>
@@ -869,7 +867,7 @@ function renderResearchView(players) {
                    <tbody>
                        ${players.map(player => {
                            return `
-                               <tr>
+                               <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
                                    <td class="player-name-cell">${player.name}</td>
@@ -1002,46 +1000,46 @@ function hasBonusRule(statName) {
 }
 
 function renderStatsView(players) {
-  const content = document.getElementById('content');
-  const stats = getStatsForPosition(currentFilters.position);
-  const statCategories = categorizeStats(stats);
-  
-  content.innerHTML = `
-      <div class="stats-overview fade-in">
-          <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
-          ${Object.entries(statCategories).map(([category, categoryStats]) => `
-              <div class="stat-category">
-                  <div class="stat-category-title">${category}</div>
-                  ${categoryStats.map(stat => {
-                      const leaders = getStatLeaders(players, stat, 3);
-                      return `
-                          <div class="stat-row">
-                              <span>${stat}</span>
-                              <span>${leaders.map(l => {
-                                  const displayValue = showFantasyStats ? 
-                                      getStatValue({stats: {[stat]: l.value}}, stat) : l.value;
-                                  const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
-                                  return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
-                              }).join(', ')}</span>
-                          </div>
-                      `;
-                  }).join('')}
-              </div>
-          `).join('')}
-      </div>
-  `;
+   const content = document.getElementById('content');
+   const stats = getStatsForPosition(currentFilters.position);
+   const statCategories = categorizeStats(stats);
+   
+   content.innerHTML = `
+       <div class="stats-overview fade-in">
+           <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
+           ${Object.entries(statCategories).map(([category, categoryStats]) => `
+               <div class="stat-category">
+                   <div class="stat-category-title">${category}</div>
+                   ${categoryStats.map(stat => {
+                       const leaders = getStatLeaders(players, stat, 3);
+                       return `
+                           <div class="stat-row">
+                               <span>${stat}</span>
+                               <span>${leaders.map(l => {
+                                   const displayValue = showFantasyStats ? 
+                                       getStatValue({stats: {[stat]: l.value}}, stat) : l.value;
+                                   const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
+                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
+                               }).join(', ')}</span>
+                           </div>
+                       `;
+                   }).join('')}
+               </div>
+           `).join('')}
+       </div>
+   `;
 }
 
 // Helper functions
 function getStatsForPosition(position) {
-  if (position === 'ALL') {
-      const allStats = new Set();
-      Object.values(positionStats).forEach(stats => {
-          stats.forEach(stat => allStats.add(stat));
-      });
-      return Array.from(allStats);
- }
- return positionStats[position] || [];
+   if (position === 'ALL') {
+       const allStats = new Set();
+       Object.values(positionStats).forEach(stats => {
+           stats.forEach(stat => allStats.add(stat));
+       });
+       return Array.from(allStats);
+   }
+   return positionStats[position] || [];
 }
 
 // Helper function to check if a player received bonus points for a stat
@@ -1067,214 +1065,84 @@ function hasBonusApplied(player, statName) {
 }
 
 function categorizeStats(stats) {
- const categories = {
-     "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
-     "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
-     "Receiving": ["Rec", "Rec Yds", "Rec TD"],
-     "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
-     "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-     "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
-     "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
-     "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
-     "Scoring": ["2-PT"]
- };
+   const categories = {
+       "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
+       "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
+       "Receiving": ["Rec", "Rec Yds", "Rec TD"],
+       "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
+       "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+       "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
+       "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
+       "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
+       "Scoring": ["2-PT"]
+   };
 
- const result = {};
- stats.forEach(stat => {
-     for (const [category, categoryStats] of Object.entries(categories)) {
-         if (categoryStats.includes(stat)) {
-             if (!result[category]) result[category] = [];
-             result[category].push(stat);
-             break;
-         }
-     }
- });
- return result;
+   const result = {};
+   stats.forEach(stat => {
+       for (const [category, categoryStats] of Object.entries(categories)) {
+           if (categoryStats.includes(stat)) {
+               if (!result[category]) result[category] = [];
+               result[category].push(stat);
+               break;
+           }
+       }
+   });
+   return result;
 }
 
 function getStatLeaders(players, stat, limit = 3) {
- return players
-     .filter(p => p.stats[stat] !== undefined && p.stats[stat] > 0)
-     .map(p => ({ 
-         name: p.name, 
-         value: p.stats[stat] || 0,
-         rawStats: p.rawStats
-     }))
-     .sort((a, b) => {
-         const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
-         const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
-         
-         // For negative stats, sort ascending (lower is better)
-         if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
-             return aValue - bValue;
-         }
-         return bValue - aValue;
-     })
-     .slice(0, limit);
+   return players
+       .filter(p => p.stats[stat] !== undefined && p.stats[stat] > 0)
+       .map(p => ({ 
+           name: p.name, 
+           value: p.stats[stat] || 0,
+           rawStats: p.rawStats
+       }))
+       .sort((a, b) => {
+           const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
+           const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
+           
+           // For negative stats, sort ascending (lower is better)
+           if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
+               return aValue - bValue;
+           }
+           return bValue - aValue;
+       })
+       .slice(0, limit);
 }
 
 function checkIfBestStat(player, stat) {
- const players = getFilteredPlayers().filter(p => p.position === player.position);
- const playerValue = getStatValue(player, stat);
- const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
- 
- if (values.length === 0) return false;
- 
- // For negative stats, best is lowest
- if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
-     return playerValue === Math.min(...values) && playerValue > 0;
- }
- return playerValue === Math.max(...values) && playerValue > 0;
+   const players = getFilteredPlayers().filter(p => p.position === player.position);
+   const playerValue = getStatValue(player, stat);
+   const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
+   
+   if (values.length === 0) return false;
+   
+   // For negative stats, best is lowest
+   if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
+       return playerValue === Math.min(...values) && playerValue > 0;
+   }
+   return playerValue === Math.max(...values) && playerValue > 0;
 }
 
 function formatStatValue(value, stat, isFantasyMode = false) {
- if (isFantasyMode && value > 0) {
-     return `${value} pts`;
- }
- 
- if (typeof value === 'number') {
-     if (value % 1 !== 0) {
-         return value.toFixed(1);
-     }
- }
- 
- return value.toString();
-}
-
-// Add this function to stats.js to enable clickable player cards/rows
-
-// Enhanced player card with click navigation
-// Enhanced player card with rankings - FIXED VERSION
-function renderPlayerCard(player) {
-    const stats = keyStats[player.position] || [];
-    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-    
-    return `
-        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
-            <div class="player-header">
-                <div class="player-info">
-                    <h3>${player.name}</h3>
-                    <div class="player-meta">
-                        <span class="position-badge">${player.position}</span>
-                        <span>${player.team}</span>
-                        ${showFantasyStats && totalFantasyPoints > 0 ? 
-                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
-                        }
-                        ${showFantasyStats && player.overallRank ? 
-                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
-                        }
-                        ${showFantasyStats && player.positionRank ? 
-                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
-                        }
-                    </div>
-                </div>
-            </div>
-            <div class="stat-grid">
-                ${stats.map(stat => {
-                    const rawValue = player.stats[stat] || 0;
-                    const displayValue = getStatValue(player, stat);
-                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
-                    const isBest = checkIfBestStat(player, stat);
-                    
-                    return `
-                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                                ${formatStatValue(displayValue, stat, isFantasyMode)}
-                            </span>
-                            <span class="stat-label">${stat}</span>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
-}
-
-// Update the research view table rows to be clickable
-function renderResearchView(players) {
-    const content = document.getElementById('content');
-    const allStats = getStatsForPosition(currentFilters.position);
-    
-    const displayStats = allStats;
-    const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
-    
-    content.innerHTML = `
-        <div class="research-container fade-in">
-            <div class="research-header">
-                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
-                <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">All fantasy stats with bonus targets</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
-                    <span class="player-count">Showing ${players.length} players</span>
-                </div>
-            </div>
-            <div class="research-table-wrapper">
-                <table class="research-table">
-                    <thead>
-                        <tr>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
-                            <th class="sortable" onclick="sortTable('name')">Player</th>
-                            <th class="sortable" onclick="sortTable('position')">Pos</th>
-                            <th class="sortable" onclick="sortTable('team')">Team</th>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
-                            ${displayStats.map(stat => `
-                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
-                            `).join('')}
-                            ${bonusStats.map(stat => {
-                                const target = getBonusTarget(stat);
-                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
-                            }).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${players.map(player => {
-                            return `
-                                <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
-                                    <td class="player-name-cell">${player.name}</td>
-                                    <td>${player.position}</td>
-                                    <td>${player.team}</td>
-                                    ${showFantasyStats ? `
-                                        <td class="fantasy-stat-cell total-points">
-                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
-                                        </td>
-                                    ` : ''}
-                                    ${displayStats.map(stat => {
-                                        const rawValue = player.stats[stat] || 0;
-                                        const displayValue = getStatValue(player, stat);
-                                        const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        
-                                        return `
-                                            <td>
-                                                <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                                    ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                                </span>
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                    ${bonusStats.map(stat => {
-                                        const bonusPoints = getBonusPoints(player, stat);
-                                        return `
-                                            <td class="bonus-cell">
-                                                ${bonusPoints}
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
+   if (isFantasyMode && value > 0) {
+       return `${value} pts`;
+   }
+   
+   if (typeof value === 'number') {
+       if (value % 1 !== 0) {
+           return value.toFixed(1);
+       }
+   }
+   
+   return value.toString();
 }
 
 // Navigation function to player detail page
 function navigateToPlayer(playerId) {
-    const url = `player.html?id=${encodeURIComponent(playerId)}`;
-    window.location.href = url;
+   const url = `player.html?id=${encodeURIComponent(playerId)}`;
+   window.location.href = url;
 }
 
 // Initialize
