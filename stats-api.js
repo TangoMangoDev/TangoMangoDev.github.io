@@ -210,21 +210,23 @@ class StatsCache {
     }
 
     // Store all ranked players for a year with season total stats
-    async storeRankedPlayersForYear(year, rankedPlayers) {
-        try {
-            console.log(`💾 Storing ${rankedPlayers.length} ranked players for year ${year}`);
-            
-            const storePromises = rankedPlayers.map((player, index) => {
-                const rank = index + 1;
-                return this.setPlayerRecord(year, player, rank, 'total', player.stats);
-            });
-            
-            await Promise.all(storePromises);
-            console.log(`✅ Stored all ${rankedPlayers.length} ranked players for year ${year}`);
-        } catch (error) {
-            console.error('Error storing ranked players:', error);
-        }
+// Updated StatsCache method to properly store ranked players
+async storeRankedPlayersForYear(year, rankedPlayers) {
+    try {
+        console.log(`💾 Storing ${rankedPlayers.length} ranked players for year ${year}`);
+        
+        const storePromises = rankedPlayers.map((player) => {
+            // Use the player's calculated rank
+            const rank = player.rank || 999999;
+            return this.setPlayerRecord(year, player, rank, 'total', player.stats);
+        });
+        
+        await Promise.all(storePromises);
+        console.log(`✅ Stored all ${rankedPlayers.length} ranked players for year ${year}`);
+    } catch (error) {
+        console.error('Error storing ranked players:', error);
     }
+}
 
     // Scoring rules methods
     async getScoringRules(leagueId) {
