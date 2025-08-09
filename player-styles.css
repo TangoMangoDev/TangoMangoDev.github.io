@@ -433,3 +433,76 @@
    background: #dee2e6;
    color: #495057;
 }
+/* Add to player-styles.css for better table alignment */
+.player-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.player-stats-table th,
+.player-stats-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.stat-name-col {
+    width: 40%;
+    text-align: left;
+}
+
+.stat-value-col {
+    width: 15%;
+    text-align: right;
+}
+
+.stat-name {
+    font-weight: 500;
+    text-align: left;
+}
+
+.stat-total,
+.stat-average,
+.stat-median,
+.stat-max {
+    text-align: right;
+    font-family: monospace;
+}
+
+.player-title h1 {
+    color: #333;
+    margin: 0;
+    font-size: 2rem;
+}
+
+.player-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.position-badge,
+.team-badge,
+.rank-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.position-badge {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.team-badge {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.rank-badge {
+    background: #fff3e0;
+    color: #f57c00;
+}
