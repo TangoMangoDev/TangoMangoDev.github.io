@@ -140,7 +140,7 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
                     } else {
                         // Players are already sorted by rank from the index
                         console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
-                        console.log(`🏆 Top 5 ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
+                        //console.log(`🏆 Top 5 ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
                         resolve(players.slice(0, limit));
                     }
                 };
