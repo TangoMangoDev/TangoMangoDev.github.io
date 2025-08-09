@@ -1144,12 +1144,13 @@ function formatStatValue(value, stat, isFantasyMode = false) {
 // Add this function to stats.js to enable clickable player cards/rows
 
 // Enhanced player card with click navigation
+// Enhanced player card with rankings - FIXED VERSION
 function renderPlayerCard(player) {
     const stats = keyStats[player.position] || [];
     const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
     
     return `
-        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}', '${encodeURIComponent(player.name)}')">
+        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
             <div class="player-header">
                 <div class="player-info">
                     <h3>${player.name}</h3>
