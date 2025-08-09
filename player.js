@@ -193,8 +193,7 @@ class PlayerDetailPage {
                     <span class="summary-value">${summary.totalGames}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="summary-label">Weeks:</span>
-                    <span class="summary-value">${summary.totalWeeks}</span>
+
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">Years:</span>
