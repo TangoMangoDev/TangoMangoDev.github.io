@@ -64,7 +64,7 @@ class PlayerStatsAPI extends StatsAPI {
             console.log(`📊 Getting player ${playerId} stats for year ${year}`);
             
             // First, check what we have in IndexedDB
-            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+            const cachedData = await this.(playerId, year);
             const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
             
             console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
@@ -84,7 +84,7 @@ class PlayerStatsAPI extends StatsAPI {
                     await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                     
                     // Get updated data from IndexedDB
-                    const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
+                    const updatedData = await this.(playerId, year);
                     if (updatedData) {
                         console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
                         return updatedData;
@@ -249,79 +249,79 @@ class PlayerStatsAPI extends StatsAPI {
 
     // EXISTING: Get player data from IndexedDB
     async getPlayerFromIndexedDB(playerId, year) {
-        try {
-            await this.ensureInitialized();
-            
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
-            const store = transaction.objectStore(this.cache.playersStore);
-            const yearIndex = store.index('year');
-            
-            return new Promise((resolve, reject) => {
-                const playerData = {
-                    playerId,
-                    year: parseInt(year),
-                    playerName: null,
-                    position: null,
-                    team: null,
-                    weeks: {},
-                    rank: null
-                };
+    try {
+        await this.ensureInitialized();
+        
+        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+        const store = transaction.objectStore(this.cache.playersStore);
+        const yearIndex = store.index('year');
+        
+        return new Promise((resolve, reject) => {
+            const playerData = {
+                playerId,
+                year: parseInt(year),
+                playerName: null,
+                position: null,
+                team: null,
+                weeks: {},
+                rank: null  // ADD rank field
+            };
 
-                // Use cursor to find all records for this player in this year
-                const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+            const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+            
+            cursorRequest.onsuccess = (event) => {
+                const cursor = event.target.result;
                 
-                cursorRequest.onsuccess = (event) => {
-                    const cursor = event.target.result;
+                if (cursor) {
+                    const record = cursor.value;
                     
-                    if (cursor) {
-                        const record = cursor.value;
-                        
-                        // Check if this record belongs to our player
-                        if (record.playerId === playerId) {
-                            // Update player metadata
-                            if (!playerData.playerName) {
-                                playerData.playerName = record.name;
-                                playerData.position = record.position;
-                                playerData.team = record.team;
-                                playerData.rank = record.rank;
-                            }
+                    if (record.playerId === playerId) {
+                        if (!playerData.playerName) {
+                            playerData.playerName = record.name;
+                            playerData.position = record.position;
+                            playerData.team = record.team;
                             
-                            // Add all weekly stats from this record
-                            if (record.weeklyStats) {
-                                Object.entries(record.weeklyStats).forEach(([week, stats]) => {
-                                    if (stats && this.hasNonZeroStats(stats)) {
-                                        playerData.weeks[week] = {
-                                            week,
-                                            stats,
-                                            timestamp: record.timestamp
-                                        };
-                                    }
-                                });
+                            // EXTRACT RANK from yearRank field (format: "2024_000001")
+                            if (record.yearRank) {
+                                const rankPart = record.yearRank.split('_')[1];
+                                playerData.rank = parseInt(rankPart);
                             }
                         }
                         
-                        cursor.continue();
-                    } else {
-                        // Finished processing all records
-                        const weeksFound = Object.keys(playerData.weeks).length;
-                        console.log(`📊 IndexedDB: Found ${weeksFound} weeks for player ${playerId} year ${year}`);
-                        
-                        if (weeksFound > 0) {
-                            resolve(playerData);
-                        } else {
-                            resolve(null);
+                        if (record.weeklyStats) {
+                            Object.entries(record.weeklyStats).forEach(([week, stats]) => {
+                                if (stats && this.hasNonZeroStats(stats)) {
+                                    playerData.weeks[week] = {
+                                        week,
+                                        stats,
+                                        timestamp: record.timestamp
+                                    };
+                                }
+                            });
                         }
                     }
-                };
-                
-                cursorRequest.onerror = () => reject(cursorRequest.error);
-            });
+                    
+                    cursor.continue();
+                } else {
+                    const weeksFound = Object.keys(playerData.weeks).length;
+                    console.log(`📊 IndexedDB: Found ${weeksFound} weeks for player ${playerId} year ${year}`);
+                    
+                    if (weeksFound > 0) {
+                        resolve(playerData);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            };
             
-        } catch (error) {
-            console.error(`❌ Error getting player from IndexedDB:`, error);
-            return null;
-        }
+            cursorRequest.onerror = () => reject(cursorRequest.error);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error getting player from IndexedDB:`, error);
+        return null;
     }
+}
 
     // Check if stats object has any non-zero values
     hasNonZeroStats(stats) {
