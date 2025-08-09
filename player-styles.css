@@ -20,6 +20,14 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --border-radius: 0.75rem;
     --border-radius-sm: 0.5rem;
+    
+    /* NEW: Analytics card colors */
+    --consistency-color: #10b981;
+    --volatility-color: #3b82f6;
+    --boom-bust-color: #f59e0b;
+    --td-dependency-color: #ef4444;
+    --efficiency-color: #8b5cf6;
+    --floor-ceiling-color: #06b6d4;
 }
 
 * {
@@ -548,6 +556,707 @@ body {
 
     .player-controls,
     .breadcrumb {
+        display: none !important;
+    }
+
+    .stats-table-container {
+        box-shadow: none !important;
+        border: 1px solid #000 !important;
+    }
+}
+.advanced-analytics-section {
+    margin-bottom: 3rem;
+}
+
+.analytics-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 2rem;
+    text-align: center;
+    position: relative;
+}
+
+.analytics-title::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-blue), var(--primary-blue));
+    border-radius: 2px;
+}
+
+.analytics-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.analytics-card {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.analytics-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent-blue);
+    transition: all 0.3s ease;
+}
+
+.analytics-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.analytics-card:hover::before {
+    height: 6px;
+}
+
+/* Specific card color themes */
+.analytics-card.consistency::before {
+    background: linear-gradient(90deg, var(--consistency-color), #059669);
+}
+
+.analytics-card.volatility::before {
+    background: linear-gradient(90deg, var(--volatility-color), #2563eb);
+}
+
+.analytics-card.boom-bust::before {
+    background: linear-gradient(90deg, var(--boom-bust-color), #d97706);
+}
+
+.analytics-card.td-dependency::before {
+    background: linear-gradient(90deg, var(--td-dependency-color), #dc2626);
+}
+
+.analytics-card.efficiency::before {
+    background: linear-gradient(90deg, var(--efficiency-color), #7c3aed);
+}
+
+.analytics-card.floor-ceiling::before {
+    background: linear-gradient(90deg, var(--floor-ceiling-color), #0891b2);
+}
+
+.card-icon {
+    font-size: 3rem;
+    line-height: 1;
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-blue);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.card-label {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gray-700);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-subtitle {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    font-weight: 500;
+    font-style: italic;
+}
+
+/* Color-coded card values */
+.analytics-card.consistency .card-value {
+    color: var(--consistency-color);
+}
+
+.analytics-card.volatility .card-value {
+    color: var(--volatility-color);
+}
+
+.analytics-card.boom-bust .card-value {
+    color: var(--boom-bust-color);
+}
+
+.analytics-card.td-dependency .card-value {
+    color: var(--td-dependency-color);
+}
+
+.analytics-card.efficiency .card-value {
+    color: var(--efficiency-color);
+}
+
+.analytics-card.floor-ceiling .card-value {
+    color: var(--floor-ceiling-color);
+}
+
+/* Enhanced summary items for consistency */
+.stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.summary-item {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    border: 1px solid var(--gray-200);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.summary-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-blue), var(--primary-blue));
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-value {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-blue);
+    line-height: 1;
+}
+
+/* All existing table and other styles remain exactly the same... */
+.stats-table-container {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+}
+
+.player-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.9rem;
+}
+
+.player-stats-table thead {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+    color: white;
+}
+
+.player-stats-table th {
+    padding: 1.25rem 1rem;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: none;
+    vertical-align: middle;
+    position: relative;
+}
+
+.player-stats-table th::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.player-stats-table td {
+    padding: 1rem;
+    border: none;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.stat-name-col {
+    width: 30%;
+    text-align: left;
+}
+
+.stat-value-col {
+    width: 17.5%;
+    text-align: center;
+}
+
+.stat-name {
+    font-weight: 700;
+    color: var(--gray-800);
+    text-align: left;
+    font-size: 0.95rem;
+}
+
+.stat-total,
+.stat-average,
+.stat-median,
+.stat-max {
+    text-align: center;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.stat-total {
+    color: var(--success-green);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.stat-average,
+.stat-median {
+    color: var(--accent-blue);
+}
+
+.stat-max {
+    color: var(--warning-orange);
+    font-weight: 700;
+}
+
+.player-stats-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.player-stats-table tbody tr:hover {
+    background: linear-gradient(90deg, rgba(49, 130, 206, 0.05), rgba(49, 130, 206, 0.02));
+    transform: scale(1.01);
+}
+
+.player-stats-table tbody tr:nth-child(even) {
+    background: var(--gray-50);
+}
+
+.player-stats-table tbody tr:nth-child(even):hover {
+    background: linear-gradient(90deg, rgba(49, 130, 206, 0.08), rgba(49, 130, 206, 0.03));
+}
+
+/* Enhanced responsive design for analytics cards */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .header {
+        padding: 1.5rem 1rem;
+    }
+
+    .player-title h1 {
+        font-size: 2rem;
+    }
+
+    .player-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .analytics-cards {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .analytics-card {
+        padding: 1.5rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+
+    .card-icon {
+        font-size: 2.5rem;
+    }
+
+    .card-value {
+        font-size: 2rem;
+    }
+
+    .analytics-title {
+        font-size: 1.5rem;
+    }
+
+    .stats-summary {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .summary-item {
+        padding: 1.5rem;
+    }
+
+    .summary-value {
+        font-size: 2rem;
+    }
+
+    .stats-table-container {
+        overflow-x: auto;
+    }
+
+    .player-stats-table {
+        min-width: 600px;
+    }
+
+    .player-stats-table th,
+    .player-stats-table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .analytics-card {
+        padding: 1rem;
+    }
+
+    .card-value {
+        font-size: 1.75rem;
+    }
+
+    .summary-value {
+        font-size: 1.75rem;
+    }
+
+    .player-title h1 {
+        font-size: 1.75rem;
+    }
+}
+
+/* Existing header, breadcrumb, loading, error and other styles remain exactly the same... */
+.header {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 2rem 1.5rem;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.1;
+}
+
+.breadcrumb {
+    margin-bottom: 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.breadcrumb a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-sm);
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.breadcrumb a:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: translateX(-2px);
+}
+
+.player-header-info {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 2rem;
+}
+
+.player-title h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.player-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.position-badge,
+.team-badge,
+.rank-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.position-badge {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(37, 99, 235, 0.8) 100%);
+    color: white;
+}
+
+.team-badge {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.8) 0%, rgba(124, 58, 237, 0.8) 100%);
+    color: white;
+}
+
+.rank-badge {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.8) 0%, rgba(217, 119, 6, 0.8) 100%);
+    color: white;
+}
+
+.player-controls {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+}
+
+.stats-toggle {
+    display: flex;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 0.25rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-toggle-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+}
+
+.stats-toggle-btn.active {
+    background: white;
+    color: var(--primary-blue);
+    box-shadow: var(--shadow-sm);
+}
+
+.year-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.year-filter label {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.875rem;
+}
+
+.filter-dropdown {
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    font-size: 0.875rem;
+}
+
+.filter-dropdown:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Loading, error states and other existing styles remain the same... */
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--gray-200);
+    border-top: 3px solid var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--gray-600);
+}
+
+.loading-state .loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border-width: 4px;
+    margin-bottom: 1rem;
+}
+
+.error-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--gray-600);
+}
+
+.error-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: var(--error-red);
+}
+
+.error-state h3 {
+    color: var(--error-red);
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.retry-btn {
+    background: linear-gradient(135deg, var(--accent-blue) 0%, var(--primary-blue) 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-weight: 700;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+}
+
+.retry-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.no-stats-message {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: var(--border-radius);
+    color: var(--gray-600);
+    box-shadow: var(--shadow-md);
+}
+
+.no-stats-message h3 {
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+/* Fantasy mode body styling */
+body.fantasy-mode .analytics-cards {
+    animation: pulse-analytics 0.5s ease-in-out;
+}
+
+@keyframes pulse-analytics {
+    0% { opacity: 0.8; transform: scale(0.98); }
+    50% { opacity: 1; transform: scale(1.01); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* Accessibility and print styles remain the same... */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media print {
+    .header {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+    }
+
+    .player-controls,
+    .breadcrumb {
+        display: none !important;
+    }
+
+    .analytics-cards {
         display: none !important;
     }
 
