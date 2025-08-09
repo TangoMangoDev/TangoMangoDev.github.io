@@ -421,32 +421,40 @@
         }
     });
 
-    async function importPlayers() {
-        console.log('Import Players button clicked!');
-        
-        const start = parseInt(document.getElementById('playerStart').value) || 0;
-        const count = parseInt(document.getElementById('playerCount').value) || 20;
-        const sort = document.getElementById('sortBy').value || 'OR';
-        const position = document.getElementById('positionFilter').value || 'all';
-        const status = document.getElementById('statusFilter').value || 'all';
-        
-        const statusDiv = document.getElementById('status');
-        const resultsDiv = document.getElementById('results');
-        const importBtn = document.getElementById('importPlayersBtn');
-        
-        // Validation
-        if (count < 1 || count > 25) {
-            showStatus('Count must be between 1 and 25 due to API limits.', 'error');
-            return;
-        }
-        
-        importBtn.disabled = true;
-        importBtn.textContent = 'Importing...';
-        showStatus(`Starting import with options: Start=${start}, Count=${count}, Sort=${sort}, Position=${position}, Status=${status}...`, 'info');
-        resultsDiv.style.display = 'none';
-        resultsDiv.innerHTML = '';
-        
-        try {
+    // FIXED: Import Players Function with PROPER PAGINATION
+async function importPlayers() {
+    console.log('Import Players button clicked!');
+    
+    const start = parseInt(document.getElementById('playerStart').value) || 0;
+    const count = parseInt(document.getElementById('playerCount').value) || 20;
+    const sort = document.getElementById('sortBy').value || 'OR';
+    const position = document.getElementById('positionFilter').value || 'all';
+    const status = document.getElementById('statusFilter').value || 'all';
+    
+    const statusDiv = document.getElementById('status');
+    const resultsDiv = document.getElementById('results');
+    const importBtn = document.getElementById('importPlayersBtn');
+    
+    // Validation
+    if (count < 1 || count > 25) {
+        showStatus('Count must be between 1 and 25 due to API limits.', 'error');
+        return;
+    }
+    
+    importBtn.disabled = true;
+    importBtn.textContent = 'Importing...';
+    resultsDiv.style.display = 'none';
+    resultsDiv.innerHTML = '';
+    
+    let allImportedPlayers = [];
+    let totalImported = 0;
+    let currentStart = start;
+    let hasMore = true;
+    
+    try {
+        while (hasMore) {
+            showStatus(`Importing players ${currentStart + 1}-${currentStart + count}...`, 'info');
+            
             const response = await fetch('/data/admin/import', {
                 method: 'POST',
                 headers: {
@@ -454,7 +462,7 @@
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                    start: start,
+                    start: currentStart,
                     count: count,
                     sort: sort,
                     position: position,
@@ -469,21 +477,45 @@
             
             const data = await response.json();
             
-            showStatus(
-                `✅ Successfully imported ${data.importedCount} players! (Sort: ${data.sort}, Position: ${data.position}, Status: ${data.status})`, 
-                'success'
-            );
+            if (data.importedCount > 0) {
+                allImportedPlayers = allImportedPlayers.concat(data.players);
+                totalImported += data.importedCount;
+                showStatus(`Imported ${totalImported} players so far...`, 'info');
+            }
             
-            displayResults(data.players, data);
+            hasMore = data.hasMore && data.importedCount === count;
+            currentStart = data.nextStart || (currentStart + count);
             
-        } catch (error) {
-            console.error('Import error:', error);
-            showStatus(`❌ Error: ${error.message}`, 'error');
-        } finally {
-            importBtn.disabled = false;
-            importBtn.textContent = 'Import Players';
+            // Small delay to avoid rate limiting
+            if (hasMore) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
+        
+        showStatus(
+            `✅ Successfully imported ${totalImported} players! (Sort: ${sort}, Position: ${position}, Status: ${status})`, 
+            'success'
+        );
+        
+        displayResults(allImportedPlayers, {
+            startIndex: start,
+            batchSize: count,
+            sort: sort,
+            position: position,
+            status: status,
+            importedCount: totalImported,
+            hasMore: false,
+            nextStart: currentStart
+        });
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import Players';
     }
+}
 
     // Show stats confirmation modal
     function showStatsConfirmation() {
