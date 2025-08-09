@@ -1,8 +1,18 @@
-// player-stats-api.js - Extended API for detailed player statistics
+// player-stats-api.js - FIXED version with proper IndexedDB initialization
 class PlayerStatsAPI extends StatsAPI {
     constructor() {
         super();
-        this.playerDataCache = new Map(); // In-memory cache for computed stats
+        this.playerDataCache = new Map();
+        this.basePlayerUrl = '/data/stats/player'; // New endpoint for player data
+    }
+
+    // FIXED: Ensure IndexedDB is properly initialized
+    async ensureInitialized() {
+        if (!this.cache.db) {
+            console.log('🔄 Initializing IndexedDB for player stats...');
+            await this.cache.init();
+        }
+        return this.cache.db;
     }
 
     // Main method to get ALL data for a specific player across years/weeks
@@ -10,8 +20,6 @@ class PlayerStatsAPI extends StatsAPI {
         console.log(`🎯 Getting complete stats for player: ${playerId}`);
         
         try {
-            await this.cache.init();
-            
             const allPlayerData = {
                 playerId,
                 playerName: playerName || 'Unknown Player',
@@ -49,11 +57,96 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // Get all stats for a player in a specific year
+    // NEW: Get all stats for a player in a specific year from backend + IndexedDB
     async getPlayerStatsForYear(playerId, year) {
         try {
+            // First, try to get from IndexedDB
+            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+            
+            // Check if cached data is complete (has reasonable number of weeks)
+            if (cachedData && cachedData.weeks && Object.keys(cachedData.weeks).length >= 5) {
+                console.log(`✅ Using cached data for player ${playerId} year ${year}`);
+                return cachedData;
+            }
+
+            // If not in cache or incomplete, fetch from backend
+            console.log(`🌐 Fetching player ${playerId} year ${year} from backend...`);
+            const backendData = await this.fetchPlayerFromBackend(playerId, year);
+            
+            if (backendData) {
+                // Store in IndexedDB for future use
+                await this.storePlayerInIndexedDB(backendData);
+                
+                // Convert to expected format
+                return {
+                    playerId: backendData.playerId,
+                    year: parseInt(year),
+                    playerName: backendData.name,
+                    position: backendData.position,
+                    team: backendData.team,
+                    rank: backendData.rank,
+                    weeks: this.convertWeeklyStatsToWeeksFormat(backendData.weeklyStats)
+                };
+            }
+
+            return null;
+            
+        } catch (error) {
+            console.error(`❌ Error getting player stats for year ${year}:`, error);
+            return null;
+        }
+    }
+
+    // NEW: Fetch player data from backend
+    async fetchPlayerFromBackend(playerId, year) {
+        try {
+            const params = new URLSearchParams({
+                playerId,
+                year
+            });
+
+            const url = `${this.basePlayerUrl}?${params}`;
+            console.log(`🌐 Fetching player data: ${url}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Backend request failed');
+            }
+
+            if (!data.data) {
+                console.log(`⚠️ No data returned for player ${playerId} year ${year}`);
+                return null;
+            }
+
+            console.log(`✅ Fetched player data for ${playerId} (${data.weeksFound} weeks)`);
+            return data.data;
+            
+        } catch (error) {
+            console.error(`❌ Error fetching player from backend:`, error);
+            throw error;
+        }
+    }
+
+    // NEW: Get player data from IndexedDB
+    async getPlayerFromIndexedDB(playerId, year) {
+        try {
+            await this.ensureInitialized();
+            
             const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
-            const store = transaction.objectStore(this.playersStore);
+            const store = transaction.objectStore(this.cache.playersStore);
             const yearIndex = store.index('year');
             
             return new Promise((resolve, reject) => {
@@ -64,7 +157,6 @@ class PlayerStatsAPI extends StatsAPI {
                     position: null,
                     team: null,
                     weeks: {},
-                    seasonTotal: null,
                     rank: null
                 };
 
@@ -104,8 +196,14 @@ class PlayerStatsAPI extends StatsAPI {
                         cursor.continue();
                     } else {
                         // Finished processing all records
-                        console.log(`✅ Found ${Object.keys(playerData.weeks).length} weeks of data for ${playerId} in ${year}`);
-                        resolve(playerData.weeks && Object.keys(playerData.weeks).length > 0 ? playerData : null);
+                        const weeksFound = Object.keys(playerData.weeks).length;
+                        console.log(`📊 IndexedDB: Found ${weeksFound} weeks for player ${playerId} year ${year}`);
+                        
+                        if (weeksFound > 0) {
+                            resolve(playerData);
+                        } else {
+                            resolve(null);
+                        }
                     }
                 };
                 
@@ -113,9 +211,65 @@ class PlayerStatsAPI extends StatsAPI {
             });
             
         } catch (error) {
-            console.error(`❌ Error getting player stats for year ${year}:`, error);
+            console.error(`❌ Error getting player from IndexedDB:`, error);
             return null;
         }
+    }
+
+    // NEW: Store player data in IndexedDB
+    async storePlayerInIndexedDB(playerData) {
+        try {
+            await this.ensureInitialized();
+            
+            const { playerId, year, name, position, team, rank, weeklyStats } = playerData;
+            
+            // Create the player record in the format expected by IndexedDB
+            const playerRecord = {
+                playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
+                year: parseInt(year),
+                playerId,
+                name,
+                position,
+                team,
+                rank: rank || 999999,
+                yearPosition: `${year}_${position}`,
+                yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
+                weeklyStats,
+                timestamp: new Date().toISOString()
+            };
+
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+            const store = transaction.objectStore(this.cache.playersStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(playerRecord);
+                request.onsuccess = () => {
+                    console.log(`✅ Stored player ${playerId} in IndexedDB`);
+                    resolve();
+                };
+                request.onerror = () => reject(request.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error storing player in IndexedDB:`, error);
+        }
+    }
+
+    // Helper: Convert backend weeklyStats format to weeks format
+    convertWeeklyStatsToWeeksFormat(weeklyStats) {
+        const weeks = {};
+        
+        Object.entries(weeklyStats).forEach(([week, stats]) => {
+            if (stats && this.hasNonZeroStats(stats)) {
+                weeks[week] = {
+                    week,
+                    stats,
+                    timestamp: new Date().toISOString()
+                };
+            }
+        });
+        
+        return weeks;
     }
 
     // Check if stats object has any non-zero values
@@ -124,7 +278,7 @@ class PlayerStatsAPI extends StatsAPI {
         return Object.values(stats).some(value => value && value !== 0);
     }
 
-    // Calculate player statistics with median, average, and totals
+    // Rest of the methods remain the same...
     calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
         console.log(`🧮 Calculating analytics for player data:`, playerData);
         
@@ -288,39 +442,6 @@ class PlayerStatsAPI extends StatsAPI {
     getStatName(statId) {
         // Use the existing STAT_ID_MAPPING from stats.js
         return window.STAT_ID_MAPPING ? window.STAT_ID_MAPPING[statId] : `Stat ${statId}`;
-    }
-
-    // Batch load player data for performance
-    async batchLoadPlayerData(playerIds, year = '2024') {
-        console.log(`🚀 Batch loading ${playerIds.length} players for year ${year}`);
-        
-        const results = new Map();
-        const batchSize = 50; // Process in batches to avoid blocking UI
-        
-        for (let i = 0; i < playerIds.length; i += batchSize) {
-            const batch = playerIds.slice(i, i + batchSize);
-            
-            const batchPromises = batch.map(async (playerId) => {
-                try {
-                    const playerData = await this.getPlayerStatsForYear(playerId, year);
-                    if (playerData) {
-                        results.set(playerId, playerData);
-                    }
-                } catch (error) {
-                    console.error(`Error loading player ${playerId}:`, error);
-                }
-            });
-            
-            await Promise.all(batchPromises);
-            
-            // Allow UI to breathe between batches
-            if (i + batchSize < playerIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 10));
-            }
-        }
-        
-        console.log(`✅ Batch loaded ${results.size} players`);
-        return results;
     }
 }
 
