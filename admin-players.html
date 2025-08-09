@@ -292,7 +292,7 @@
                         <option value="O">Out (O)</option>
                     </select>
                 </div>
-                <button id="importPlayersBtn" onclick="importPlayers()">Import Players</button>
+                <button id="importPlayersBtn">Import Players</button>
             </div>
             
             <div class="batch-info">
@@ -401,8 +401,29 @@
     </div>
 
 <script>
-    // Import Players Function with Enhanced Options
+    // FIXED: Import Players Function with Enhanced Options - ADDED EVENT LISTENER
+    document.addEventListener('DOMContentLoaded', function() {
+        const importPlayersBtn = document.getElementById('importPlayersBtn');
+        importPlayersBtn.addEventListener('click', importPlayers);
+        
+        // Set default values if not already set
+        if (!document.getElementById('playerCount').value) {
+            document.getElementById('playerCount').value = 20;
+        }
+        if (!document.getElementById('sortBy').value) {
+            document.getElementById('sortBy').value = 'OR';
+        }
+        if (!document.getElementById('positionFilter').value) {
+            document.getElementById('positionFilter').value = 'all';
+        }
+        if (!document.getElementById('statusFilter').value) {
+            document.getElementById('statusFilter').value = 'all';
+        }
+    });
+
     async function importPlayers() {
+        console.log('Import Players button clicked!');
+        
         const start = parseInt(document.getElementById('playerStart').value) || 0;
         const count = parseInt(document.getElementById('playerCount').value) || 20;
         const sort = document.getElementById('sortBy').value || 'OR';
@@ -420,6 +441,7 @@
         }
         
         importBtn.disabled = true;
+        importBtn.textContent = 'Importing...';
         showStatus(`Starting import with options: Start=${start}, Count=${count}, Sort=${sort}, Position=${position}, Status=${status}...`, 'info');
         resultsDiv.style.display = 'none';
         resultsDiv.innerHTML = '';
@@ -459,6 +481,7 @@
             showStatus(`❌ Error: ${error.message}`, 'error');
         } finally {
             importBtn.disabled = false;
+            importBtn.textContent = 'Import Players';
         }
     }
 
@@ -644,7 +667,6 @@
         statusDiv.style.display = 'block';
     }
     
-    // Display player import
     // Display player import results
    function displayResults(players, data) {
        const resultsDiv = document.getElementById('results');
@@ -725,23 +747,6 @@
            closeModal();
        }
    }
-   
-   // Initialize default values on page load
-   document.addEventListener('DOMContentLoaded', function() {
-       // Set default values if not already set
-       if (!document.getElementById('playerCount').value) {
-           document.getElementById('playerCount').value = 20;
-       }
-       if (!document.getElementById('sortBy').value) {
-           document.getElementById('sortBy').value = 'OR';
-       }
-       if (!document.getElementById('positionFilter').value) {
-           document.getElementById('positionFilter').value = 'all';
-       }
-       if (!document.getElementById('statusFilter').value) {
-           document.getElementById('statusFilter').value = 'all';
-       }
-   });
 </script>
 
 </body>
