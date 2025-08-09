@@ -299,7 +299,7 @@ class PlayerStatsAPI extends StatsAPI {
             };
         }
     });
-}
+}}
             
                     
                     cursor.continue();
