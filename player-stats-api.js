@@ -64,7 +64,7 @@ class PlayerStatsAPI extends StatsAPI {
             console.log(`📊 Getting player ${playerId} stats for year ${year}`);
             
             // First, check what we have in IndexedDB
-            const cachedData = await this.(playerId, year);
+            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);  // Line 57
             const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
             
             console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
@@ -84,7 +84,7 @@ class PlayerStatsAPI extends StatsAPI {
                     await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                     
                     // Get updated data from IndexedDB
-                    const updatedData = await this.(playerId, year);
+                    const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                     if (updatedData) {
                         console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
                         return updatedData;
