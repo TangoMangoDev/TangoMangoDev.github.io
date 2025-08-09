@@ -785,11 +785,12 @@ function renderCardsView(players) {
 
 // Enhanced player card with rankings
 function renderPlayerCard(player) {
-   const stats = keyStats[player.position] || [];
-   const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-   
+    const stats = keyStats[player.position] || [];
+    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+    
    return `
-       <div class="player-card fade-in">
+        return `
+        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
            <div class="player-header">
                <div class="player-info">
                    <h3>${player.name}</h3>
@@ -1227,7 +1228,7 @@ function renderResearchView(players) {
                     <tbody>
                         ${players.map(player => {
                             return `
-                                <tr class="clickable-row" onclick="navigateToPlayer('${player.id}', '${encodeURIComponent(player.name)}')">
+                                <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
                                     ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
                                     ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
                                     <td class="player-name-cell">${player.name}</td>
@@ -1270,8 +1271,8 @@ function renderResearchView(players) {
 }
 
 // Navigation function to player detail page
-function navigateToPlayer(playerId, playerName) {
-    const url = `player.html?id=${encodeURIComponent(playerId)}&name=${playerName}`;
+function navigateToPlayer(playerId) {
+    const url = `player.html?id=${encodeURIComponent(playerId)}`;
     window.location.href = url;
 }
 
