@@ -403,7 +403,7 @@ class StatsAPI {
                     position: playerRecord.position,
                     team: playerRecord.team,
                     overallRank: playerRecord.rank,
-                    stats: convertStatsForDisplay(stats),
+                    stats: window.convertStatsForDisplay ? window.convertStatsForDisplay(stats) : stats,
                     rawStats: stats
                 };
             }).filter(Boolean);
