@@ -164,85 +164,81 @@ class PlayerDetailPage {
     }
 
     renderStatsTable() {
-        const container = document.getElementById('playerStatsContainer');
-        if (!container || !this.currentAnalytics) {
-            console.warn('⚠️ Cannot render stats table - missing container or analytics');
-            return;
-        }
-
-        const { stats, summary } = this.currentAnalytics;
-        const statsEntries = Object.entries(stats);
-
-        if (statsEntries.length === 0) {
-            container.innerHTML = `
-                <div class="no-stats-message">
-                    <h3>No stats available</h3>
-                    <p>No statistics found for the selected filters.</p>
-                </div>
-            `;
-            container.style.display = 'block';
-            this.hideLoading();
-            return;
-        }
-
-        // FIXED TABLE: Better column alignment and display Games in header
-        const tableHTML = `
-            <div class="stats-summary">
-                <div class="summary-item">
-                    <span class="summary-label">Games Played:</span>
-                    <span class="summary-value">${summary.totalGames}</span>
-                </div>
-                <div class="summary-item">
-
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Years:</span>
-                    <span class="summary-value">${summary.yearsPlayed}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Mode:</span>
-                    <span class="summary-value">${this.currentFilters.showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</span>
-                </div>
-            </div>
-
-            <div class="stats-table-container">
-                <table class="player-stats-table">
-                    <thead>
-                        <tr>
-                            <th class="stat-name-col">Statistic</th>
-                            <th class="stat-value-col">Total</th>
-                            <th class="stat-value-col">Average</th>
-                            <th class="stat-value-col">Median</th>
-                            <th class="stat-value-col">Best</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${statsEntries.map(([statId, statData]) => {
-                            const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                                statData.fantasyStats : statData.rawStats;
-                            
-                            const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                            
-                            return `
-                                <tr class="stat-row">
-                                    <td class="stat-name">${statData.statName}</td>
-                                    <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
-                                    <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                    <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                    <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        container.innerHTML = tableHTML;
-        container.style.display = 'block';
-        this.hideLoading();
+    const container = document.getElementById('playerStatsContainer');
+    if (!container || !this.currentAnalytics) {
+        console.warn('⚠️ Cannot render stats table - missing container or analytics');
+        return;
     }
 
+    const { stats, summary } = this.currentAnalytics;
+    const statsEntries = Object.entries(stats);
+
+    if (statsEntries.length === 0) {
+        container.innerHTML = `
+            <div class="no-stats-message">
+                <h3>No stats available</h3>
+                <p>No statistics found for the selected filters.</p>
+            </div>
+        `;
+        container.style.display = 'block';
+        this.hideLoading();
+        return;
+    }
+
+    // FIXED: Remove the empty summary item that was breaking the layout
+    const tableHTML = `
+        <div class="stats-summary">
+            <div class="summary-item">
+                <span class="summary-label">Games Played:</span>
+                <span class="summary-value">${summary.totalGames}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Years:</span>
+                <span class="summary-value">${summary.yearsPlayed}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Mode:</span>
+                <span class="summary-value">${this.currentFilters.showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</span>
+            </div>
+        </div>
+
+        <div class="stats-table-container">
+            <table class="player-stats-table">
+                <thead>
+                    <tr>
+                        <th class="stat-name-col">Statistic</th>
+                        <th class="stat-value-col">Total</th>
+                        <th class="stat-value-col">Average</th>
+                        <th class="stat-value-col">Median</th>
+                        <th class="stat-value-col">Best</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${statsEntries.map(([statId, statData]) => {
+                        const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
+                            statData.fantasyStats : statData.rawStats;
+                        
+                        const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
+                        
+                        return `
+                            <tr class="stat-row">
+                                <td class="stat-name">${statData.statName}</td>
+                                <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
+                                <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
+                                <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
+                                <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = tableHTML;
+    container.style.display = 'block';
+    this.hideLoading();
+}
     formatStatValue(value) {
         if (typeof value !== 'number') return '0';
         if (value === 0) return '0';
