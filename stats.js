@@ -347,6 +347,7 @@ function createFilterControls() {
 }
 
 // ENHANCED: Load stats using new player-centric approach
+// Replace the loadStats function with this:
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -371,35 +372,23 @@ async function loadStats(resetPage = true) {
             currentFilters.year,
             currentFilters.week,
             currentFilters.position,
-            50 // limit
+            50
         );
         
         if (!playersData.success || !playersData.data) {
             throw new Error('Failed to load players data');
         }
         
-        console.log(`📊 Received ${playersData.data.length} players from new API`);
+        console.log(`📊 Received ${playersData.data.length} players from new system`);
         
-        // Convert to our expected format
-        currentPlayers = playersData.data.map(player => ({
-            ...player,
-            // Calculate fantasy points if we have scoring rules and showing fantasy stats
-            fantasyPoints: showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0 
-                ? calculateTotalFantasyPoints(player) 
-                : player.fantasyPoints || 0
-        }));
+        currentPlayers = playersData.data;
         
-        // If showing fantasy stats and we have a league, apply fantasy rankings
-        if (showFantasyStats && currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-            console.log('🏆 Calculating fantasy points and applying rankings...');
-            
-            currentPlayers = currentPlayers.map(player => {
-                const fantasyPoints = calculateTotalFantasyPoints(player);
-                return {
-                    ...player,
-                    fantasyPoints
-                };
-            });
+        // Calculate fantasy points if needed
+        if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+            currentPlayers = currentPlayers.map(player => ({
+                ...player,
+                fantasyPoints: calculateTotalFantasyPoints(player)
+            }));
             
             // Sort by fantasy points for fantasy mode
             currentPlayers.sort((a, b) => (b.fantasyPoints || 0) - (a.fantasyPoints || 0));
