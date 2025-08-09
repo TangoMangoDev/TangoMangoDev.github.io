@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Stats - Fantasy Football Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="player-styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="breadcrumb">
+            <a href="stats.html">← Back to Dashboard</a>
+        </div>
+        <div class="player-header-info" id="playerHeaderInfo">
+            <div class="loading-spinner">Loading player...</div>
+        </div>
+        
+        <div class="player-controls">
+            <div class="stats-toggle">
+                <button class="stats-toggle-btn active" data-mode="raw">
+                    Raw Stats
+                </button>
+                <button class="stats-toggle-btn" data-mode="fantasy">
+                    Fantasy Stats
+                </button>
+            </div>
+            
+            <div class="year-filter">
+                <label for="year-select">Year:</label>
+                <select id="year-select" class="filter-dropdown">
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="ALL">All Years</option>
+                </select>
+            </div>
+            
+            <div class="week-filter">
+                <label for="week-select">Week:</label>
+                <select id="week-select" class="filter-dropdown">
+                    <option value="ALL">All Weeks</option>
+                    <option value="total">Season Total</option>
+                    <option value="1">Week 1</option>
+                    <option value="2">Week 2</option>
+                    <option value="3">Week 3</option>
+                    <option value="4">Week 4</option>
+                    <option value="5">Week 5</option>
+                    <option value="6">Week 6</option>
+                    <option value="7">Week 7</option>
+                    <option value="8">Week 8</option>
+                    <option value="9">Week 9</option>
+                    <option value="10">Week 10</option>
+                    <option value="11">Week 11</option>
+                    <option value="12">Week 12</option>
+                    <option value="13">Week 13</option>
+                    <option value="14">Week 14</option>
+                    <option value="15">Week 15</option>
+                    <option value="16">Week 16</option>
+                    <option value="17">Week 17</option>
+                    <option value="18">Week 18</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="loading-state" id="loadingState">
+            <div class="loading-spinner"></div>
+            <p>Loading player statistics...</p>
+        </div>
+        
+        <div class="player-stats-container" id="playerStatsContainer" style="display: none;">
+            <!-- Stats table will be dynamically generated here -->
+        </div>
+        
+        <div class="error-state" id="errorState" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <h3>Error loading player data</h3>
+            <p id="errorMessage">Unable to load player statistics</p>
+            <button onclick="location.reload()" class="retry-btn">Retry</button>
+        </div>
+    </div>
+
+    <script src="stats-api.js"></script>
+    <script src="player-stats-api.js"></script>
+    <script src="player.js"></script>
+</body>
+</html>
