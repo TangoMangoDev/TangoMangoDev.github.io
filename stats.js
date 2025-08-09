@@ -1140,6 +1140,141 @@ function formatStatValue(value, stat, isFantasyMode = false) {
  return value.toString();
 }
 
+// Add this function to stats.js to enable clickable player cards/rows
+
+// Enhanced player card with click navigation
+function renderPlayerCard(player) {
+    const stats = keyStats[player.position] || [];
+    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+    
+    return `
+        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}', '${encodeURIComponent(player.name)}')">
+            <div class="player-header">
+                <div class="player-info">
+                    <h3>${player.name}</h3>
+                    <div class="player-meta">
+                        <span class="position-badge">${player.position}</span>
+                        <span>${player.team}</span>
+                        ${showFantasyStats && totalFantasyPoints > 0 ? 
+                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
+                        }
+                        ${showFantasyStats && player.overallRank ? 
+                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
+                        }
+                        ${showFantasyStats && player.positionRank ? 
+                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="stat-grid">
+                ${stats.map(stat => {
+                    const rawValue = player.stats[stat] || 0;
+                    const displayValue = getStatValue(player, stat);
+                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
+                    const isBest = checkIfBestStat(player, stat);
+                    
+                    return `
+                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
+                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                                ${formatStatValue(displayValue, stat, isFantasyMode)}
+                            </span>
+                            <span class="stat-label">${stat}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Update the research view table rows to be clickable
+function renderResearchView(players) {
+    const content = document.getElementById('content');
+    const allStats = getStatsForPosition(currentFilters.position);
+    
+    const displayStats = allStats;
+    const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
+    
+    content.innerHTML = `
+        <div class="research-container fade-in">
+            <div class="research-header">
+                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
+                <div class="research-controls">
+                    ${showFantasyStats ? '<span class="bonus-note">All fantasy stats with bonus targets</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
+                    <span class="player-count">Showing ${players.length} players</span>
+                </div>
+            </div>
+            <div class="research-table-wrapper">
+                <table class="research-table">
+                    <thead>
+                        <tr>
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
+                            <th class="sortable" onclick="sortTable('name')">Player</th>
+                            <th class="sortable" onclick="sortTable('position')">Pos</th>
+                            <th class="sortable" onclick="sortTable('team')">Team</th>
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
+                            ${displayStats.map(stat => `
+                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
+                            `).join('')}
+                            ${bonusStats.map(stat => {
+                                const target = getBonusTarget(stat);
+                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
+                            }).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${players.map(player => {
+                            return `
+                                <tr class="clickable-row" onclick="navigateToPlayer('${player.id}', '${encodeURIComponent(player.name)}')">
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
+                                    <td class="player-name-cell">${player.name}</td>
+                                    <td>${player.position}</td>
+                                    <td>${player.team}</td>
+                                    ${showFantasyStats ? `
+                                        <td class="fantasy-stat-cell total-points">
+                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
+                                        </td>
+                                    ` : ''}
+                                    ${displayStats.map(stat => {
+                                        const rawValue = player.stats[stat] || 0;
+                                        const displayValue = getStatValue(player, stat);
+                                        const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                        
+                                        return `
+                                            <td>
+                                                <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                    ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                                </span>
+                                            </td>
+                                        `;
+                                    }).join('')}
+                                    ${bonusStats.map(stat => {
+                                        const bonusPoints = getBonusPoints(player, stat);
+                                        return `
+                                            <td class="bonus-cell">
+                                                ${bonusPoints}
+                                            </td>
+                                        `;
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+// Navigation function to player detail page
+function navigateToPlayer(playerId, playerName) {
+    const url = `player.html?id=${encodeURIComponent(playerId)}&name=${playerName}`;
+    window.location.href = url;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
    console.log('🚀 Initializing Fantasy Football Dashboard with new player-centric system...');
