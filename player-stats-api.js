@@ -4,7 +4,7 @@ class PlayerStatsAPI extends StatsAPI {
         super();
         this.playerDataCache = new Map();
         this.baseMissingWeeksUrl = '/data/stats/player/missing-weeks';
-        this.allWeeks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', 'total'];
+        this.allWeeks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
     }
 
     // FIXED: Ensure IndexedDB is properly initialized
