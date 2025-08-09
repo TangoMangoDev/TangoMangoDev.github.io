@@ -1,4 +1,4 @@
-// stats.js - Enhanced Dashboard with Research Table
+// stats.js - Enhanced Dashboard with new player-centric data retrieval
 // Global state and variables
 let currentFilters = {
     league: null,
@@ -27,8 +27,6 @@ let tableSort = {
     column: null,
     direction: 'asc'
 };
-let allPlayersLoaded = false;
-let currentRankings = null;
 let eventListenersSetup = false;
 
 // COMPLETE Yahoo stat ID mapping - ALL STATS FROM YOUR SCORING RULES
@@ -96,7 +94,6 @@ function convertStatsForDisplay(rawStats) {
     return readableStats;
 }
 
-// Position stat mappings
 // Position stat mappings - UPDATED TO MATCH YOUR STAT NAMES
 const positionStats = {
     "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Fum", "Fum Lost", "Off Fum Ret TD", "2-PT"],
@@ -205,7 +202,6 @@ function setEmptyDefaults() {
     return {};
 }
 
-
 // FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
     if (!leagueId) {
@@ -226,11 +222,7 @@ async function loadScoringRulesForActiveLeague(leagueId) {
             currentScoringRules = rulesData[leagueId];
             console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules from IndexedDB for league ${leagueId}`);
             
-            // IMPORTANT: Reset ranking calculation flags when switching leagues
-            allPlayersLoaded = false;
-            window.statsAPI.rankingsCalculated.delete(`${leagueId}-${currentFilters.year}`);
-            
-            // Trigger fresh ranking calculation for this league
+            // Trigger fresh data load for this league
             await loadStats(true);
         } else {
             console.log(`⚠️ No scoring rules found for league ${leagueId}`);
@@ -242,7 +234,6 @@ async function loadScoringRulesForActiveLeague(leagueId) {
         currentScoringRules = {};
     }
 }
-
 
 function getSavedWeek() {
     const savedWeek = localStorage.getItem('selectedWeek');
@@ -275,7 +266,6 @@ function initializeActiveLeague() {
 }
 
 // Filter controls
-// ENHANCED: createFilterControls with proper pagination display
 function createFilterControls() {
     const activeLeagueId = currentFilters.league || initializeActiveLeague();
     const activeLeague = userLeagues[activeLeagueId];
@@ -356,8 +346,7 @@ function createFilterControls() {
     `;
 }
 
-// ENHANCED: Load ALL players for ranking, but only show filtered subset
-// ENHANCED: Load players and lookup stored rankings (no recalculation)
+// ENHANCED: Load stats using new player-centric approach
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
         console.log('🚫 Already loading stats, ignoring duplicate call');
@@ -375,138 +364,53 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        // STEP 1: ONLY calculate rankings for season totals if none exist
-        const shouldCalculateRankings = currentFilters.league && 
-                                      currentScoringRules && 
-                                      Object.keys(currentScoringRules).length > 0 &&
-                                      currentFilters.week === 'total' &&
-                                      !(await window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year));
+        console.log(`🎯 Loading stats for: ${currentFilters.year}, ${currentFilters.week}, ${currentFilters.position}`);
         
-        if (shouldCalculateRankings) {
-            console.log('🚀 CALCULATING RANKINGS: Getting ALL players for ranking calculation...');
-            
-            const allPlayersForRanking = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-            
-            console.log(`🏆 Calculating fantasy rankings for ${allPlayersForRanking.length} players...`);
-            
-            const success = await window.statsAPI.calculateFantasyRankings(
-                currentFilters.league,
-                currentFilters.year,
-                allPlayersForRanking,
-                currentScoringRules
-            );
-            
-            if (success) {
-                console.log(`✅ Rankings calculated and stored for league ${currentFilters.league}-${currentFilters.year}`);
-                window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
-            }
+        // Use new getPlayersForDisplay method
+        const playersData = await window.statsAPI.getPlayersForDisplay(
+            currentFilters.year,
+            currentFilters.week,
+            currentFilters.position,
+            50 // limit
+        );
+        
+        if (!playersData.success || !playersData.data) {
+            throw new Error('Failed to load players data');
         }
         
-        // STEP 2: For season totals + all positions, use stored rankings
-        if (currentFilters.week === 'total' && currentFilters.position === 'ALL') {
-            console.log('📊 USING STORED RANKINGS FOR SEASON TOTALS...');
+        console.log(`📊 Received ${playersData.data.length} players from new API`);
+        
+        // Convert to our expected format
+        currentPlayers = playersData.data.map(player => ({
+            ...player,
+            // Calculate fantasy points if we have scoring rules and showing fantasy stats
+            fantasyPoints: showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0 
+                ? calculateTotalFantasyPoints(player) 
+                : player.fantasyPoints || 0
+        }));
+        
+        // If showing fantasy stats and we have a league, apply fantasy rankings
+        if (showFantasyStats && currentFilters.league && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+            console.log('🏆 Calculating fantasy points and applying rankings...');
             
-            if (currentFilters.league) {
-                const top50Players = await window.statsAPI.getTop50RankedPlayers(currentFilters.league, currentFilters.year);
-                
-                if (top50Players && top50Players.length > 0) {
-                    console.log(`✅ Using ${top50Players.length} players from stored rankings`);
-                    currentPlayers = top50Players;
-                    apiState.totalRecords = top50Players.length;
-                } else {
-                    // Fallback: get all players and enhance with rankings
-                    console.log('📊 Fallback: Getting all players and enhancing with rankings...');
-                    const allPlayers = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-                    
-                    const enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
-                        currentFilters.league,
-                        currentFilters.year,
-                        allPlayers
-                    );
-                    
-                    const sortedPlayers = enhancedPlayers.sort((a, b) => {
-                        if (a.overallRank && b.overallRank) {
-                            return a.overallRank - b.overallRank;
-                        }
-                        const aPoints = a.fantasyPoints || 0;
-                        const bPoints = b.fantasyPoints || 0;
-                        return bPoints - aPoints;
-                    });
-                    
-                    currentPlayers = sortedPlayers.slice(0, 50);
-                    apiState.totalRecords = sortedPlayers.length;
-                }
-            } else {
-                const allPlayers = await window.statsAPI.getAllPlayersForRanking(currentFilters.year);
-                currentPlayers = allPlayers.slice(0, 50);
-                apiState.totalRecords = allPlayers.length;
-            }
+            currentPlayers = currentPlayers.map(player => {
+                const fantasyPoints = calculateTotalFantasyPoints(player);
+                return {
+                    ...player,
+                    fantasyPoints
+                };
+            });
             
-        } else {
-            // STEP 3: For week/position filters, just get the data and lookup stored rankings
-            console.log('📊 FETCHING FILTERED DATA AND LOOKING UP STORED RANKINGS...');
-            
-            const requestedData = await window.statsAPI.getPlayersData(
-                currentFilters.year,
-                currentFilters.week,
-                currentFilters.position,
-                apiState.currentPage,
-                50
-            );
-            
-            const requestedPlayersWithStats = requestedData.data.map(player => ({
-                ...player,
-                rawStats: player.stats,
-                stats: convertStatsForDisplay(player.stats)
-            }));
-            
-            // LOOKUP stored rankings for these players (no calculation)
-            if (currentFilters.league) {
-                console.log(`🔍 Looking up stored rankings for ${requestedPlayersWithStats.length} players...`);
-                
-                const playerIds = requestedPlayersWithStats.map(p => p.id);
-                const rankings = await window.statsAPI.cache.getPlayerRankings(
-                    currentFilters.league, 
-                    currentFilters.year, 
-                    playerIds
-                );
-                
-                currentPlayers = requestedPlayersWithStats.map(player => {
-                    const ranking = rankings.get(player.id);
-                    if (ranking) {
-                        return {
-                            ...player,
-                            overallRank: ranking.overallRank,
-                            positionRank: ranking.positionRank,
-                            fantasyPoints: ranking.fantasyPoints
-                        };
-                    }
-                    
-                    // If no stored ranking, calculate fantasy points for this week's stats only
-                    const weeklyFantasyPoints = currentScoringRules && Object.keys(currentScoringRules).length > 0 
-                        ? calculateTotalFantasyPoints(player) 
-                        : 0;
-                    
-                    return {
-                        ...player,
-                        fantasyPoints: weeklyFantasyPoints
-                        // Note: no overallRank/positionRank since those are season-long
-                    };
-                });
-                
-                console.log(`✅ Enhanced ${currentPlayers.length} players with stored rankings`);
-            } else {
-                currentPlayers = requestedPlayersWithStats;
-            }
-            
-            apiState.totalRecords = requestedData.pagination.totalRecords;
+            // Sort by fantasy points for fantasy mode
+            currentPlayers.sort((a, b) => (b.fantasyPoints || 0) - (a.fantasyPoints || 0));
         }
         
-        apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
+        apiState.totalRecords = currentPlayers.length;
+        apiState.totalPages = 1;
         apiState.hasMore = false;
         apiState.loading = false;
         
-        console.log(`✅ FINAL: Showing ${currentPlayers.length} players (total: ${apiState.totalRecords})`);
+        console.log(`✅ Successfully loaded ${currentPlayers.length} players`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -519,24 +423,24 @@ async function loadStats(resetPage = true) {
     await render();
 }
 
-// FIXED: Complete setupEventListeners function
+// COMPLETE setupEventListeners function
 function setupEventListeners() {
     if (eventListenersSetup) {
         return;
     }
 
-    // Year selector
+    // Year selector - IMPORTANT: This triggers full year reload
     const yearSelect = document.getElementById('year-select');
     if (yearSelect) {
         yearSelect.addEventListener('change', async (e) => {
-            currentFilters.year = e.target.value;
-            currentFilters.week = 'total';
+            const newYear = e.target.value;
+            console.log(`🔄 Year changed to: ${newYear}`);
             
-            // Reset ranking calculation for new year
-            allPlayersLoaded = false;
-            if (currentFilters.league) {
-                window.statsAPI.rankingsCalculated.delete(`${currentFilters.league}-${currentFilters.year}`);
-            }
+            currentFilters.year = newYear;
+            currentFilters.week = 'total'; // Reset to season totals
+            
+            // Clear year data to force reload
+            window.statsAPI.yearDataLoaded.delete(newYear);
             
             await loadStats(true);
         });
@@ -561,9 +465,6 @@ function setupEventListeners() {
             
             currentFilters.league = newLeagueId;
             localStorage.setItem('activeLeagueId', newLeagueId);
-            
-            allPlayersLoaded = false;
-            window.statsAPI.rankingsCalculated.delete(`${newLeagueId}-${currentFilters.year}`);
             
             await loadScoringRulesForActiveLeague(newLeagueId);
             updateFilterControlsUI();
@@ -638,6 +539,7 @@ function setupEventListeners() {
 
     eventListenersSetup = true;
 }
+
 function updateFilterControlsUI() {
     const filterContainer = document.querySelector('.filter-controls-container');
     if (filterContainer) {
@@ -647,9 +549,9 @@ function updateFilterControlsUI() {
     }
 }
 
-// ENHANCED: Use ranked players for filtering
+// Get filtered players for display
 function getFilteredPlayers() {
-    let filteredPlayers = [...currentPlayers]; // Always ensure it's an array
+    let filteredPlayers = [...currentPlayers];
 
     if (searchQuery) {
         filteredPlayers = filteredPlayers.filter(player => {
@@ -661,39 +563,7 @@ function getFilteredPlayers() {
     return filteredPlayers;
 }
 
-// NEW: Async function to enhance players with rankings
-async function enhancePlayersWithRankings(players) {
-    if (!showFantasyStats || !currentFilters.league || !window.statsAPI.hasRankingsForLeague(currentFilters.league)) {
-        return players;
-    }
-
-    console.log('🏆 Enhancing players with stored rankings');
-    
-    // LIMIT TO FIRST 100 PLAYERS FOR PERFORMANCE
-    const playersToEnhance = players.slice(0, 100);
-    
-    if (players.length > 100) {
-        console.warn('⚠️ Too many players for fantasy mode, limiting to 100');
-    }
-    
-    const enhancedPlayers = await window.statsAPI.enhancePlayersWithRankings(
-        currentFilters.league,
-        playersToEnhance
-    );
-    
-    // Sort by overall rank if we have rankings
-    const sortedPlayers = enhancedPlayers.sort((a, b) => {
-        if (a.overallRank && b.overallRank) {
-            return a.overallRank - b.overallRank;
-        }
-        return 0;
-    });
-    
-    console.log(`📊 Using ${sortedPlayers.length} ranked players`);
-    return sortedPlayers;
-}
-
-// FIXED Fantasy points calculation - SIMPLE MULTIPLICATION
+// Fantasy points calculation - SIMPLE MULTIPLICATION
 function calculateFantasyPoints(statName, rawStatValue) {
     if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
         return rawStatValue || 0;
@@ -740,19 +610,15 @@ function calculateTotalFantasyPoints(player) {
     }
     
     if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
-        console.log('❌ No scoring rules for total calculation');
         return 0;
     }
     
     let totalPoints = 0;
     
-    console.log(`🧮 Calculating total for ${player.name}:`);
-    
     try {
         Object.entries(player.rawStats).forEach(([statId, statValue]) => {
             if (currentScoringRules[statId] && statValue !== 0) {
                 const rule = currentScoringRules[statId];
-                const statName = STAT_ID_MAPPING[statId];
                 
                 // Base points
                 let points = statValue * parseFloat(rule.points || 0);
@@ -766,26 +632,24 @@ function calculateTotalFantasyPoints(player) {
                         if (statValue >= target && target > 0) {
                             const bonusesEarned = Math.floor(statValue / target);
                             points += bonusesEarned * bonusPoints;
-                            console.log(`💰 ${statName}: ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
                         }
                     });
                 }
                 
                 if (points !== 0) {
-                    console.log(`📊 ${statName}: ${statValue} × ${rule.points} = ${points}`);
                     totalPoints += points;
                 }
             }
         });
         
-        console.log(`🏆 ${player.name} TOTAL: ${totalPoints}`);
         return Math.round(totalPoints * 100) / 100;
     } catch (error) {
         console.error(`Error calculating total fantasy points for ${player.name}:`, error);
         return 0;
     }
 }
-// FIXED: Get stat value for display - PROPER conversion
+
+// Get stat value for display - PROPER conversion
 function getStatValue(player, statName) {
     const rawValue = player.stats[statName] || 0;
     
@@ -806,7 +670,6 @@ function getStatValue(player, statName) {
     }
 }
 
-
 // Research table functions
 function sortTable(column) {
     if (tableSort.column === column) {
@@ -815,15 +678,15 @@ function sortTable(column) {
         tableSort.column = column;
         tableSort.direction = 'asc';
     }
-    render(); // This will work since it's called from onclick which can handle promises
+    render();
 }
 
 function clearAllFilters() {
     tableSort = { column: null, direction: 'asc' };
-    render(); // This will work since it's called from onclick which can handle promises
+    render();
 }
 
-// ENHANCED: getSortedPlayers with bonus column sorting
+// Get sorted players with bonus column sorting
 function getSortedPlayers(players) {
     if (!tableSort.column) return players;
     
@@ -888,508 +751,436 @@ async function render() {
                 <div class="empty-state-icon">🏈</div>
                 <h3>No players found</h3>
                 <p>Try adjusting your filters or search terms</p>
-            </div>
-        `;
-        return;
-    }
-    
-    console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
+                </div>
+       `;
+       return;
+   }
+   
+   console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
 
-    // Only calculate weekly fantasy points if needed (no ranking recalculation)
-    if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-        filteredPlayers = filteredPlayers.map(player => {
-            // Only calculate weekly fantasy points if not already set
-            if (!player.fantasyPoints && player.rawStats) {
-                player.fantasyPoints = calculateTotalFantasyPoints(player);
-            }
-            return player;
-        });
-    }
+   // Calculate fantasy points if needed
+   if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+       filteredPlayers = filteredPlayers.map(player => {
+           if (!player.fantasyPoints && player.rawStats) {
+               player.fantasyPoints = calculateTotalFantasyPoints(player);
+           }
+           return player;
+       });
+   }
 
-    if (currentView === 'research') {
-        filteredPlayers = getSortedPlayers(filteredPlayers);
-    }
+   if (currentView === 'research') {
+       filteredPlayers = getSortedPlayers(filteredPlayers);
+   }
 
-    switch (currentView) {
-        case 'cards':
-            renderCardsView(filteredPlayers);
-            break;
-        case 'research':
-            renderResearchView(filteredPlayers);
-            break;
-        case 'stats':
-            renderStatsView(filteredPlayers);
-            break;
-    }
+   switch (currentView) {
+       case 'cards':
+           renderCardsView(filteredPlayers);
+           break;
+       case 'research':
+           renderResearchView(filteredPlayers);
+           break;
+       case 'stats':
+           renderStatsView(filteredPlayers);
+           break;
+   }
 }
 
 function renderCardsView(players) {
-    const content = document.getElementById('content');
-    content.innerHTML = `
-        <div class="player-grid">
-            ${players.map(player => renderPlayerCard(player)).join('')}
-        </div>
-    `;
-}
-
-// ENHANCED: Player card with rankings
-function renderPlayerCard(player) {
-    const stats = keyStats[player.position] || [];
-    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-    
-    return `
-        <div class="player-card fade-in">
-            <div class="player-header">
-                <div class="player-info">
-                    <h3>${player.name}</h3>
-                    <div class="player-meta">
-                        <span class="position-badge">${player.position}</span>
-                        <span>${player.team}</span>
-                        ${showFantasyStats && totalFantasyPoints > 0 ? 
-                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
-                        }
-                        ${showFantasyStats && player.overallRank ? 
-                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
-                        }
-                        ${showFantasyStats && player.positionRank ? 
-                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
-                        }
-                    </div>
-                </div>
-            </div>
-            <div class="stat-grid">
-                ${stats.map(stat => {
-                    const rawValue = player.stats[stat] || 0;
-                    const displayValue = getStatValue(player, stat);
-                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
-                    const isBest = checkIfBestStat(player, stat);
-                    
-                    return `
-                        <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                                ${formatStatValue(displayValue, stat, isFantasyMode)}
-                            </span>
-                            <span class="stat-label">${stat}</span>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
-}
-
-// ENHANCED: Render research view with ALL fantasy stats and bonus columns
-function renderResearchView(players) {
-    const content = document.getElementById('content');
-    const allStats = getStatsForPosition(currentFilters.position);
-    
-    const displayStats = allStats;
-    const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
-    
-    content.innerHTML = `
-        <div class="research-container fade-in">
-            <div class="research-header">
-                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
-                <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">All fantasy stats with bonus targets</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
-                    <span class="player-count">Showing ${players.length} players</span>
-                </div>
-            </div>
-            <div class="research-table-wrapper">
-                <table class="research-table">
-                    <thead>
-                        <tr>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
-                            <th class="sortable" onclick="sortTable('name')">Player</th>
-                            <th class="sortable" onclick="sortTable('position')">Pos</th>
-                            <th class="sortable" onclick="sortTable('team')">Team</th>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
-                            ${displayStats.map(stat => `
-                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
-                            `).join('')}
-                            ${bonusStats.map(stat => {
-                                const target = getBonusTarget(stat);
-                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
-                            }).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${players.map(player => {
-                            return `
-                                <tr>
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
-                                    <td class="player-name-cell">${player.name}</td>
-                                    <td>${player.position}</td>
-                                    <td>${player.team}</td>
-                                    ${showFantasyStats ? `
-                                        <td class="fantasy-stat-cell total-points">
-                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
-                                        </td>
-                                    ` : ''}
-                                    ${displayStats.map(stat => {
-                                        const rawValue = player.stats[stat] || 0;
-                                        const displayValue = getStatValue(player, stat);
-                                        const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        
-                                        return `
-                                            <td>
-                                                <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                                    ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                                </span>
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                    ${bonusStats.map(stat => {
-                                        const bonusPoints = getBonusPoints(player, stat);
-                                        return `
-                                            <td class="bonus-cell">
-                                                ${bonusPoints}
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-function getStatAbbreviation(statName) {
-    const abbreviations = {
-        "Pass Yds": "PY",
-        "Pass TD": "PTD",
-        "Rush Yds": "RY", 
-        "Rush TD": "RTD",
-        "Rec Yds": "ReY",
-        "Rec TD": "ReTD",
-        "Rec": "Rec",
-        "FG": "FG",
-        "Tack Solo": "Solo",
-        "Sack": "Sack",
-        "Int": "Int"
-    };
-    
-    return abbreviations[statName] || statName.slice(0, 3);
-}
-
-function getBonusTarget(statName) {
-    if (!currentScoringRules) return '';
-    
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    if (!statId || !currentScoringRules[statId]) return '';
-    
-    const rule = currentScoringRules[statId];
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return '';
-    
-    return rule.bonuses[0].bonus.target || '';
-}
-// NEW: Function to get bonus points for a specific stat
-function getBonusPoints(player, statName) {
-    if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
-        console.log(`❌ Bonus calc failed: showFantasyStats=${showFantasyStats}, rules=${!!currentScoringRules}, rawStats=${!!player.rawStats}`);
-        return 0;
-    }
-    
-    // Find the stat ID that matches this stat name
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    //console.log(`🔍 Looking for stat: ${statName} -> ID: ${statId}`);
-    
-    if (!statId || !currentScoringRules[statId]) {
-        console.log(`❌ No scoring rule for ${statName} (ID: ${statId})`);
-        return 0;
-    }
-    
-    const rule = currentScoringRules[statId];
-    const rawValue = player.rawStats[statId] || 0;
-    
-    console.log(`📊 ${player.name} ${statName}: rawValue=${rawValue}, rule=`, rule);
-    
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) {
-        ///console.log(`❌ No bonuses or zero value: bonuses=${!!rule.bonuses}, isArray=${Array.isArray(rule.bonuses)}, rawValue=${rawValue}`);
-        return 0;
-    }
-    
-    let totalBonusPoints = 0;
-    
-    rule.bonuses.forEach((bonusRule, index) => {
-        //console.log(`🎯 Bonus rule ${index}:`, bonusRule);
-        
-        const target = parseFloat(bonusRule.bonus.target || 0);
-        const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-        
-        ///console.log(`🎯 Target: ${target}, Points: ${bonusPoints}, Raw: ${rawValue}`);
-        
-        if (target > 0 && rawValue >= target) {
-            const bonusesEarned = Math.floor(rawValue / target);
-            totalBonusPoints += bonusesEarned * bonusPoints;
-            
-            //console.log(`💰 BONUS EARNED! ${bonusesEarned} bonuses × ${bonusPoints} = ${bonusesEarned * bonusPoints}`);
-        }
-    });
-    
-    //console.log(`🏆 Total bonus points for ${player.name} ${statName}: ${totalBonusPoints}`);
-    return Math.round(totalBonusPoints * 100) / 100;
-}
-
-
-
-// NEW: Get stats that have bonus rules for position
-function getBonusStatsForPosition(position) {
-    const stats = getStatsForPosition(position);
-    return stats.filter(stat => hasBonusRule(stat));
-}
-
-// Helper function to check if a stat has bonus rules
-function hasBonusRule(statName) {
-    if (!currentScoringRules) return false;
-    
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    if (!statId || !currentScoringRules[statId]) return false;
-    
-    const rule = currentScoringRules[statId];
-    return rule.bonuses && Array.isArray(rule.bonuses) && rule.bonuses.length > 0;
-}
-
-function renderStatsView(players) {
    const content = document.getElementById('content');
-   const stats = getStatsForPosition(currentFilters.position);
-   const statCategories = categorizeStats(stats);
-   
    content.innerHTML = `
-       <div class="stats-overview fade-in">
-           <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
-           ${Object.entries(statCategories).map(([category, categoryStats]) => `
-               <div class="stat-category">
-                   <div class="stat-category-title">${category}</div>
-                   ${categoryStats.map(stat => {
-                       const leaders = getStatLeaders(players, stat, 3);
-                       return `
-                           <div class="stat-row">
-                               <span>${stat}</span>
-                               <span>${leaders.map(l => {
-                                   const displayValue = showFantasyStats ? 
-                                       getStatValue({stats: {[stat]: l.value}}, stat) : l.value;
-                                   const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
-                                   return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
-                               }).join(', ')}</span>
-                           </div>
-                       `;
-                   }).join('')}
-               </div>
-           `).join('')}
+       <div class="player-grid">
+           ${players.map(player => renderPlayerCard(player)).join('')}
        </div>
    `;
 }
 
+// Enhanced player card with rankings
+function renderPlayerCard(player) {
+   const stats = keyStats[player.position] || [];
+   const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+   
+   return `
+       <div class="player-card fade-in">
+           <div class="player-header">
+               <div class="player-info">
+                   <h3>${player.name}</h3>
+                   <div class="player-meta">
+                       <span class="position-badge">${player.position}</span>
+                       <span>${player.team}</span>
+                       ${showFantasyStats && totalFantasyPoints > 0 ? 
+                           `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
+                       }
+                       ${showFantasyStats && player.overallRank ? 
+                           `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
+                       }
+                       ${showFantasyStats && player.positionRank ? 
+                           `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
+                       }
+                   </div>
+               </div>
+           </div>
+           <div class="stat-grid">
+               ${stats.map(stat => {
+                   const rawValue = player.stats[stat] || 0;
+                   const displayValue = getStatValue(player, stat);
+                   const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
+                   const isBest = checkIfBestStat(player, stat);
+                   
+                   return `
+                       <div class="stat-item ${isBest ? 'stat-best' : ''}">
+                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                               ${formatStatValue(displayValue, stat, isFantasyMode)}
+                           </span>
+                           <span class="stat-label">${stat}</span>
+                       </div>
+                   `;
+               }).join('')}
+           </div>
+       </div>
+   `;
+}
+
+// Render research view with ALL fantasy stats and bonus columns
+function renderResearchView(players) {
+   const content = document.getElementById('content');
+   const allStats = getStatsForPosition(currentFilters.position);
+   
+   const displayStats = allStats;
+   const bonusStats = showFantasyStats ? allStats.filter(stat => hasBonusRule(stat)) : [];
+   
+   content.innerHTML = `
+       <div class="research-container fade-in">
+           <div class="research-header">
+               <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
+               <div class="research-controls">
+                   ${showFantasyStats ? '<span class="bonus-note">All fantasy stats with bonus targets</span>' : '<span class="stats-note">Showing ALL raw stats</span>'}
+                   <span class="player-count">Showing ${players.length} players</span>
+               </div>
+           </div>
+           <div class="research-table-wrapper">
+               <table class="research-table">
+                   <thead>
+                       <tr>
+                           ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
+                           ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
+                           <th class="sortable" onclick="sortTable('name')">Player</th>
+                           <th class="sortable" onclick="sortTable('position')">Pos</th>
+                           <th class="sortable" onclick="sortTable('team')">Team</th>
+                           ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
+                           ${displayStats.map(stat => `
+                               <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
+                           `).join('')}
+                           ${bonusStats.map(stat => {
+                               const target = getBonusTarget(stat);
+                               return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
+                           }).join('')}
+                       </tr>
+                   </thead>
+                   <tbody>
+                       ${players.map(player => {
+                           return `
+                               <tr>
+                                   ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
+                                   ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
+                                   <td class="player-name-cell">${player.name}</td>
+                                   <td>${player.position}</td>
+                                   <td>${player.team}</td>
+                                   ${showFantasyStats ? `
+                                       <td class="fantasy-stat-cell total-points">
+                                           ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
+                                       </td>
+                                   ` : ''}
+                                   ${displayStats.map(stat => {
+                                       const rawValue = player.stats[stat] || 0;
+                                       const displayValue = getStatValue(player, stat);
+                                       const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                       
+                                       return `
+                                           <td>
+                                               <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                   ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                               </span>
+                                           </td>
+                                       `;
+                                   }).join('')}
+                                   ${bonusStats.map(stat => {
+                                       const bonusPoints = getBonusPoints(player, stat);
+                                       return `
+                                           <td class="bonus-cell">
+                                               ${bonusPoints}
+                                           </td>
+                                       `;
+                                   }).join('')}
+                               </tr>
+                           `;
+                       }).join('')}
+                   </tbody>
+               </table>
+           </div>
+       </div>
+   `;
+}
+
+function getStatAbbreviation(statName) {
+   const abbreviations = {
+       "Pass Yds": "PY",
+       "Pass TD": "PTD",
+       "Rush Yds": "RY", 
+       "Rush TD": "RTD",
+       "Rec Yds": "ReY",
+       "Rec TD": "ReTD",
+       "Rec": "Rec",
+       "FG": "FG",
+       "Tack Solo": "Solo",
+       "Sack": "Sack",
+       "Int": "Int"
+   };
+   
+   return abbreviations[statName] || statName.slice(0, 3);
+}
+
+function getBonusTarget(statName) {
+   if (!currentScoringRules) return '';
+   
+   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+       STAT_ID_MAPPING[id] === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) return '';
+   
+   const rule = currentScoringRules[statId];
+   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return '';
+   
+   return rule.bonuses[0].bonus.target || '';
+}
+
+// Function to get bonus points for a specific stat
+function getBonusPoints(player, statName) {
+   if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
+       return 0;
+   }
+   
+   // Find the stat ID that matches this stat name
+   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+       STAT_ID_MAPPING[id] === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) {
+       return 0;
+   }
+   
+   const rule = currentScoringRules[statId];
+   const rawValue = player.rawStats[statId] || 0;
+   
+   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) {
+       return 0;
+   }
+   
+   let totalBonusPoints = 0;
+   
+   rule.bonuses.forEach((bonusRule, index) => {
+       const target = parseFloat(bonusRule.bonus.target || 0);
+       const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+       
+       if (target > 0 && rawValue >= target) {
+           const bonusesEarned = Math.floor(rawValue / target);
+           totalBonusPoints += bonusesEarned * bonusPoints;
+       }
+   });
+   
+   return Math.round(totalBonusPoints * 100) / 100;
+}
+
+// Get stats that have bonus rules for position
+function getBonusStatsForPosition(position) {
+   const stats = getStatsForPosition(position);
+   return stats.filter(stat => hasBonusRule(stat));
+}
+
+// Helper function to check if a stat has bonus rules
+function hasBonusRule(statName) {
+   if (!currentScoringRules) return false;
+   
+   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+       STAT_ID_MAPPING[id] === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) return false;
+   
+   const rule = currentScoringRules[statId];
+   return rule.bonuses && Array.isArray(rule.bonuses) && rule.bonuses.length > 0;
+}
+
+function renderStatsView(players) {
+  const content = document.getElementById('content');
+  const stats = getStatsForPosition(currentFilters.position);
+  const statCategories = categorizeStats(stats);
+  
+  content.innerHTML = `
+      <div class="stats-overview fade-in">
+          <h2>Leaders ${showFantasyStats ? '(Fantasy Points)' : '(Raw Stats)'}</h2>
+          ${Object.entries(statCategories).map(([category, categoryStats]) => `
+              <div class="stat-category">
+                  <div class="stat-category-title">${category}</div>
+                  ${categoryStats.map(stat => {
+                      const leaders = getStatLeaders(players, stat, 3);
+                      return `
+                          <div class="stat-row">
+                              <span>${stat}</span>
+                              <span>${leaders.map(l => {
+                                  const displayValue = showFantasyStats ? 
+                                      getStatValue({stats: {[stat]: l.value}}, stat) : l.value;
+                                  const suffix = showFantasyStats && displayValue !== l.value && displayValue > 0 ? ' pts' : '';
+                                  return `${l.name} (${formatStatValue(displayValue, stat, showFantasyStats && displayValue !== l.value)}${suffix})`;
+                              }).join(', ')}</span>
+                          </div>
+                      `;
+                  }).join('')}
+              </div>
+          `).join('')}
+      </div>
+  `;
+}
+
 // Helper functions
 function getStatsForPosition(position) {
-   if (position === 'ALL') {
-       const allStats = new Set();
-       Object.values(positionStats).forEach(stats => {
-           stats.forEach(stat => allStats.add(stat));
-       });
-       return Array.from(allStats);
-  }
-  return positionStats[position] || [];
+  if (position === 'ALL') {
+      const allStats = new Set();
+      Object.values(positionStats).forEach(stats => {
+          stats.forEach(stat => allStats.add(stat));
+      });
+      return Array.from(allStats);
+ }
+ return positionStats[position] || [];
 }
 
 // Helper function to check if a player received bonus points for a stat
 function hasBonusApplied(player, statName) {
-    if (!showFantasyStats || !currentScoringRules || !player.rawStats) return false;
-    
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
-    );
-    
-    if (!statId || !currentScoringRules[statId]) return false;
-    
-    const rule = currentScoringRules[statId];
-    const rawValue = player.rawStats[statId] || 0;
-    
-    if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return false;
-    
-    // Check if any bonus threshold is met
-    return rule.bonuses.some(bonusRule => {
-        const target = parseFloat(bonusRule.bonus.target || 0);
-        return rawValue >= target;
-    });
+   if (!showFantasyStats || !currentScoringRules || !player.rawStats) return false;
+   
+   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
+       STAT_ID_MAPPING[id] === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) return false;
+   
+   const rule = currentScoringRules[statId];
+   const rawValue = player.rawStats[statId] || 0;
+   
+   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return false;
+   
+   // Check if any bonus threshold is met
+   return rule.bonuses.some(bonusRule => {
+       const target = parseFloat(bonusRule.bonus.target || 0);
+       return rawValue >= target;
+   });
 }
 
 function categorizeStats(stats) {
-  const categories = {
-      "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
-      "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
-      "Receiving": ["Rec", "Rec Yds", "Rec TD"],
-      "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
-      "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-      "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
-      "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
-      "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
-      "Scoring": ["2-PT"]
-  };
+ const categories = {
+     "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
+     "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
+     "Receiving": ["Rec", "Rec Yds", "Rec TD"],
+     "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
+     "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
+     "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
+     "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
+     "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
+     "Scoring": ["2-PT"]
+ };
 
-  const result = {};
-  stats.forEach(stat => {
-      for (const [category, categoryStats] of Object.entries(categories)) {
-          if (categoryStats.includes(stat)) {
-              if (!result[category]) result[category] = [];
-              result[category].push(stat);
-              break;
-          }
-      }
-  });
-  return result;
+ const result = {};
+ stats.forEach(stat => {
+     for (const [category, categoryStats] of Object.entries(categories)) {
+         if (categoryStats.includes(stat)) {
+             if (!result[category]) result[category] = [];
+             result[category].push(stat);
+             break;
+         }
+     }
+ });
+ return result;
 }
 
 function getStatLeaders(players, stat, limit = 3) {
-  return players
-      .filter(p => p.stats[stat] !== undefined && p.stats[stat] > 0)
-      .map(p => ({ 
-          name: p.name, 
-          value: p.stats[stat] || 0,
-          rawStats: p.rawStats
-      }))
-      .sort((a, b) => {
-          const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
-          const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
-          
-          // For negative stats, sort ascending (lower is better)
-          if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
-              return aValue - bValue;
-          }
-          return bValue - aValue;
-      })
-      .slice(0, limit);
+ return players
+     .filter(p => p.stats[stat] !== undefined && p.stats[stat] > 0)
+     .map(p => ({ 
+         name: p.name, 
+         value: p.stats[stat] || 0,
+         rawStats: p.rawStats
+     }))
+     .sort((a, b) => {
+         const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
+         const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
+         
+         // For negative stats, sort ascending (lower is better)
+         if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
+             return aValue - bValue;
+         }
+         return bValue - aValue;
+     })
+     .slice(0, limit);
 }
 
 function checkIfBestStat(player, stat) {
-  const players = getFilteredPlayers().filter(p => p.position === player.position);
-  const playerValue = getStatValue(player, stat);
-  const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
-  
-  if (values.length === 0) return false;
-  
-  // For negative stats, best is lowest
-  if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
-      return playerValue === Math.min(...values) && playerValue > 0;
-  }
-  return playerValue === Math.max(...values) && playerValue > 0;
+ const players = getFilteredPlayers().filter(p => p.position === player.position);
+ const playerValue = getStatValue(player, stat);
+ const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
+ 
+ if (values.length === 0) return false;
+ 
+ // For negative stats, best is lowest
+ if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
+     return playerValue === Math.min(...values) && playerValue > 0;
+ }
+ return playerValue === Math.max(...values) && playerValue > 0;
 }
 
 function formatStatValue(value, stat, isFantasyMode = false) {
-  if (isFantasyMode && value > 0) {
-      return `${value} pts`;
-  }
-  
-  if (typeof value === 'number') {
-      if (value % 1 !== 0) {
-          return value.toFixed(1);
-      }
-  }
-  
-  return value.toString();
+ if (isFantasyMode && value > 0) {
+     return `${value} pts`;
+ }
+ 
+ if (typeof value === 'number') {
+     if (value % 1 !== 0) {
+         return value.toFixed(1);
+     }
+ }
+ 
+ return value.toString();
 }
 
 // Initialize
-// NEW: Check for cached rankings on page load
-// FIXED: Check for cached rankings on page load
-async function checkCachedRankings() {
-    if (!currentFilters.league) return false;
-    
-    console.log('🔍 Checking for cached rankings...');
-    
-    // First check the in-memory tracking
-    const hasRankings = window.statsAPI.hasRankingsForLeague(currentFilters.league, currentFilters.year);
-    if (hasRankings) {
-        console.log('✅ Found cached rankings in memory, skipping calculation');
-        allPlayersLoaded = true;
-        return true;
-    }
-    
-    // Check IndexedDB directly for any rankings for this league-year
-    try {
-        await window.statsAPI.cache.init();
-        
-        const transaction = window.statsAPI.cache.db.transaction([window.statsAPI.cache.rankingsStore], 'readonly');
-        const store = transaction.objectStore(window.statsAPI.cache.rankingsStore);
-        const index = store.index('leagueId');
-        const compositeKey = `${currentFilters.league}-${currentFilters.year}`;
-        
-        return new Promise((resolve) => {
-            const countRequest = index.count(IDBKeyRange.only(compositeKey));
-            
-            countRequest.onsuccess = () => {
-                const count = countRequest.result;
-                
-                if (count > 0) {
-                    console.log(`✅ Found ${count} rankings in IndexedDB cache for ${compositeKey}`);
-                    // Mark as calculated so we don't recalculate
-                    window.statsAPI.rankingsCalculated.add(`${currentFilters.league}-${currentFilters.year}`);
-                    allPlayersLoaded = true;
-                    resolve(true);
-                } else {
-                    console.log(`❌ No cached rankings found in IndexedDB for ${compositeKey}`);
-                    resolve(false);
-                }
-            };
-            
-            countRequest.onerror = () => {
-                console.log('❌ Error checking IndexedDB rankings');
-                resolve(false);
-            };
-        });
-    } catch (error) {
-        console.error('Error checking cached rankings:', error);
-        return false;
-    }
-}
-
-// Update the initialization
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Initializing Fantasy Football Dashboard...');
-    
-    localStorage.removeItem('allScoringRules');
-    
-    const header = document.querySelector('.header');
-    const filterControlsHtml = createFilterControls();
-    if (filterControlsHtml && header) {
-        const filterContainer = document.createElement('div');
-        filterContainer.className = 'filter-controls-container';
-        filterContainer.innerHTML = filterControlsHtml;
-        header.appendChild(filterContainer);
-    }
-    
-    setupEventListeners();
-    
-    console.log('🔄 Loading leagues and scoring rules first...');
-    try {
-        await loadUserLeagues();
-        console.log('✅ Leagues and scoring rules loaded');
-        
-        // ALWAYS force ranking calculation on page load if we have scoring rules
-        allPlayersLoaded = false;
-        
-        updateFilterControlsUI();
-    } catch (error) {
-        console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
-    }
-    
-    console.log('📊 Loading initial stats data...');
-    await loadStats(true);
-    
-    console.log('🎉 Dashboard initialization complete!');
+   console.log('🚀 Initializing Fantasy Football Dashboard with new player-centric system...');
+   
+   // Clear old cache data
+   localStorage.removeItem('allScoringRules');
+   
+   const header = document.querySelector('.header');
+   const filterControlsHtml = createFilterControls();
+   if (filterControlsHtml && header) {
+       const filterContainer = document.createElement('div');
+       filterContainer.className = 'filter-controls-container';
+       filterContainer.innerHTML = filterControlsHtml;
+       header.appendChild(filterContainer);
+   }
+   
+   setupEventListeners();
+   
+   console.log('🔄 Loading leagues and scoring rules first...');
+   try {
+       await loadUserLeagues();
+       console.log('✅ Leagues and scoring rules loaded');
+       
+       updateFilterControlsUI();
+   } catch (error) {
+       console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
+   }
+   
+   console.log('📊 Loading initial stats data with new system...');
+   await loadStats(true);
+   
+   console.log('🎉 Dashboard initialization complete with new player-centric IndexedDB schema!');
 });
