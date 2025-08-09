@@ -288,18 +288,20 @@ class PlayerStatsAPI extends StatsAPI {
                             }
                         }
                         
-                    if (record.weeklyStats) {
+if (record.weeklyStats) {
     Object.entries(record.weeklyStats).forEach(([week, stats]) => {
-        // The stats are directly the weeklyStats[week], not weeklyStats[week].stats
-        if (stats && this.hasNonZeroStats(stats)) {
+        // EXCLUDE "total" week from calculations
+        if (week !== 'total' && stats && this.hasNonZeroStats(stats)) {
             playerData.weeks[week] = {
-                week: week === 'total' ? 'total' : parseInt(week),
-                stats, // This is correct - stats are the direct values
+                week: parseInt(week),
+                stats,
                 timestamp: record.timestamp
             };
         }
     });
-}}
+}
+                    
+                    }
             
                     
                     cursor.continue();
