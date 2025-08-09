@@ -232,29 +232,79 @@
             font-family: monospace;
             font-size: 14px;
         }
+
+        .advanced-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
     
     <div class="container">
-                <h1>Admin - Players & Stats Import</h1>
-                <!-- Player Import Section -->
+        <h1>Admin - Player & Stats Import</h1>
+        
+        <!-- Player Import Section -->
         <div class="import-section">
             <h2>Import NFL Players</h2>
             <div class="import-controls">
                 <div class="input-group">
-                    <label for="offenseCount">Offense Players:</label>
-                    <input type="number" id="offenseCount" min="1" max="1000" value="350" placeholder="e.g., 350">
+                    <label for="playerStart">Start Index:</label>
+                    <input type="number" id="playerStart" min="0" max="1000" value="0" placeholder="e.g., 0">
                 </div>
                 <div class="input-group">
-                    <label for="defenseCount">Defense Players:</label>
-                    <input type="number" id="defenseCount" min="1" max="500" value="50" placeholder="e.g., 50">
+                    <label for="playerCount">Count:</label>
+                    <input type="number" id="playerCount" min="1" max="25" value="20" placeholder="e.g., 20">
+                </div>
+                <div class="input-group">
+                    <label for="sortBy">Sort By:</label>
+                    <select id="sortBy">
+                        <option value="OR">Overall Rank (OR)</option>
+                        <option value="ADP">Average Draft Position (ADP)</option>
+                        <option value="AR">Auction Value Rank (AR)</option>
+                        <option value="FA">Free Agent Rank (FA)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="positionFilter">Position:</label>
+                    <select id="positionFilter">
+                        <option value="all">All Positions</option>
+                        <option value="QB">Quarterback (QB)</option>
+                        <option value="RB">Running Back (RB)</option>
+                        <option value="WR">Wide Receiver (WR)</option>
+                        <option value="TE">Tight End (TE)</option>
+                        <option value="K">Kicker (K)</option>
+                        <option value="DEF">Defense (DEF)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="statusFilter">Status:</label>
+                    <select id="statusFilter">
+                        <option value="all">All Status</option>
+                        <option value="A">Active (A)</option>
+                        <option value="FA">Free Agent (FA)</option>
+                        <option value="IR">Injured Reserve (IR)</option>
+                        <option value="O">Out (O)</option>
+                    </select>
                 </div>
                 <button id="importPlayersBtn" onclick="importPlayers()">Import Players</button>
             </div>
+            
+            <div class="batch-info">
+                <strong>Player Import Options:</strong><br>
+                • <strong>Sort Options:</strong> OR (Overall Rank - default), ADP (Average Draft Position), AR (Auction Value), FA (Free Agent Rank)<br>
+                • <strong>Position Filter:</strong> Filter by specific position or import all positions<br>
+                • <strong>Status Filter:</strong> Filter by player status (Active, Free Agent, Injured Reserve, etc.)<br>
+                • <strong>Count:</strong> Number of players per batch (max 25 due to API limits)<br>
+                <em>Default settings: Count=20, Sort=OR, Position=All, Status=All</em>
+            </div>
         </div>
        
-
         <!-- Season Stats Import Section -->
         <div class="import-section">
             <h2>Import Season Stats</h2>
@@ -351,116 +401,58 @@
     </div>
 
 <script>
-    // Import Players Function - ADD THIS TO YOUR EXISTING SCRIPT
+    // Import Players Function with Enhanced Options
     async function importPlayers() {
-        const offenseCount = parseInt(document.getElementById('offenseCount').value) || 350;
-        const defenseCount = parseInt(document.getElementById('defenseCount').value) || 50;
-        const totalCount = offenseCount + defenseCount;
+        const start = parseInt(document.getElementById('playerStart').value) || 0;
+        const count = parseInt(document.getElementById('playerCount').value) || 20;
+        const sort = document.getElementById('sortBy').value || 'OR';
+        const position = document.getElementById('positionFilter').value || 'all';
+        const status = document.getElementById('statusFilter').value || 'all';
         
         const statusDiv = document.getElementById('status');
         const resultsDiv = document.getElementById('results');
         const importBtn = document.getElementById('importPlayersBtn');
         
         // Validation
-        if (offenseCount < 1 || defenseCount < 1) {
-            showStatus('Please enter valid numbers for both offense and defense players.', 'error');
+        if (count < 1 || count > 25) {
+            showStatus('Count must be between 1 and 25 due to API limits.', 'error');
             return;
         }
         
         importBtn.disabled = true;
-        showStatus(`Starting import of ${totalCount} players (${offenseCount} offense, ${defenseCount} defense)...`, 'info');
+        showStatus(`Starting import with options: Start=${start}, Count=${count}, Sort=${sort}, Position=${position}, Status=${status}...`, 'info');
         resultsDiv.style.display = 'none';
         resultsDiv.innerHTML = '';
         
-        let importedPlayers = [];
-        let totalImported = 0;
-        
         try {
-            // Import offense players first
-            let start = 0;
-            let offenseImported = 0;
+            const response = await fetch('/data/admin/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    start: start,
+                    count: count,
+                    sort: sort,
+                    position: position,
+                    status: status
+                })
+            });
             
-            showStatus(`Importing offense players...`, 'info');
-            
-            while (offenseImported < offenseCount) {
-                const batchSize = Math.min(25, offenseCount - offenseImported);
-                
-                const response = await fetch('/data/admin/import', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        start: start,
-                        count: batchSize
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to import players: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.importedCount > 0) {
-                    importedPlayers = importedPlayers.concat(data.players);
-                    offenseImported += data.importedCount;
-                    totalImported += data.importedCount;
-                    showStatus(`Imported ${totalImported} players so far...`, 'info');
-                }
-                
-                start += batchSize;
-                
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 500));
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to import players: ${response.status}`);
             }
             
-            // Import defense players
-            showStatus(`Importing defense players...`, 'info');
-            let defenseImported = 0;
+            const data = await response.json();
             
-            while (defenseImported < defenseCount && totalImported < totalCount) {
-                const batchSize = Math.min(25, defenseCount - defenseImported);
-                
-                const response = await fetch('/data/admin/import', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        start: start,
-                        count: batchSize
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to import defense players: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Filter for defense players
-                const defensePlayers = data.players.filter(p => 
-                    ['DEF', 'LB', 'CB', 'S', 'DE', 'DT'].some(pos => p.position.includes(pos))
-                );
-                
-                if (defensePlayers.length > 0) {
-                    importedPlayers = importedPlayers.concat(defensePlayers);
-                    defenseImported += defensePlayers.length;
-                    totalImported += data.importedCount;
-                    showStatus(`Imported ${totalImported} players so far...`, 'info');
-                }
-                
-                start += batchSize;
-                
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
+            showStatus(
+                `✅ Successfully imported ${data.importedCount} players! (Sort: ${data.sort}, Position: ${data.position}, Status: ${data.status})`, 
+                'success'
+            );
             
-            showStatus(`✅ Successfully imported ${totalImported} players!`, 'success');
-            displayResults(importedPlayers);
+            displayResults(data.players, data);
             
         } catch (error) {
             console.error('Import error:', error);
@@ -470,19 +462,27 @@
         }
     }
 
-    // KEEP ALL YOUR EXISTING FUNCTIONS BELOW - showStatsConfirmation, closeModal, confirmStatsImport, etc.
-    
     // Show stats confirmation modal
     function showStatsConfirmation() {
         const year = document.getElementById('seasonYear').value;
-        const leagueId = document.getElementById('leagueId').value;
-        
-        if (!leagueId) {
-            showStatus('Please enter a League ID.', 'error');
-            return;
-        }
+        const week = document.getElementById('weekSelect').value;
+        const maxPlayers = document.getElementById('maxPlayers').value;
+        const batchSize = document.getElementById('batchSize').value;
         
         document.getElementById('modalYear').textContent = year;
+        document.getElementById('modalMaxPlayers').textContent = maxPlayers;
+        document.getElementById('modalBatchSize').textContent = batchSize;
+        
+        let importType = '';
+        if (week === 'all') {
+            importType = 'All Weeks (1-18) + Season Totals';
+        } else if (week === 'totals') {
+            importType = 'Season Totals Only';
+        } else {
+            importType = `Week ${week} Only`;
+        }
+        document.getElementById('modalImportType').textContent = importType;
+        
         document.getElementById('confirmModal').style.display = 'block';
     }
     
@@ -496,25 +496,40 @@
         closeModal();
         
         const year = parseInt(document.getElementById('seasonYear').value);
-        const leagueId = document.getElementById('leagueId').value;
+        const week = document.getElementById('weekSelect').value;
+        const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
+        const batchSize = parseInt(document.getElementById('batchSize').value);
         const importBtn = document.getElementById('importStatsBtn');
         
         importBtn.disabled = true;
-        showStatus(`Starting import of ${year} season stats for league ${leagueId}...`, 'info');
+        showStatus(`Starting import of ${year} season stats...`, 'info');
         
         try {
-            const response = await fetch('/data/admin/stats', {
+            let requestBody = {
+                year: year,
+                max: maxPlayers,
+                batchSize: batchSize
+            };
+            
+            if (week === 'all') {
+                // Import all weeks
+                await importAllWeeks(year, maxPlayers, batchSize);
+                return;
+            } else if (week === 'totals') {
+                // Import season totals only
+                requestBody.fetchTotals = true;
+            } else {
+                // Import specific week
+                requestBody.week = parseInt(week);
+            }
+            
+            const response = await fetch('/data/admin/stats-enhanced', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 credentials: 'include',
-                body: JSON.stringify({
-                    year: year,
-                    leagueId: leagueId,
-                    startWeek: 1,
-                    endWeek: 18
-                })
+                body: JSON.stringify(requestBody)
             });
             
             if (!response.ok) {
@@ -524,28 +539,100 @@
             
             const data = await response.json();
             
-            showStatus(
-                `✅ ${data.message}`, 
-                'success'
-            );
+            showStatus(`✅ ${data.message}`, 'success');
             
             // Display summary
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.style.display = 'block';
-            resultsDiv.innerHTML = `
-                <h3>Import Summary</h3>
-                <div class="result-item"><strong>Year:</strong> ${data.year}</div>
-                <div class="result-item"><strong>League ID:</strong> ${data.leagueId}</div>
-                <div class="result-item"><strong>Weeks Processed:</strong> ${data.weeksProcessed}</div>
-                <div class="result-item"><strong>Total Players:</strong> ${data.totalPlayers}</div>
-                <div class="result-item"><strong>Players Stored:</strong> ${data.storedCount}</div>
-            `;
+            displayStatsResults(data);
             
         } catch (error) {
             console.error('Stats import error:', error);
             showStatus(`❌ Error: ${error.message}`, 'error');
         } finally {
             importBtn.disabled = false;
+        }
+    }
+    
+    // Import all weeks function
+    async function importAllWeeks(year, maxPlayers, batchSize) {
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressDetails = document.getElementById('progressDetails');
+        const currentOperation = document.getElementById('currentOperation');
+        const weekProgress = document.getElementById('weekProgress');
+        
+        progressContainer.style.display = 'block';
+        progressDetails.style.display = 'block';
+        
+        let totalWeeks = 18;
+        let completedWeeks = 0;
+        
+        try {
+            // Import each week
+            for (let week = 1; week <= 18; week++) {
+                currentOperation.textContent = `Importing Week ${week}`;
+                weekProgress.textContent = `${week}/18`;
+                
+                const response = await fetch('/data/admin/stats-enhanced', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        year: year,
+                        week: week,
+                        max: maxPlayers,
+                        batchSize: batchSize
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to import week ${week}`);
+                }
+                
+                completedWeeks++;
+                const progress = Math.round((completedWeeks / totalWeeks) * 100);
+                progressBar.style.width = `${progress}%`;
+                progressBar.textContent = `${progress}%`;
+                
+                // Small delay between weeks
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            // Import season totals
+            currentOperation.textContent = 'Importing Season Totals';
+            
+            const totalsResponse = await fetch('/data/admin/stats-enhanced', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    year: year,
+                    fetchTotals: true,
+                    max: maxPlayers,
+                    batchSize: batchSize
+                })
+            });
+            
+            if (!totalsResponse.ok) {
+                throw new Error('Failed to import season totals');
+            }
+            
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            currentOperation.textContent = 'Complete';
+            
+            showStatus(`✅ Successfully imported all weeks and season totals for ${year}!`, 'success');
+            
+        } catch (error) {
+            showStatus(`❌ Error during all weeks import: ${error.message}`, 'error');
+        } finally {
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+                progressDetails.style.display = 'none';
+            }, 3000);
         }
     }
     
@@ -557,36 +644,104 @@
         statusDiv.style.display = 'block';
     }
     
-    // Display import results
-    function displayResults(players) {
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.style.display = 'block';
-        
-        const positionGroups = {};
-        players.forEach(player => {
-            const mainPos = player.position.split(',')[0].trim();
-            if (!positionGroups[mainPos]) {
-                positionGroups[mainPos] = [];
-            }
-            positionGroups[mainPos].push(player);
-        });
-        
-        let html = '<h3>Imported Players by Position</h3>';
-        
-        Object.entries(positionGroups).forEach(([position, playerList]) => {
-            html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
-        });
-        
-        resultsDiv.innerHTML = html;
-    }
-    
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-        const modal = document.getElementById('confirmModal');
-        if (event.target === modal) {
-            closeModal();
-        }
-    }
+    // Display player import
+    // Display player import results
+   function displayResults(players, data) {
+       const resultsDiv = document.getElementById('results');
+       resultsDiv.style.display = 'block';
+       
+       const positionGroups = {};
+       players.forEach(player => {
+           const mainPos = player.position.split(',')[0].trim();
+           if (!positionGroups[mainPos]) {
+               positionGroups[mainPos] = [];
+           }
+           positionGroups[mainPos].push(player);
+       });
+       
+       let html = '<h3>Import Results</h3>';
+       html += `<div class="result-item"><strong>Import Settings:</strong> Start=${data.startIndex}, Count=${data.batchSize}, Sort=${data.sort}, Position=${data.position}, Status=${data.status}</div>`;
+       html += `<div class="result-item"><strong>Total Imported:</strong> ${data.importedCount} players</div>`;
+       
+       if (data.hasMore) {
+           html += `<div class="result-item"><strong>More Available:</strong> Yes (next start: ${data.nextStart})</div>`;
+       }
+       
+       html += '<h4>Players by Position:</h4>';
+       
+       Object.entries(positionGroups).forEach(([position, playerList]) => {
+           html += `<div class="result-item"><strong>${position}:</strong> ${playerList.length} players</div>`;
+       });
+       
+       // Show first few players as examples
+       if (players.length > 0) {
+           html += '<h4>Sample Players:</h4>';
+           players.slice(0, 5).forEach(player => {
+               html += `<div class="result-item">${player.name} (${player.position}) - ${player.team} - Rank: ${player.rank} - Status: ${player.status}</div>`;
+           });
+           
+           if (players.length > 5) {
+               html += `<div class="result-item"><em>... and ${players.length - 5} more players</em></div>`;
+           }
+       }
+       
+       resultsDiv.innerHTML = html;
+   }
+   
+   // Display stats import results
+   function displayStatsResults(data) {
+       const resultsDiv = document.getElementById('results');
+       resultsDiv.style.display = 'block';
+       
+       let html = '<h3>Stats Import Summary</h3>';
+       html += `<div class="result-item"><strong>Year:</strong> ${data.year}</div>`;
+       
+       if (data.week) {
+           html += `<div class="result-item"><strong>Week:</strong> ${data.week}</div>`;
+           html += `<div class="result-item"><strong>Players Imported:</strong> ${data.importedCount}</div>`;
+       } else if (data.totalsImported) {
+           html += `<div class="result-item"><strong>Season Totals:</strong> ${data.totalsImported} players</div>`;
+       }
+       
+       html += `<div class="result-item"><strong>Batch Size:</strong> ${data.batchSize}</div>`;
+       
+       if (data.performance) {
+           html += '<h4>Performance Metrics:</h4>';
+           html += `<div class="result-item"><strong>Total Time:</strong> ${data.performance.totalTimeMs}ms</div>`;
+           html += `<div class="result-item"><strong>Players/Second:</strong> ${data.performance.playersPerSecond}</div>`;
+       }
+       
+       if (data.hasMore) {
+           html += `<div class="result-item"><strong>More Data Available:</strong> Yes (next start: ${data.nextStart})</div>`;
+       }
+       
+       resultsDiv.innerHTML = html;
+   }
+   
+   // Close modal when clicking outside
+   window.onclick = function(event) {
+       const modal = document.getElementById('confirmModal');
+       if (event.target === modal) {
+           closeModal();
+       }
+   }
+   
+   // Initialize default values on page load
+   document.addEventListener('DOMContentLoaded', function() {
+       // Set default values if not already set
+       if (!document.getElementById('playerCount').value) {
+           document.getElementById('playerCount').value = 20;
+       }
+       if (!document.getElementById('sortBy').value) {
+           document.getElementById('sortBy').value = 'OR';
+       }
+       if (!document.getElementById('positionFilter').value) {
+           document.getElementById('positionFilter').value = 'all';
+       }
+       if (!document.getElementById('statusFilter').value) {
+           document.getElementById('statusFilter').value = 'all';
+       }
+   });
 </script>
 
 </body>
