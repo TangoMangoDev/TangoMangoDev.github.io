@@ -319,9 +319,11 @@ class StatsCache {
 }
 
 // StatsAPI class
+// Updated StatsAPI class with weekly stats fetching
 class StatsAPI {
     constructor() {
         this.baseUrl = '/data/stats/stats';
+        this.weeklyUrl = '/data/stats/weekly';
         this.cache = new StatsCache();
         this.yearDataLoaded = new Set();
     }
@@ -340,6 +342,12 @@ class StatsAPI {
         
         // Get ranked players from IndexedDB
         const rankedPlayers = await this.cache.getRankedPlayersByPosition(year, position, limit);
+        
+        // If requesting weekly data, fetch it from backend and update IndexedDB
+        if (week !== 'total') {
+            console.log(`📅 Fetching weekly stats for week ${week}...`);
+            await this.fetchAndStoreWeeklyStats(year, week, rankedPlayers);
+        }
         
         // Convert to display format with stats for the requested week
         const displayPlayers = rankedPlayers.map(playerRecord => {
@@ -372,6 +380,68 @@ class StatsAPI {
         };
     }
 
+    // NEW: Fetch weekly stats for players and store in IndexedDB
+    async fetchAndStoreWeeklyStats(year, week, rankedPlayers) {
+        try {
+            // Check if any players already have weekly stats
+            const playersNeedingStats = rankedPlayers.filter(player => 
+                !this.cache.getPlayerStatsForWeek(player, week)
+            );
+            
+            if (playersNeedingStats.length === 0) {
+                console.log(`✅ All players already have stats for week ${week}`);
+                return;
+            }
+            
+            const playerIds = playersNeedingStats.map(p => p.playerId);
+            console.log(`📅 Fetching weekly stats for ${playerIds.length} players, week ${week}`);
+            
+            const params = new URLSearchParams({
+                year,
+                week,
+                playerIds: playerIds.join(',')
+            });
+
+            const url = `${this.weeklyUrl}?${params}`;
+            console.log(`🌐 Fetching weekly stats: ${url}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Weekly stats request failed');
+            }
+
+            console.log(`✅ Fetched weekly stats for ${data.count} players`);
+            
+            // Store weekly stats in IndexedDB
+            const storePromises = data.data.map(player => {
+                const rankedPlayer = rankedPlayers.find(rp => rp.playerId === player.id);
+                if (rankedPlayer) {
+                    return this.cache.setPlayerRecord(year, player, rankedPlayer.rank, week, player.stats);
+                }
+            });
+            
+            await Promise.all(storePromises.filter(Boolean));
+            console.log(`✅ Stored weekly stats for week ${week} in IndexedDB`);
+            
+        } catch (error) {
+            console.error(`❌ Error fetching weekly stats for week ${week}:`, error);
+            // Don't throw - allow the system to continue with whatever data it has
+        }
+    }
+
     // Load all players for a year and rank them
     async loadAndRankAllPlayersForYear(year) {
         if (this.yearDataLoaded.has(year)) {
@@ -400,28 +470,6 @@ class StatsAPI {
         } catch (error) {
             console.error(`❌ Error loading players for year ${year}:`, error);
             throw error;
-        }
-    }
-
-    // Add weekly stats to existing player records
-    async addWeeklyStatsForPlayers(year, week, players) {
-        console.log(`📊 Adding weekly stats for week ${week}, year ${year}`);
-        
-        const promises = players.map(async (player) => {
-            // Find the player's rank from existing records
-            const rankedPlayers = await this.cache.getRankedPlayersByPosition(year, player.position, 9999);
-            const playerRecord = rankedPlayers.find(p => p.playerId === player.id);
-            
-            if (playerRecord) {
-                return this.cache.setPlayerRecord(year, player, playerRecord.rank, week, player.stats);
-            }
-        });
-        
-        try {
-            await Promise.all(promises.filter(Boolean));
-            console.log(`✅ Added weekly stats for ${players.length} players`);
-        } catch (error) {
-            console.error('Error adding weekly stats:', error);
         }
     }
 
@@ -465,7 +513,7 @@ class StatsAPI {
         }
     }
 
-    // Fetch from API
+    // Fetch from API (for season totals)
     async fetchFromAPI(year, week, position, page, limit = 50) {
         const params = new URLSearchParams({
             year,
