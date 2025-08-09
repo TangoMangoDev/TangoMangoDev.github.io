@@ -115,9 +115,9 @@ class StatsCache {
                 if (position === 'ALL') {
                     // Get all players for the year
                     const index = store.index('year');
-                    const request = index.openCursor(IDBKeyRange.only(parseInt(year)));
+                    const cursorRequest = index.openCursor(IDBKeyRange.only(parseInt(year)));
                     
-                    request.onsuccess = (event) => {
+                    cursorRequest.onsuccess = (event) => {
                         const cursor = event.target.result;
                         if (cursor && players.length < limit) {
                             const player = cursor.value;
@@ -134,16 +134,19 @@ class StatsCache {
                         } else {
                             // Sort by rank
                             players.sort((a, b) => a.rank - b.rank);
+                            console.log(`✅ Retrieved ${players.length} players for ${year} ${position}`);
                             resolve(players.slice(0, limit));
                         }
                     };
+                    
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
                 } else {
                     // Get players for specific position
                     const index = store.index('yearPosition');
                     const yearPosition = `${year}_${position}`;
-                    const request = index.openCursor(IDBKeyRange.only(yearPosition));
+                    const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
                     
-                    request.onsuccess = (event) => {
+                    cursorRequest.onsuccess = (event) => {
                         const cursor = event.target.result;
                         if (cursor && players.length < limit) {
                             const player = cursor.value;
@@ -160,12 +163,13 @@ class StatsCache {
                         } else {
                             // Sort by rank
                             players.sort((a, b) => a.rank - b.rank);
+                            console.log(`✅ Retrieved ${players.length} players for ${year} ${position}`);
                             resolve(players.slice(0, limit));
                         }
                     };
+                    
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
                 }
-                
-                request.onerror = () => reject(request.error);
             });
         } catch (error) {
             console.error('Error getting ranked players:', error);
@@ -193,6 +197,7 @@ class StatsCache {
                 
                 countRequest.onsuccess = () => {
                     const count = countRequest.result;
+                    console.log(`📊 Found ${count} player records for year ${year}`);
                     resolve(count > 0);
                 };
                 
