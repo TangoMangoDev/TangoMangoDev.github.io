@@ -20,28 +20,30 @@ class StatsCache {
                 resolve(this.db);
             };
             
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                // Clear all old stores
-                const existingStores = Array.from(db.objectStoreNames);
-                existingStores.forEach(storeName => {
-                    db.deleteObjectStore(storeName);
-                });
+request.onupgradeneeded = (event) => {
+    const db = event.target.result;
+    
+    // Clear all old stores
+    const existingStores = Array.from(db.objectStoreNames);
+    existingStores.forEach(storeName => {
+        db.deleteObjectStore(storeName);
+    });
 
-                // Scoring rules store
-                const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
-                rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
+    // Scoring rules store
+    const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
+    rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
 
-                // Players store with composite key: YEAR.PlayerID.Position.Rank
-                const playersStore = db.createObjectStore(this.playersStore, { keyPath: 'playerKey' });
-                playersStore.createIndex('year', 'year', { unique: false });
-                playersStore.createIndex('position', 'position', { unique: false });
-                playersStore.createIndex('rank', 'rank', { unique: false });
-                playersStore.createIndex('yearPosition', 'yearPosition', { unique: false });
-                playersStore.createIndex('timestamp', 'timestamp', { unique: false });
-                
-                console.log(`✅ Created new clean schema`);
+    // Players store with composite key: YEAR.PlayerID.Position.Rank
+    const playersStore = db.createObjectStore(this.playersStore, { keyPath: 'playerKey' });
+    playersStore.createIndex('year', 'year', { unique: false });
+    playersStore.createIndex('position', 'position', { unique: false });
+    playersStore.createIndex('rank', 'rank', { unique: false }); // This is the key index for sorting
+    playersStore.createIndex('yearPosition', 'yearPosition', { unique: false });
+    playersStore.createIndex('yearRank', 'yearRank', { unique: false }); // Composite index for year + rank
+    playersStore.createIndex('timestamp', 'timestamp', { unique: false });
+    
+    console.log(`✅ Created new clean schema with proper rank indexing`);
+};
             };
         });
     }
