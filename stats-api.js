@@ -102,26 +102,29 @@ class StatsCache {
     }
 
     // Get ranked players by position for a year
-    async getRankedPlayersByPosition(year, position, limit = 50) {
-        try {
-            await this.init();
+ // FIXED: Get ranked players by position for a year - PROPERLY SORTED BY RANK
+async getRankedPlayersByPosition(year, position, limit = 50) {
+    try {
+        await this.init();
+        
+        const transaction = this.db.transaction([this.playersStore], 'readonly');
+        const store = transaction.objectStore(this.playersStore);
+        
+        return new Promise((resolve, reject) => {
+            const players = [];
             
-            const transaction = this.db.transaction([this.playersStore], 'readonly');
-            const store = transaction.objectStore(this.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const players = [];
+            if (position === 'ALL') {
+                // Get all players for the year using the RANK INDEX
+                const index = store.index('rank');
+                const cursorRequest = index.openCursor(); // This will iterate by rank automatically
                 
-                if (position === 'ALL') {
-                    // Get all players for the year
-                    const index = store.index('year');
-                    const cursorRequest = index.openCursor(IDBKeyRange.only(parseInt(year)));
-                    
-                    cursorRequest.onsuccess = (event) => {
-                        const cursor = event.target.result;
-                        if (cursor && players.length < limit) {
-                            const player = cursor.value;
-                            
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor && players.length < limit) {
+                        const player = cursor.value;
+                        
+                        // Only include players from the correct year
+                        if (player.year === parseInt(year)) {
                             // Check if not expired (24 hours)
                             const now = new Date();
                             const cachedTime = new Date(player.timestamp);
@@ -130,52 +133,54 @@ class StatsCache {
                             if (diffHours < 24) {
                                 players.push(player);
                             }
-                            cursor.continue();
-                        } else {
-                            // Sort by rank
-                            players.sort((a, b) => a.rank - b.rank);
-                            console.log(`✅ Retrieved ${players.length} players for ${year} ${position}`);
-                            resolve(players.slice(0, limit));
                         }
-                    };
-                    
-                    cursorRequest.onerror = () => reject(cursorRequest.error);
-                } else {
-                    // Get players for specific position
-                    const index = store.index('yearPosition');
-                    const yearPosition = `${year}_${position}`;
-                    const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
-                    
-                    cursorRequest.onsuccess = (event) => {
-                        const cursor = event.target.result;
-                        if (cursor && players.length < limit) {
-                            const player = cursor.value;
-                            
-                            // Check if not expired
-                            const now = new Date();
-                            const cachedTime = new Date(player.timestamp);
-                            const diffHours = (now - cachedTime) / (1000 * 60 * 60);
-                            
-                            if (diffHours < 24) {
-                                players.push(player);
-                            }
-                            cursor.continue();
-                        } else {
-                            // Sort by rank
-                            players.sort((a, b) => a.rank - b.rank);
-                            console.log(`✅ Retrieved ${players.length} players for ${year} ${position}`);
-                            resolve(players.slice(0, limit));
+                        cursor.continue();
+                    } else {
+                        // Players are already sorted by rank from the index
+                        console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
+                        console.log(`🏆 Top 5 ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
+                        resolve(players.slice(0, limit));
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            } else {
+                // Get players for specific position, but still need to sort by rank
+                const index = store.index('yearPosition');
+                const yearPosition = `${year}_${position}`;
+                const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
+                
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const player = cursor.value;
+                        
+                        // Check if not expired
+                        const now = new Date();
+                        const cachedTime = new Date(player.timestamp);
+                        const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                        
+                        if (diffHours < 24) {
+                            players.push(player);
                         }
-                    };
-                    
-                    cursorRequest.onerror = () => reject(cursorRequest.error);
-                }
-            });
-        } catch (error) {
-            console.error('Error getting ranked players:', error);
-            return [];
-        }
+                        cursor.continue();
+                    } else {
+                        // MANUALLY sort by rank for position filtering
+                        players.sort((a, b) => a.rank - b.rank);
+                        console.log(`✅ Retrieved TOP ${Math.min(players.length, limit)} ranked ${position} players for ${year}`);
+                        console.log(`🏆 Top 5 ${position} ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
+                        resolve(players.slice(0, limit));
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            }
+        });
+    } catch (error) {
+        console.error('Error getting ranked players:', error);
+        return [];
     }
+}
 
     // Get player stats for specific week
     getPlayerStatsForWeek(playerRecord, week) {
