@@ -240,97 +240,102 @@ async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
     }
 
     // ENHANCED: Get player data but mark ALL weeks as existing (even 0:0 games) to prevent re-fetching
-    async getPlayerFromIndexedDB(playerId, year) {
-        try {
-            await this.ensureInitialized();
-            
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
-            const store = transaction.objectStore(this.cache.playersStore);
-            const yearIndex = store.index('year');
-            
-            return new Promise((resolve, reject) => {
-                const playerData = {
-                    playerId,
-                    year: parseInt(year),
-                    playerName: null,
-                    position: null,
-                    team: null,
-                    weeks: {},
-                    rank: null,
-                    allWeeksStored: [] // Track ALL weeks we've stored (including 0:0)
-                };
+// ENHANCED: Get player data but mark ALL weeks as existing (even 0:0 games) to prevent re-fetching
+async getPlayerFromIndexedDB(playerId, year) {
+    try {
+        await this.ensureInitialized();
+        
+        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+        const store = transaction.objectStore(this.playersStore);
+        const yearIndex = store.index('year');
+        
+        return new Promise((resolve, reject) => {
+            const playerData = {
+                playerId,
+                year: parseInt(year),
+                playerName: null,
+                position: null,
+                team: null,
+                weeks: {},
+                rank: null,
+                allWeeksStored: [], // Track ALL weeks we've stored (including 0:0)
+                gameplayWeeks: {},  // Only weeks where they actually played
+                totalGamesPlayed: 0,
+                totalPossibleGames: 18
+            };
 
-                const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+            const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+            
+            cursorRequest.onsuccess = (event) => {
+                const cursor = event.target.result;
                 
-                cursorRequest.onsuccess = (event) => {
-                    const cursor = event.target.result;
+                if (cursor) {
+                    const record = cursor.value;
                     
-                    if (cursor) {
-                        const record = cursor.value;
-                        
-                        if (record.playerId === playerId) {
-                            if (!playerData.playerName) {
-                                playerData.playerName = record.name;
-                                playerData.position = record.position;
-                                playerData.team = record.team;
-                                
-                                if (record.yearRank) {
-                                    const rankPart = record.yearRank.split('_')[1];
-                                    playerData.rank = parseInt(rankPart);
-                                }
-                            }
+                    if (record.playerId === playerId) {
+                        if (!playerData.playerName) {
+                            playerData.playerName = record.name;
+                            playerData.position = record.position;
+                            playerData.team = record.team;
                             
-                            if (record.weeklyStats) {
-                                Object.entries(record.weeklyStats).forEach(([week, stats]) => {
-                                    // Track ALL weeks we have stored
-                                    if (week !== 'total') {
-                                        playerData.allWeeksStored.push(week);
-                                    }
+                            if (record.yearRank) {
+                                const rankPart = record.yearRank.split('_')[1];
+                                playerData.rank = parseInt(rankPart);
+                            }
+                        }
+                        
+                        if (record.weeklyStats) {
+                            Object.entries(record.weeklyStats).forEach(([week, stats]) => {
+                                // Track ALL weeks we have stored (including 0:0)
+                                if (week !== 'total') {
+                                    playerData.allWeeksStored.push(week);
                                     
-                                    // Only include weeks with actual gameplay in calculations (exclude 0:0 games)
-                                    if (week !== 'total' && stats && this.hasGameplay(stats)) {
-                                        playerData.weeks[week] = {
+                                    // Check if they actually played this week
+                                    if (stats && this.hasGameplay(stats)) {
+                                        playerData.gameplayWeeks[week] = {
                                             week: parseInt(week),
                                             stats,
                                             timestamp: record.timestamp
                                         };
+                                        playerData.totalGamesPlayed++;
+                                    } else {
+                                        console.log(`📋 Week ${week}: DID NOT PLAY (0:0)`);
                                     }
-                                });
-                            }
-                        }
-                        
-                        cursor.continue();
-                    } else {
-                        const weeksFound = Object.keys(playerData.weeks).length;
-                        const allWeeksStored = playerData.allWeeksStored.length;
-                        console.log(`📊 IndexedDB: Found ${weeksFound} gameplay weeks, ${allWeeksStored} total weeks stored for player ${playerId} year ${year}`);
-                        
-                        // Return the stored weeks count for missing week calculation
-                        if (allWeeksStored > 0) {
-                            // Override the weeks property to return stored weeks for missing calculation
-                            const result = { ...playerData };
-                            result.weeks = {};
-                            playerData.allWeeksStored.forEach(week => {
-                                result.weeks[week] = true; // Mark as existing to prevent re-fetch
+                                }
                             });
-                            // But keep the actual gameplay weeks in a separate property
-                            result.gameplayWeeks = playerData.weeks;
-                            resolve(result);
-                        } else {
-                            resolve(null);
                         }
                     }
-                };
-                
-                cursorRequest.onerror = () => reject(cursorRequest.error);
-            });
+                    
+                    cursor.continue();
+                } else {
+                    const weeksFound = Object.keys(playerData.gameplayWeeks).length;
+                    const allWeeksStored = playerData.allWeeksStored.length;
+                    console.log(`📊 IndexedDB: Found ${weeksFound} gameplay weeks out of ${allWeeksStored} total weeks stored for player ${playerId} year ${year}`);
+                    console.log(`🏈 Games Played: ${playerData.totalGamesPlayed}/${playerData.totalPossibleGames} (${Math.round((playerData.totalGamesPlayed/playerData.totalPossibleGames)*100)}%)`);
+                    
+                    // Return structure that prevents re-fetching of stored weeks
+                    if (allWeeksStored > 0) {
+                        const result = { ...playerData };
+                        // Mark ALL stored weeks as "existing" to prevent re-fetch
+                        result.weeks = {};
+                        playerData.allWeeksStored.forEach(week => {
+                            result.weeks[week] = true; // Mark as existing to prevent re-fetch
+                        });
+                        resolve(result);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            };
             
-        } catch (error) {
-            console.error(`❌ Error getting player from IndexedDB:`, error);
-            return null;
-        }
+            cursorRequest.onerror = () => reject(cursorRequest.error);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error getting player from IndexedDB:`, error);
+        return null;
     }
-
+}
     // NEW: Check if stats represent actual gameplay (not a 0:0 game)
     hasGameplay(stats) {
         if (!stats || typeof stats !== 'object') return false;
