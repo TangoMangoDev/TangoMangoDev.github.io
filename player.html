@@ -15,15 +15,17 @@
             <div class="loading-spinner">Loading player...</div>
         </div>
         
-<div class="stats-toggle">
-    <button class="stats-toggle-btn active" data-mode="raw">
-        Raw Stats
-    </button>
-    <button class="stats-toggle-btn" data-mode="fantasy">
-        Fantasy Stats
-    </button>
-</div>
-            
+        <!-- FIXED: Wrap all controls in player-controls div -->
+        <div class="player-controls">
+            <div class="stats-toggle">
+                <button class="stats-toggle-btn active" data-mode="raw">
+                    Raw Stats
+                </button>
+                <button class="stats-toggle-btn" data-mode="fantasy">
+                    Fantasy Stats
+                </button>
+            </div>
+                
             <div class="year-filter">
                 <label for="year-select">Year:</label>
                 <select id="year-select" class="filter-dropdown">
@@ -59,8 +61,10 @@
                 </select>
             </div>
         </div>
+        <!-- FIXED: Close the player-controls div properly -->
     </div>
-
+    <!-- FIXED: Close the header div properly -->
+    
     <div class="container">
         <div class="loading-state" id="loadingState">
             <div class="loading-spinner"></div>
@@ -78,7 +82,6 @@
             <button onclick="location.reload()" class="retry-btn">Retry</button>
         </div>
     </div>
-
     <script src="stats-api.js"></script>
     <script src="player-stats-api.js"></script>
     <script src="player.js"></script>
