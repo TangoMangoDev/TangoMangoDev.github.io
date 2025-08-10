@@ -140,6 +140,17 @@ body {
     color: white;
 }
 
+.starts-badge {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.8) 0%, rgba(5, 150, 105, 0.8) 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .player-controls {
     display: flex;
     gap: 2rem; /* Consistent spacing between all controls */
