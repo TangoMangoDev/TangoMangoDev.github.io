@@ -271,18 +271,28 @@ const tableHTML = `
                     
                     const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
                     
-                    // Calculate range (min - max)
-                    const rangeText = displayStats.min === displayStats.max ? 
+                    // Calculate range (min - max) - now called "Spread"
+                    const spreadText = displayStats.min === displayStats.max ? 
                         this.formatStatValue(displayStats.min) : 
                         `${this.formatStatValue(displayStats.min)} - ${this.formatStatValue(displayStats.max)}`;
                     
+                    // Determine row shading class based on average vs median comparison
+                    let rowClass = 'stat-row';
+                    if (displayStats.average !== displayStats.median) {
+                        if (displayStats.average > displayStats.median) {
+                            rowClass += ' above-median';
+                        } else if (displayStats.average < displayStats.median) {
+                            rowClass += ' below-median';
+                        }
+                    }
+                    
                     return `
-                        <tr class="stat-row">
+                        <tr class="${rowClass}">
                             <td class="stat-name">${statData.statName}</td>
                             <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
                             <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
                             <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                            <td class="stat-range">${rangeText}${suffix}</td>
+                            <td class="stat-range">${spreadText}${suffix}</td>
                             <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
                         </tr>
                     `;
