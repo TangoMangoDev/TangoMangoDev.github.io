@@ -432,6 +432,44 @@ body {
     font-style: italic;
 }
 
+.yoy-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    white-space: nowrap;
+}
+
+/* New stats (purple) */
+.yoy-new {
+    color: #7c3aed;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    white-space: nowrap;
+}
+
+/* Good trends (green) */
+.yoy-positive {
+    color: #059669;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* Bad trends (red) */
+.yoy-negative {
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 /* Color-coded card values */
 .analytics-card.consistency .card-value {
     color: var(--consistency-color);
@@ -627,10 +665,13 @@ body {
     color: var(--gray-700);
 }
 
+/* Enhanced Total column to accommodate YoY data */
 .stat-total {
-    color: var(--success-green);
-    font-weight: 700;
-    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
 }
 
 .stat-average,
@@ -872,6 +913,7 @@ body.fantasy-mode .analytics-cards {
 }
 }
 
+/* Responsive adjustments for YoY display */
 @media (max-width: 768px) {
     .yoy-change,
     .yoy-new {
