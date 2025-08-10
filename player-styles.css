@@ -142,7 +142,7 @@ body {
 
 .player-controls {
     display: flex;
-    gap: 1.5rem;
+    gap: 2rem; /* Consistent spacing between all controls */
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
@@ -197,6 +197,14 @@ body {
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
     font-size: 0.875rem;
+}
+
+/* Remove any margin/padding that's causing spacing issues */
+.stats-toggle,
+.year-filter,
+.week-filter {
+    margin: 0;
+    padding: 0;
 }
 
 .filter-dropdown {
@@ -431,7 +439,7 @@ body {
     line-height: 1;
 }
 
-/* TABLE SECTION - AUTO-WIDTH STAT NAMES AND TIGHT TOGGLE */
+/* TABLE SECTION - FIXED COLUMN WIDTHS TO FIT CONTENT EXACTLY */
 .stats-table-container {
     background: white;
     border-radius: var(--border-radius);
@@ -442,11 +450,11 @@ body {
 }
 
 .player-stats-table {
-    width: 100%;
+    width: auto; /* Changed from 100% to auto */
     border-collapse: collapse;
-    table-layout: auto;
+    table-layout: auto; /* Ensures columns size to content */
     font-size: 0.9rem;
-    min-width: 600px;
+    min-width: fit-content; /* Only as wide as needed */
 }
 
 .player-stats-table thead {
@@ -484,24 +492,36 @@ body {
     transition: all 0.2s ease;
 }
 
-/* FLEXIBLE COLUMN WIDTHS - AUTO-SIZING */
+/* ALL COLUMNS FIT TO CONTENT - NO FIXED WIDTHS */
+.player-stats-table th,
+.player-stats-table td {
+    padding: 1rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    width: auto; /* Let content determine width */
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+/* Remove all width constraints */
 .stat-name-col,
 .stat-name {
     width: auto;
     min-width: fit-content;
-    max-width: 200px;
+    max-width: none; /* Removed max-width constraint */
     white-space: nowrap;
     text-align: left;
-    padding-right: 20px;
+    padding-right: 1rem; /* Spacing from next column */
 }
 
 .stat-value-col {
     width: auto;
-    min-width: 80px;
+    min-width: fit-content;
     text-align: center;
 }
 
-/* TABLE DATA STYLES WITH AUTO-WIDTH */
+/* TABLE DATA STYLES - FIT TO CONTENT */
 .stat-name {
     font-weight: 700;
     color: var(--gray-800);
@@ -509,8 +529,7 @@ body {
     font-size: 0.85rem;
     line-height: 1.2;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Removed overflow and text-overflow to show full text */
 }
 
 .stat-total,
@@ -523,8 +542,7 @@ body {
     font-size: 0.8rem;
     line-height: 1.2;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Removed overflow and text-overflow to show full text */
 }
 
 .stat-total {
