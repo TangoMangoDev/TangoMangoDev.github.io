@@ -351,6 +351,7 @@ async getPlayerFromIndexedDB(playerId, year) {
 
     // ENHANCED: Calculate Player Analytics with zero filtering
 // ENHANCED: Calculate Player Analytics with Games Played stat
+// ENHANCED: Calculate Player Analytics with proper filtering for position-relevant stats
 calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
     console.log(`🧮 Calculating analytics for player data:`, playerData);
     
@@ -394,50 +395,35 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
         }
     }
 
-    // FIRST: Add Games Played stat manually using collected data
+    // Calculate total games played and possible games for Starts calculation
     const gamesPlayed = gameData.length;
     const totalPossibleGames = selectedYear === 'ALL' ? 
-        Object.keys(playerData.years).length * 18 : 18; // Assume 18 games per season
+        Object.keys(playerData.years).length * 18 : 18;
     const gamesPlayedPercentage = Math.round((gamesPlayed / totalPossibleGames) * 100);
 
-    // Add Games Played as a special stat
-    analytics.stats['games_played'] = {
-        statId: 'games_played',
-        statName: 'Games Played',
-        rawStats: {
-            total: gamesPlayed,
-            average: gamesPlayed,
-            median: gamesPlayed,
-            min: gamesPlayed,
-            max: gamesPlayed,
-            gamesPlayed: gamesPlayed,
-            totalGames: gamesPlayed,
-            // Custom display format
-            displayValue: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
-        },
-        fantasyStats: showFantasyStats ? {
-            total: gamesPlayed,
-            average: gamesPlayed,
-            median: gamesPlayed,
-            min: gamesPlayed,
-            max: gamesPlayed,
-            gamesPlayed: gamesPlayed,
-            totalGames: gamesPlayed,
-            displayValue: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
-        } : null
+    // Store starts info for header display (don't add to stats table)
+    analytics.startsInfo = {
+        gamesPlayed,
+        totalPossibleGames,
+        percentage: gamesPlayedPercentage,
+        displayText: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
     };
 
-    // Get all possible stats from the data (excluding games played since we handle it separately)
+    // Get position-relevant stats from config
+    const positionRelevantStats = window.STATS_CONFIG.getStatsForPosition(playerData.position);
+    console.log(`📊 Position ${playerData.position} relevant stats:`, positionRelevantStats);
+
+    // Get all possible stats from the data (excluding games played)
     const allStatIds = new Set();
     gameData.forEach(game => {
         Object.keys(game.stats).forEach(statId => {
-            if (statId !== '0') { // Skip games played stat ID since we handle it above
+            if (statId !== '0') { // Skip games played stat ID
                 allStatIds.add(statId);
             }
         });
     });
 
-    // Calculate analytics for each stat with proper filtering
+    // Calculate analytics for each stat with POSITION-AWARE filtering
     allStatIds.forEach(statId => {
         const statValues = gameData
             .map(game => game.stats[statId] || 0)
@@ -457,38 +443,49 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
                 fantasyStats = this.calculateStatMetrics(fantasyValues);
             }
 
-            // STRICT FILTERING: Only include stats with meaningful variation
+            // IMPROVED FILTERING: Position-relevant stats get priority
+            const isPositionRelevant = positionRelevantStats.includes(statName);
             const hasRawData = rawStats.total > 0;
             const hasFantasyData = fantasyStats && fantasyStats.total !== 0;
             const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed;
             
-            // Only show if we have actual meaningful data
+            console.log(`🔍 FILTERING ${statName}:`, {
+                isPositionRelevant,
+                hasRawData,
+                hasFantasyData,
+                hasVariation,
+                rawTotal: rawStats.total,
+                showFantasyStats
+            });
+            
+            // POSITION-AWARE INCLUSION LOGIC
+            let shouldInclude = false;
+            
             if (showFantasyStats) {
-                if (hasFantasyData) {
-                    analytics.stats[statId] = {
-                        statId,
-                        statName,
-                        rawStats,
-                        fantasyStats
-                    };
-                }
+                // In fantasy mode: show if has fantasy data OR is position-relevant with any data
+                shouldInclude = hasFantasyData || (isPositionRelevant && hasRawData);
             } else {
-                if (hasRawData && hasVariation) {
-                    analytics.stats[statId] = {
-                        statId,
-                        statName,
-                        rawStats,
-                        fantasyStats
-                    };
-                }
+                // In raw mode: show if position-relevant with data OR has significant variation
+                shouldInclude = (isPositionRelevant && hasRawData) || (hasRawData && hasVariation);
+            }
+            
+            if (shouldInclude) {
+                analytics.stats[statId] = {
+                    statId,
+                    statName,
+                    rawStats,
+                    fantasyStats
+                };
+                console.log(`✅ INCLUDING ${statName} (${isPositionRelevant ? 'position-relevant' : 'variation-based'})`);
+            } else {
+                console.log(`❌ EXCLUDING ${statName}`);
             }
         }
     });
 
-    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats (including Games Played)`);
+    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats`);
     return analytics;
 }
-
     // ENHANCED: Collect game data using gameplayWeeks when available
     collectGameData(playerData, selectedYear, selectedWeek) {
         const gameData = [];
