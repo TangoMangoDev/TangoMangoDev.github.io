@@ -56,46 +56,46 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     async getPlayerStatsForYear(playerId, year) {
-        try {
-            console.log(`📊 Getting player ${playerId} stats for year ${year}`);
+    try {
+        console.log(`📊 Getting player ${playerId} stats for year ${year}`);
+        
+        const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+        const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
+        
+        console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
+        
+        const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
+        
+        console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
+        
+        if (missingWeeks.length > 0) {
+            console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
+            const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
             
-            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
-            const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
-            
-            console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
-            
-            const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
-            
-            console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
-            
-            if (missingWeeks.length > 0) {
-                console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
-                const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
+            if (missingData) {
+                await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                 
-                if (missingData) {
-await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
-                    
-                    const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
-                    if (updatedData) {
-                        console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
-                        return updatedData;
-                    }
+                const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
+                if (updatedData) {
+                    console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
+                    return updatedData;
                 }
             }
-            
-            if (cachedData) {
-                console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
-                return cachedData;
-            }
-
-            console.log(`⚠️ No data found for player ${playerId} year ${year}`);
-            return null;
-            
-        } catch (error) {
-            console.error(`❌ Error getting player stats for year ${year}:`, error);
-            return null;
         }
+        
+        if (cachedData) {
+            console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
+            return cachedData;
+        }
+
+        console.log(`⚠️ No data found for player ${playerId} year ${year}`);
+        return null;
+        
+    } catch (error) {
+        console.error(`❌ Error getting player stats for year ${year}:`, error);
+        return null;
     }
+}
 
     async fetchMissingWeeksFromBackend(playerId, year, missingWeeks) {
         try {
