@@ -546,6 +546,15 @@ body {
     white-space: nowrap;
     /* Removed overflow and text-overflow to show full text */
 }
+.stat-range {
+    text-align: center;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-weight: 600;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--gray-700);
+}
 
 .stat-total {
     color: var(--success-green);
