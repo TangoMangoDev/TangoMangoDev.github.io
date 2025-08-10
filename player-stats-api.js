@@ -100,15 +100,15 @@ class PlayerStatsAPI extends StatsAPI {
 
     // NEW: Calculate Year-over-Year percentage change
     calculateYearOverYearChange(current2024Value, previous2023Value) {
-        console.log(`🧮 YOY CALCULATION: 2024=${current2024Value}, 2023=${previous2023Value}`);
+        //console.log(`🧮 YOY CALCULATION: 2024=${current2024Value}, 2023=${previous2023Value}`);
         
         // Handle edge cases
         if (previous2023Value === 0 || previous2023Value === null || previous2023Value === undefined) {
             if (current2024Value > 0) {
-                console.log(`📈 YOY: NEW STAT - 2023 was 0, 2024 is ${current2024Value} = +∞% (showing as NEW)`);
+                //console.log(`📈 YOY: NEW STAT - 2023 was 0, 2024 is ${current2024Value} = +∞% (showing as NEW)`);
                 return { percentage: null, isNew: true };
             }
-            console.log(`📊 YOY: NO CHANGE - Both years are 0`);
+            //console.log(`📊 YOY: NO CHANGE - Both years are 0`);
             return { percentage: null, isNew: false };
         }
         
@@ -120,7 +120,7 @@ class PlayerStatsAPI extends StatsAPI {
         const yoyPercentage = ((current2024Value - previous2023Value) / previous2023Value) * 100;
         const roundedPercentage = Math.round(yoyPercentage * 10) / 10; // Round to 1 decimal place
         
-        console.log(`📊 YOY RESULT: ${roundedPercentage}% change from ${previous2023Value} to ${current2024Value}`);
+        //console.log(`📊 YOY RESULT: ${roundedPercentage}% change from ${previous2023Value} to ${current2024Value}`);
         
         return { percentage: roundedPercentage, isNew: false };
     }
@@ -204,7 +204,7 @@ class PlayerStatsAPI extends StatsAPI {
 
     // ENHANCED: Calculate Player Analytics with Year-over-Year tracking
     calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
-        console.log(`🧮 Calculating analytics for player data:`, playerData);
+        //console.log(`🧮 Calculating analytics for player data:`, playerData);
         console.log(`🔍 ANALYTICS FILTERS: Year=${selectedYear}, Week=${selectedWeek}, Fantasy=${showFantasyStats}`);
         
         const analytics = {
@@ -265,13 +265,13 @@ class PlayerStatsAPI extends StatsAPI {
         // NEW: Calculate Year-over-Year changes if viewing 2024 and we have 2023 data
         let yearOverYearData = null;
         if (selectedYear === '2024' && playerData.years['2023'] && playerData.years['2024']) {
-            console.log(`📊 CALCULATING YEAR-OVER-YEAR: 2024 vs 2023`);
+            //console.log(`📊 CALCULATING YEAR-OVER-YEAR: 2024 vs 2023`);
             
             const totals2024 = this.getStatTotalsForYear(playerData, '2024', selectedWeek, showFantasyStats, scoringRules);
             const totals2023 = this.getStatTotalsForYear(playerData, '2023', selectedWeek, showFantasyStats, scoringRules);
             
-            console.log(`📈 2024 TOTALS:`, Object.keys(totals2024).length, 'stats');
-            console.log(`📈 2023 TOTALS:`, Object.keys(totals2023).length, 'stats');
+            //console.log(`📈 2024 TOTALS:`, Object.keys(totals2024).length, 'stats');
+            //console.log(`📈 2023 TOTALS:`, Object.keys(totals2023).length, 'stats');
             
             yearOverYearData = {};
             
@@ -294,13 +294,13 @@ class PlayerStatsAPI extends StatsAPI {
                 }
             });
             
-            console.log(`📊 YOY CALCULATED for ${Object.keys(yearOverYearData).length} stats`);
+            //console.log(`📊 YOY CALCULATED for ${Object.keys(yearOverYearData).length} stats`);
             analytics.yearOverYear = yearOverYearData;
         }
 
         // Get position-relevant stats from config
         const positionRelevantStats = window.STATS_CONFIG.getStatsForPosition(playerData.position);
-        console.log(`📊 Position ${playerData.position} relevant stats:`, positionRelevantStats);
+        //console.log(`📊 Position ${playerData.position} relevant stats:`, positionRelevantStats);
 
         // Get all possible stats from the data (excluding games played)
         const allStatIds = new Set();
