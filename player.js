@@ -249,41 +249,48 @@ renderStatsTable() {
 
     // REMOVED: The stats-summary section completely
 
-    const tableHTML = `
-        ${advancedAnalyticsHTML}
-        
-        <div class="stats-table-container">
-            <table class="player-stats-table">
-                <thead>
-                    <tr>
-                        <th class="stat-name-col">Statistic</th>
-                        <th class="stat-value-col">Total</th>
-                        <th class="stat-value-col">Average</th>
-                        <th class="stat-value-col">Median</th>
-                        <th class="stat-value-col">Best</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${statsEntries.map(([statId, statData]) => {
-                        const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                            statData.fantasyStats : statData.rawStats;
-                        
-                        const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                        
-                        return `
-                            <tr class="stat-row">
-                                <td class="stat-name">${statData.statName}</td>
-                                <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
-                                <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+const tableHTML = `
+    ${advancedAnalyticsHTML}
+    
+    <div class="stats-table-container">
+        <table class="player-stats-table">
+            <thead>
+                <tr>
+                    <th class="stat-name-col">Statistic</th>
+                    <th class="stat-value-col">Total</th>
+                    <th class="stat-value-col">Average</th>
+                    <th class="stat-value-col">Median</th>
+                    <th class="stat-value-col">Range</th>
+                    <th class="stat-value-col">Best</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${statsEntries.map(([statId, statData]) => {
+                    const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
+                        statData.fantasyStats : statData.rawStats;
+                    
+                    const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
+                    
+                    // Calculate range (min - max)
+                    const rangeText = displayStats.min === displayStats.max ? 
+                        this.formatStatValue(displayStats.min) : 
+                        `${this.formatStatValue(displayStats.min)} - ${this.formatStatValue(displayStats.max)}`;
+                    
+                    return `
+                        <tr class="stat-row">
+                            <td class="stat-name">${statData.statName}</td>
+                            <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
+                            <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
+                            <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
+                            <td class="stat-range">${rangeText}${suffix}</td>
+                            <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>
+`;
 
     container.innerHTML = tableHTML;
     container.style.display = 'block';
