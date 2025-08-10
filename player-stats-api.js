@@ -241,7 +241,6 @@ async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
     }
 
     // ENHANCED: Get player data but mark ALL weeks as existing (even 0:0 games) to prevent re-fetching
-// ENHANCED: Get player data but mark ALL weeks as existing (even 0:0 games) to prevent re-fetching
 async getPlayerFromIndexedDB(playerId, year) {
     try {
         await this.ensureInitialized();
@@ -351,6 +350,7 @@ async getPlayerFromIndexedDB(playerId, year) {
     }
 
     // ENHANCED: Calculate Player Analytics with zero filtering
+// ENHANCED: Calculate Player Analytics with Games Played stat
 calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
     console.log(`🧮 Calculating analytics for player data:`, playerData);
     
