@@ -249,159 +249,154 @@ class PlayerDetailPage {
        return `<span class="yoy-change ${colorClass}">(${sign}${percentage}%)</span>`;
    }
 
-   renderStatsTable() {
-       const container = document.getElementById('playerStatsContainer');
-       if (!container || !this.currentAnalytics) {
-           console.warn('⚠️ Cannot render stats table - missing container or analytics');
-           return;
-       }
+renderStatsTable() {
+    const container = document.getElementById('playerStatsContainer');
+    if (!container || !this.currentAnalytics) {
+        console.warn('⚠️ Cannot render stats table - missing container or analytics');
+        return;
+    }
 
-       const { stats, summary, advancedAnalytics, yearOverYear } = this.currentAnalytics;
-       const statsEntries = Object.entries(stats);
+    const { stats, summary, advancedAnalytics, yearOverYear } = this.currentAnalytics;
+    const statsEntries = Object.entries(stats);
 
-       if (statsEntries.length === 0) {
-           container.innerHTML = `
-               <div class="no-stats-message">
-                   <h3>No stats available</h3>
-                   <p>No statistics found for the selected filters.</p>
-               </div>
-           `;
-           container.style.display = 'block';
-           this.hideLoading();
-           return;
-       }
+    if (statsEntries.length === 0) {
+        container.innerHTML = `
+            <div class="no-stats-message">
+                <h3>No stats available</h3>
+                <p>No statistics found for the selected filters.</p>
+            </div>
+        `;
+        container.style.display = 'block';
+        this.hideLoading();
+        return;
+    }
 
-       // Check if we should show YOY data
-       const showYearOverYear = this.currentFilters.year === '2024' && yearOverYear && Object.keys(yearOverYear).length > 0;
-       
-       if (showYearOverYear) {
-           //console.log(`📊 DISPLAYING YOY DATA for ${Object.keys(yearOverYear).length} stats`);
-       }
+    // Check if we should show YOY data
+    const showYearOverYear = this.currentFilters.year === '2024' && yearOverYear && Object.keys(yearOverYear).length > 0;
 
-       // Advanced Analytics Cards (only show in fantasy mode)
-       const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
-           <div class="advanced-analytics-section">
-               <h2 class="analytics-title">Fantasy Analytics</h2>
-               <div class="analytics-cards">
-                   <div class="analytics-card consistency">
-                       <div class="card-icon">📊</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
-                           <div class="card-label">Consistency Score</div>
-                           <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
-                       </div>
-                   </div>
-                   
-                   <div class="analytics-card volatility">
-                       <div class="card-icon">📈</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
-                           <div class="card-label">Volatility Index</div>
-                           <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
-                       </div>
-                   </div>
-                   
-                   <div class="analytics-card boom-bust">
-                       <div class="card-icon">💥</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
-                           <div class="card-label">Boom / Bust Rate</div>
-                           <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
-                       </div>
-                   </div>
-                   
-                   <div class="analytics-card td-dependency">
-                       <div class="card-icon">🏈</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
-                           <div class="card-label">TD Dependency</div>
-                           <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
-                       </div>
-                   </div>
-                   
-                   <div class="analytics-card efficiency">
-                       <div class="card-icon">⚡</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
-                           <div class="card-label">Opportunity Efficiency</div>
-                           <div class="card-subtitle">Points per touch</div>
-                       </div>
-                   </div>
-                   
-                   <div class="analytics-card floor-ceiling">
-                       <div class="card-icon">📏</div>
-                       <div class="card-content">
-                           <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
-                           <div class="card-label">Floor - Ceiling</div>
-                           <div class="card-subtitle">10th - 90th percentile</div>
-                       </div>
-                   </div>
-               </div>
-           </div>
-       ` : '';
+    // Advanced Analytics Cards (only show in fantasy mode)
+    const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
+        <div class="advanced-analytics-section">
+            <h2 class="analytics-title">Fantasy Analytics</h2>
+            <div class="analytics-cards">
+                <div class="analytics-card consistency">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
+                        <div class="card-label">Consistency Score</div>
+                        <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card volatility">
+                    <div class="card-icon">📈</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
+                        <div class="card-label">Volatility Index</div>
+                        <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card boom-bust">
+                    <div class="card-icon">💥</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
+                        <div class="card-label">Boom / Bust Rate</div>
+                        <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card td-dependency">
+                    <div class="card-icon">🏈</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
+                        <div class="card-label">TD Dependency</div>
+                        <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card efficiency">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
+                        <div class="card-label">Opportunity Efficiency</div>
+                        <div class="card-subtitle">Points per touch</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card floor-ceiling">
+                    <div class="card-icon">📏</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
+                        <div class="card-label">Floor - Ceiling</div>
+                        <div class="card-subtitle">10th - 90th percentile</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    ` : '';
 
-       const tableHTML = `
-           ${advancedAnalyticsHTML}
-           
-           <div class="stats-table-container">
-               <table class="player-stats-table">
-                   <thead>
-                       <tr>
-                           <th class="stat-name-col">Statistic</th>
-                           <th class="stat-value-col">Total${showYearOverYear ? ' (YoY)' : ''}</th>
-                           <th class="stat-value-col">AVG. PPG</th>
-                           <th class="stat-value-col">Season Mid</th>
-                           <th class="stat-value-col">Spread</th>
-                           <th class="stat-value-col">Best Game</th>
-                       </tr>
-                   </thead>
-                   <tbody>
-                       ${statsEntries.map(([statId, statData]) => {
-                           const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                               statData.fantasyStats : statData.rawStats;
-                           
-                           const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                           
-                           // Regular stat handling (Games Played removed)
-                           const spreadText = displayStats.min === displayStats.max ? 
-                               this.formatStatValue(displayStats.min) : 
-                               `${this.formatStatValue(displayStats.min)} - ${this.formatStatValue(displayStats.max)}`;
-                           
-                           // NEW: Intelligent stat coloring
-                           const avgColorClass = this.getStatColorClass(statData.statName, displayStats.average, true);
-                           const medianColorClass = this.getStatColorClass(statData.statName, displayStats.median, true);
-                           const maxColorClass = 'stat-best-game'; // Always green for best game
-                           
-                           // Year-over-Year display with intelligent color logic
-                           const yoyDisplay = showYearOverYear && yearOverYear[statId] ? 
-                               this.formatYearOverYearDisplay(yearOverYear[statId], statData.statName) : '';
-                           
-                           return `
-                               <tr class="stat-row">
-                                   <td class="stat-name">${statData.statName}</td>
-                                   <td class="stat-total">
-                                       <span>${this.formatStatValue(displayStats.total)}${suffix}</span>
-                                       ${yoyDisplay}
-                                   </td>
-                                   <td class="stat-average ${avgColorClass}">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                   <td class="stat-median ${medianColorClass}">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                   <td class="stat-range">${spreadText}${suffix}</td>
-                                   <td class="stat-max ${maxColorClass}">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                               </tr>
-                           `;
-                       }).join('')}
-                   </tbody>
-               </table>
-           </div>
-       `;
+    const tableHTML = `
+        ${advancedAnalyticsHTML}
+        
+        <div class="stats-table-container">
+            <table class="player-stats-table">
+                <thead>
+                    <tr>
+                        <th class="stat-name-col">Statistic</th>
+                        <th class="stat-value-col">Total${showYearOverYear ? ' (YoY)' : ''}</th>
+                        <th class="stat-value-col">AVG. PPG</th>
+                        <th class="stat-value-col">Season Mid</th>
+                        <th class="stat-value-col">Low</th>
+                        <th class="stat-value-col">Best Game</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${statsEntries.map(([statId, statData]) => {
+                        const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
+                            statData.fantasyStats : statData.rawStats;
+                        
+                        const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
+                        
+                        // NEW: Calculate proper low value (lowest non-zero for games played)
+                        const lowValue = displayStats.lowGameValue !== undefined ? 
+                            displayStats.lowGameValue : displayStats.min;
+                        
+                        // NEW: Intelligent stat coloring
+                        const avgColorClass = this.getStatColorClass(statData.statName, displayStats.average, true);
+                        const medianColorClass = this.getStatColorClass(statData.statName, displayStats.median, true);
+                        const maxColorClass = 'stat-best-game'; // Always green for best game
+                        
+                        // Year-over-Year display with intelligent color logic
+                        const yoyDisplay = showYearOverYear && yearOverYear[statId] ? 
+                            this.formatYearOverYearDisplay(yearOverYear[statId], statData.statName) : '';
+                        
+                        return `
+                            <tr class="stat-row">
+                                <td class="stat-name">${statData.statName}</td>
+                                <td class="stat-total">
+                                    <span>${this.formatStatValue(displayStats.total)}${suffix}</span>
+                                    ${yoyDisplay}
+                                </td>
+                                <td class="stat-average ${avgColorClass}">${this.formatStatValue(displayStats.average)}${suffix}</td>
+                                <td class="stat-median ${medianColorClass}">${this.formatStatValue(displayStats.median)}${suffix}</td>
+                                <td class="stat-low">${this.formatStatValue(lowValue)}${suffix}</td>
+                                <td class="stat-max ${maxColorClass}">${this.formatStatValue(displayStats.max)}${suffix}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
 
-       container.innerHTML = tableHTML;
-       container.style.display = 'block';
-       this.hideLoading();
-       
-       // Update header with starts info after rendering
-       this.updatePlayerHeader();
-   }
+    container.innerHTML = tableHTML;
+    container.style.display = 'block';
+    this.hideLoading();
+    
+    // Update header with starts info after rendering
+    this.updatePlayerHeader();
+}
 
    // Description helpers for advanced analytics
    getConsistencyDescription(score) {
