@@ -365,9 +365,9 @@ class PlayerStatsAPI extends StatsAPI {
                         rawStats,
                         fantasyStats
                     };
-                    console.log(`✅ INCLUDING ${statName} (${isPositionRelevant ? 'position-relevant' : 'variation-based'})`);
+                    //console.log(`✅ INCLUDING ${statName} (${isPositionRelevant ? 'position-relevant' : 'variation-based'})`);
                 } else {
-                    console.log(`❌ EXCLUDING ${statName}`);
+                    //console.log(`❌ EXCLUDING ${statName}`);
                 }
             }
         });
