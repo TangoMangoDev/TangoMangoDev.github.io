@@ -163,145 +163,132 @@ class PlayerDetailPage {
         }
     }
 
-    renderStatsTable() {
-        const container = document.getElementById('playerStatsContainer');
-        if (!container || !this.currentAnalytics) {
-            console.warn('⚠️ Cannot render stats table - missing container or analytics');
-            return;
-        }
+renderStatsTable() {
+    const container = document.getElementById('playerStatsContainer');
+    if (!container || !this.currentAnalytics) {
+        console.warn('⚠️ Cannot render stats table - missing container or analytics');
+        return;
+    }
 
-        const { stats, summary, advancedAnalytics } = this.currentAnalytics;
-        const statsEntries = Object.entries(stats);
+    const { stats, summary, advancedAnalytics } = this.currentAnalytics;
+    const statsEntries = Object.entries(stats);
 
-        if (statsEntries.length === 0) {
-            container.innerHTML = `
-                <div class="no-stats-message">
-                    <h3>No stats available</h3>
-                    <p>No statistics found for the selected filters.</p>
-                </div>
-            `;
-            container.style.display = 'block';
-            this.hideLoading();
-            return;
-        }
-
-        // NEW: Advanced Analytics Cards (only show in fantasy mode)
-        const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
-            <div class="advanced-analytics-section">
-                <h2 class="analytics-title">Fantasy Analytics</h2>
-                <div class="analytics-cards">
-                    <div class="analytics-card consistency">
-                        <div class="card-icon">📊</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
-                            <div class="card-label">Consistency Score</div>
-                            <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card volatility">
-                        <div class="card-icon">📈</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
-                            <div class="card-label">Volatility Index</div>
-                            <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card boom-bust">
-                        <div class="card-icon">💥</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
-                            <div class="card-label">Boom / Bust Rate</div>
-                            <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card td-dependency">
-                        <div class="card-icon">🏈</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
-                            <div class="card-label">TD Dependency</div>
-                            <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card efficiency">
-                        <div class="card-icon">⚡</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
-                            <div class="card-label">Opportunity Efficiency</div>
-                            <div class="card-subtitle">Points per touch</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card floor-ceiling">
-                        <div class="card-icon">📏</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
-                            <div class="card-label">Floor - Ceiling</div>
-                            <div class="card-subtitle">10th - 90th percentile</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        ` : '';
-
-        const tableHTML = `
-            ${advancedAnalyticsHTML}
-            
-            <div class="stats-summary">
-                <div class="summary-item">
-                    <span class="summary-label">Games Played:</span>
-                    <span class="summary-value">${summary.totalGames}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Years:</span>
-                    <span class="summary-value">${summary.yearsPlayed}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Mode:</span>
-                    <span class="summary-value">${this.currentFilters.showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</span>
-                </div>
-            </div>
-
-            <div class="stats-table-container">
-                <table class="player-stats-table">
-                    <thead>
-                        <tr>
-                            <th class="stat-name-col">Statistic</th>
-                            <th class="stat-value-col">Total</th>
-                            <th class="stat-value-col">Average</th>
-                            <th class="stat-value-col">Median</th>
-                            <th class="stat-value-col">Best</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${statsEntries.map(([statId, statData]) => {
-                            const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                                statData.fantasyStats : statData.rawStats;
-                            
-                            const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                            
-                            return `
-                                <tr class="stat-row">
-                                    <td class="stat-name">${statData.statName}</td>
-                                    <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
-                                    <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                    <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                    <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+    if (statsEntries.length === 0) {
+        container.innerHTML = `
+            <div class="no-stats-message">
+                <h3>No stats available</h3>
+                <p>No statistics found for the selected filters.</p>
             </div>
         `;
-
-        container.innerHTML = tableHTML;
         container.style.display = 'block';
         this.hideLoading();
+        return;
     }
+
+    // NEW: Advanced Analytics Cards (only show in fantasy mode)
+    const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
+        <div class="advanced-analytics-section">
+            <h2 class="analytics-title">Fantasy Analytics</h2>
+            <div class="analytics-cards">
+                <div class="analytics-card consistency">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
+                        <div class="card-label">Consistency Score</div>
+                        <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card volatility">
+                    <div class="card-icon">📈</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
+                        <div class="card-label">Volatility Index</div>
+                        <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card boom-bust">
+                    <div class="card-icon">💥</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
+                        <div class="card-label">Boom / Bust Rate</div>
+                        <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card td-dependency">
+                    <div class="card-icon">🏈</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
+                        <div class="card-label">TD Dependency</div>
+                        <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card efficiency">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
+                        <div class="card-label">Opportunity Efficiency</div>
+                        <div class="card-subtitle">Points per touch</div>
+                    </div>
+                </div>
+                
+                <div class="analytics-card floor-ceiling">
+                    <div class="card-icon">📏</div>
+                    <div class="card-content">
+                        <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
+                        <div class="card-label">Floor - Ceiling</div>
+                        <div class="card-subtitle">10th - 90th percentile</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    ` : '';
+
+    // REMOVED: The stats-summary section completely
+
+    const tableHTML = `
+        ${advancedAnalyticsHTML}
+        
+        <div class="stats-table-container">
+            <table class="player-stats-table">
+                <thead>
+                    <tr>
+                        <th class="stat-name-col">Statistic</th>
+                        <th class="stat-value-col">Total</th>
+                        <th class="stat-value-col">Average</th>
+                        <th class="stat-value-col">Median</th>
+                        <th class="stat-value-col">Best</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${statsEntries.map(([statId, statData]) => {
+                        const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
+                            statData.fantasyStats : statData.rawStats;
+                        
+                        const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
+                        
+                        return `
+                            <tr class="stat-row">
+                                <td class="stat-name">${statData.statName}</td>
+                                <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
+                                <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
+                                <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
+                                <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = tableHTML;
+    container.style.display = 'block';
+    this.hideLoading();
+}
 
     // NEW: Description helpers for advanced analytics
     getConsistencyDescription(score) {
