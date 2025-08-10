@@ -338,100 +338,110 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     // ENHANCED: Calculate Player Analytics with zero filtering
-    calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
-        console.log(`🧮 Calculating analytics for player data:`, playerData);
-        
-        const analytics = {
-            metadata: {
-                playerId: playerData.playerId,
-                playerName: playerData.playerName,
-                position: playerData.position,
-                team: playerData.team,
-                selectedYear,
-                selectedWeek,
-                showFantasyStats,
-                lastCalculated: new Date().toISOString()
-            },
-            stats: {},
-            summary: {
-                totalGames: 0,
-                totalWeeks: 0,
-                yearsPlayed: Object.keys(playerData.years).length
-            },
-            advancedAnalytics: null
-        };
+    // ENHANCED: Calculate Player Analytics with zero filtering AND PROPER FANTASY CALCULATION
+calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
+    console.log(`🧮 Calculating analytics for player data:`, playerData);
+    
+    const analytics = {
+        metadata: {
+            playerId: playerData.playerId,
+            playerName: playerData.playerName,
+            position: playerData.position,
+            team: playerData.team,
+            selectedYear,
+            selectedWeek,
+            showFantasyStats,
+            lastCalculated: new Date().toISOString()
+        },
+        stats: {},
+        summary: {
+            totalGames: 0,
+            totalWeeks: 0,
+            yearsPlayed: Object.keys(playerData.years).length
+        },
+        advancedAnalytics: null
+    };
 
-        // Use gameplayWeeks if available, otherwise use weeks
-        const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
-        analytics.summary.totalGames = gameData.length;
-        analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
+    // Use gameplayWeeks if available, otherwise use weeks
+    const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
+    analytics.summary.totalGames = gameData.length;
+    analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
 
-        if (gameData.length === 0) {
-            console.log('⚠️ No game data found for analytics calculation');
-            return analytics;
-        }
-
-        // Calculate advanced analytics if in fantasy mode
-        if (showFantasyStats && Object.keys(scoringRules).length > 0) {
-            const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
-            if (fantasyPoints.length > 0) {
-                analytics.advancedAnalytics = this.calculateAdvancedAnalytics(
-                    fantasyPoints, gameData, playerData.position, scoringRules
-                );
-            }
-        }
-
-        // Get all possible stats from the data
-        const allStatIds = new Set();
-        gameData.forEach(game => {
-            Object.keys(game.stats).forEach(statId => allStatIds.add(statId));
-        });
-
-        // ENHANCED: Calculate analytics for each stat and filter out zero stats
-// ENHANCED: Calculate analytics for each stat and filter out zero stats MORE STRICTLY
-allStatIds.forEach(statId => {
-    const statValues = gameData
-        .map(game => game.stats[statId] || 0)
-        .filter(value => value !== null && value !== undefined);
-
-    if (statValues.length > 0) {
-        const statName = this.getStatName(statId);
-        const rawStats = this.calculateStatMetrics(statValues);
-        const fantasyStats = showFantasyStats && scoringRules[statId] ? 
-            this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null;
-
-        // STRICTER FILTERING: Only include stats that have MEANINGFUL non-zero totals
-        const hasRawData = rawStats.total > 0;
-        const hasFantasyData = fantasyStats && fantasyStats.total > 0;
-        
-        // Only show if we have actual data in the current mode
-        if (showFantasyStats) {
-            // In fantasy mode, only show if fantasy stats exist and are > 0
-            if (hasFantasyData) {
-                analytics.stats[statId] = {
-                    statId,
-                    statName,
-                    rawStats,
-                    fantasyStats
-                };
-            }
-        } else {
-            // In raw mode, only show if raw stats exist and are > 0
-            if (hasRawData) {
-                analytics.stats[statId] = {
-                    statId,
-                    statName,
-                    rawStats,
-                    fantasyStats
-                };
-            }
-        }
-    }
-});
-
-        console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} non-zero stats`);
+    if (gameData.length === 0) {
+        console.log('⚠️ No game data found for analytics calculation');
         return analytics;
     }
+
+    // Calculate advanced analytics if in fantasy mode
+    if (showFantasyStats && Object.keys(scoringRules).length > 0) {
+        const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
+        if (fantasyPoints.length > 0) {
+            analytics.advancedAnalytics = this.calculateAdvancedAnalytics(
+                fantasyPoints, gameData, playerData.position, scoringRules
+            );
+        }
+    }
+
+    // Get all possible stats from the data
+    const allStatIds = new Set();
+    gameData.forEach(game => {
+        Object.keys(game.stats).forEach(statId => allStatIds.add(statId));
+    });
+
+    // FIXED: Calculate analytics for each stat and PROPERLY filter out meaningless stats
+    allStatIds.forEach(statId => {
+        const statValues = gameData
+            .map(game => game.stats[statId] || 0)
+            .filter(value => value !== null && value !== undefined);
+
+        if (statValues.length > 0) {
+            const statName = this.getStatName(statId);
+            const rawStats = this.calculateStatMetrics(statValues);
+            
+            // PROPER FANTASY CALCULATION USING SHARED CONFIG
+            let fantasyStats = null;
+            if (showFantasyStats && scoringRules[statId]) {
+                // Calculate fantasy values for each game
+                const fantasyValues = statValues.map(rawValue => {
+                    return window.STATS_CONFIG.calculateFantasyPoints(statId, rawValue, scoringRules[statId]);
+                });
+                
+                fantasyStats = this.calculateStatMetrics(fantasyValues);
+            }
+
+            // STRICT FILTERING: Only include stats with meaningful variation
+            const hasRawData = rawStats.total > 0;
+            const hasFantasyData = fantasyStats && fantasyStats.total !== 0; // Allow negative totals
+            const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed; // Filter out all 1's
+            
+            // Only show if we have actual meaningful data
+            if (showFantasyStats) {
+                // In fantasy mode, only show if fantasy stats exist and have variation
+                if (hasFantasyData && (fantasyStats.min !== fantasyStats.max || Math.abs(fantasyStats.total) > fantasyStats.gamesPlayed)) {
+                    analytics.stats[statId] = {
+                        statId,
+                        statName,
+                        rawStats,
+                        fantasyStats
+                    };
+                }
+            } else {
+                // In raw mode, only show if raw stats exist and have variation
+                if (hasRawData && hasVariation) {
+                    analytics.stats[statId] = {
+                        statId,
+                        statName,
+                        rawStats,
+                        fantasyStats
+                    };
+                }
+            }
+        }
+    });
+
+    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} meaningful stats`);
+    return analytics;
+}
 
     // ENHANCED: Collect game data using gameplayWeeks when available
     collectGameData(playerData, selectedYear, selectedWeek) {
