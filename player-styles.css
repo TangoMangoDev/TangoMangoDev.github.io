@@ -863,8 +863,34 @@ body.fantasy-mode .analytics-cards {
         font-size: 0.75rem;
     }
 
+.stat-total {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+}
+
+@media (max-width: 768px) {
+    .yoy-change,
+    .yoy-new {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.25rem;
+        margin-left: 0.25rem;
+    }
+    
     .stat-total {
-        font-size: 0.85rem;
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .yoy-change,
+    .yoy-new {
+        font-size: 0.6rem;
+        padding: 0.05rem 0.2rem;
     }
 }
 
