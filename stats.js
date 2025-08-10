@@ -128,7 +128,7 @@ window.convertStatsForDisplay = function(rawStats) {
     const displayStats = {};
     
     for (const [statId, statValue] of Object.entries(rawStats)) {
-        const statName = YAHOO_STAT_MAP[statId];
+        const statName = STAT_ID_MAPPING[statId];
         if (statName && statValue !== null && statValue !== undefined && statValue !== 0) {
             displayStats[statName] = statValue;
         }
