@@ -316,6 +316,7 @@ const tableHTML = `
         </table>
     </div>
 `;
+    
     // NEW: Description helpers for advanced analytics
     getConsistencyDescription(score) {
         if (score >= 90) return 'Very Reliable';
