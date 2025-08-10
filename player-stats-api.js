@@ -711,20 +711,20 @@ class PlayerStatsAPI extends StatsAPI {
         };
     }
 
-    calculateFantasyPointsForGames(gameData, scoringRules) {
-        return gameData.map(game => {
-            let totalPoints = 0;
-            
-            Object.entries(game.stats).forEach(([statId, value]) => {
-                if (scoringRules[statId] && value !== 0) { // Allow negative values
-const points = window.STATS_CONFIG.calculateFantasyPoints(statId, value, scoringRules[statId]);
-                   totalPoints += points;
-               }
-           });
-           
-           return Math.round(totalPoints * 100) / 100;
-       });
-   }
+calculateFantasyPointsForGames(gameData, scoringRules) {
+    return gameData.map(game => {
+        let totalPoints = 0;
+        
+        Object.entries(game.stats).forEach(([statId, value]) => {
+            if (scoringRules[statId] && value !== 0) { // Allow negative values
+                const points = window.STATS_CONFIG.calculateFantasyPoints(statId, value, scoringRules[statId]);
+                totalPoints += points;
+            }
+        });
+        
+        return Math.round(totalPoints * 100) / 100;
+    });
+}
 
    calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
        if (fantasyPoints.length === 0) return {};
