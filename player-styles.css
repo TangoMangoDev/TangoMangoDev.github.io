@@ -627,6 +627,10 @@ body {
     color: var(--accent-blue);
 }
 
+.stat-median {
+    font-weight: 600;
+}
+
 .stat-max {
     color: var(--warning-orange);
     font-weight: 700;
