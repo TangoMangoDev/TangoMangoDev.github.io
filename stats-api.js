@@ -450,41 +450,70 @@ class StatsAPI {
                 let totalFantasyPoints = 0;
                 
                 // Calculate fantasy points using season total stats
-                if (player.stats && typeof player.stats === 'object') {
-                    Object.entries(player.stats).forEach(([statId, statValue]) => {
-                        if (statValue && statValue !== 0) {
-                            // For now, use a simple scoring system
-                            // You can enhance this later with actual scoring rules
-                            switch(statId) {
-                                case '4': // Pass Yds
-                                    totalFantasyPoints += statValue * 0.04;
-                                    break;
-                                case '5': // Pass TD
-                                    totalFantasyPoints += statValue * 4;
-                                    break;
-                                case '6': // Int
-                                    totalFantasyPoints -= statValue * 2;
-                                    break;
-                                case '9': // Rush Yds
-                                    totalFantasyPoints += statValue * 0.1;
-                                    break;
-                                case '10': // Rush TD
-                                    totalFantasyPoints += statValue * 6;
-                                    break;
-                                case '11': // Rec
-                                    totalFantasyPoints += statValue * 1;
-                                    break;
-                                case '12': // Rec Yds
-                                    totalFantasyPoints += statValue * 0.1;
-                                    break;
-                                case '13': // Rec TD
-                                    totalFantasyPoints += statValue * 6;
-                                    break;
-                                // Add more stats as needed
-                            }
-                        }
-                    });
-                }
+ // REPLACE the existing fantasy points calculation in loadAndRankAllPlayersForYear method
+// Calculate fantasy points using season total stats
+if (player.stats && typeof player.stats === 'object') {
+    Object.entries(player.stats).forEach(([statId, statValue]) => {
+        if (statValue && statValue !== 0) {
+            // Updated to use CORRECT Yahoo stat IDs
+            switch(statId) {
+                case '4': // Pass Yds (CORRECT)
+                    totalFantasyPoints += statValue * 0.04;
+                    break;
+                case '5': // Pass TD (CORRECT)
+                    totalFantasyPoints += statValue * 4;
+                    break;
+                case '6': // Int (CORRECT)
+                    totalFantasyPoints -= statValue * 2;
+                    break;
+                case '9': // Rush Yds (CORRECT)
+                    totalFantasyPoints += statValue * 0.1;
+                    break;
+                case '10': // Rush TD (CORRECT)
+                    totalFantasyPoints += statValue * 6;
+                    break;
+                case '11': // Rec (CORRECT)
+                    totalFantasyPoints += statValue * 1;
+                    break;
+                case '12': // Rec Yds (CORRECT)
+                    totalFantasyPoints += statValue * 0.1;
+                    break;
+                case '13': // Rec TD (CORRECT)
+                    totalFantasyPoints += statValue * 6;
+                    break;
+                case '17': // Fum (CORRECT)
+                    totalFantasyPoints -= statValue * 2;
+                    break;
+                case '18': // Fum Lost (CORRECT)
+                    totalFantasyPoints -= statValue * 2;
+                    break;
+                // Add more stats as needed for kickers and defense
+                case '19': case '20': case '21': case '22': case '23': // FG Made
+                    totalFantasyPoints += statValue * 3;
+                    break;
+                case '29': // PAT Made
+                    totalFantasyPoints += statValue * 1;
+                    break;
+                // Defense stats
+                case '32': case '40': // Sack (appears twice in mapping)
+                    totalFantasyPoints += statValue * 1;
+                    break;
+                case '33': case '41': // Int (defense)
+                    totalFantasyPoints += statValue * 2;
+                    break;
+                case '34': case '43': // Fum Rec
+                    totalFantasyPoints += statValue * 2;
+                    break;
+                case '35': case '44': // TD (defense)
+                    totalFantasyPoints += statValue * 6;
+                    break;
+                case '36': case '45': // Safe
+                    totalFantasyPoints += statValue * 2;
+                    break;
+            }
+        }
+    });
+}
                 
                 return {
                     ...player,
