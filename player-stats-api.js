@@ -1,385 +1,645 @@
-// player.js - ENHANCED with Advanced Analytics Cards
-class PlayerDetailPage {
+// player-stats-api.js - ENHANCED with Advanced Fantasy Analytics (NO EXISTING CODE CHANGED)
+class PlayerStatsAPI extends StatsAPI {
     constructor() {
-        this.playerId = null;
-        this.currentFilters = {
-            year: '2024',
-            week: 'ALL',
-            showFantasyStats: false
-        };
-        this.playerData = null;
-        this.currentAnalytics = null;
-        this.scoringRules = {};
-        this.isLoading = false;
+        super();
+        this.playerDataCache = new Map();
+        this.baseMissingWeeksUrl = '/data/stats/player/missing-weeks';
+        this.allWeeks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
     }
 
-    async init() {
-        console.log('🚀 Initializing Player Detail Page...');
+    // ALL YOUR EXISTING METHODS REMAIN EXACTLY THE SAME...
+    async ensureInitialized() {
+        if (!this.cache.db) {
+            console.log('🔄 Initializing IndexedDB for player stats...');
+            await this.cache.init();
+        }
+        return this.cache.db;
+    }
+
+    async getPlayerCompleteStats(playerId) {
+        console.log(`🎯 Getting complete stats for player: ${playerId}`);
         
-        const urlParams = new URLSearchParams(window.location.search);
-        this.playerId = urlParams.get('id');
-        
-        if (!this.playerId) {
-            this.showError('No player ID provided');
-            return;
-        }
+        try {
+            const allPlayerData = {
+                playerId,
+                playerName: 'Unknown Player',
+                years: {},
+                position: null,
+                team: null,
+                lastUpdated: new Date().toISOString()
+            };
 
-        console.log(`🎯 Loading player ID: ${this.playerId}`);
-
-        this.setupEventListeners();
-        await this.initializeStatsAPI();
-        await this.loadScoringRules();
-        await this.loadPlayerData();
-    }
-
-    // [All existing methods remain the same until renderStatsTable...]
-
-    renderStatsTable() {
-        const container = document.getElementById('playerStatsContainer');
-        if (!container || !this.currentAnalytics) {
-            console.warn('⚠️ Cannot render stats table - missing container or analytics');
-            return;
-        }
-
-        const { stats, summary, advancedAnalytics } = this.currentAnalytics;
-        const statsEntries = Object.entries(stats);
-
-        if (statsEntries.length === 0) {
-            container.innerHTML = `
-                <div class="no-stats-message">
-                    <h3>No stats available</h3>
-                    <p>No statistics found for the selected filters.</p>
-                </div>
-            `;
-            container.style.display = 'block';
-            this.hideLoading();
-            return;
-        }
-
-        // NEW: Advanced Analytics Cards (only show in fantasy mode)
-        const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
-            <div class="advanced-analytics-section">
-                <h2 class="analytics-title">Fantasy Analytics</h2>
-                <div class="analytics-cards">
-                    <div class="analytics-card consistency">
-                        <div class="card-icon">📊</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
-                            <div class="card-label">Consistency Score</div>
-                            <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card volatility">
-                        <div class="card-icon">📈</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
-                            <div class="card-label">Volatility Index</div>
-                            <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card boom-bust">
-                        <div class="card-icon">💥</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
-                            <div class="card-label">Boom / Bust Rate</div>
-                            <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card td-dependency">
-                        <div class="card-icon">🏈</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
-                            <div class="card-label">TD Dependency</div>
-                            <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card efficiency">
-                        <div class="card-icon">⚡</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
-                            <div class="card-label">Opportunity Efficiency</div>
-                            <div class="card-subtitle">Points per touch</div>
-                        </div>
-                    </div>
-                    
-                    <div class="analytics-card floor-ceiling">
-                        <div class="card-icon">📏</div>
-                        <div class="card-content">
-                            <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
-                            <div class="card-label">Floor - Ceiling</div>
-                            <div class="card-subtitle">10th - 90th percentile</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        ` : '';
-
-        const tableHTML = `
-            ${advancedAnalyticsHTML}
+            const availableYears = ['2024', '2023'];
             
-            <div class="stats-summary">
-                <div class="summary-item">
-                    <span class="summary-label">Games Played:</span>
-                    <span class="summary-value">${summary.totalGames}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Years:</span>
-                    <span class="summary-value">${summary.yearsPlayed}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Mode:</span>
-                    <span class="summary-value">${this.currentFilters.showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</span>
-                </div>
-            </div>
+            for (const year of availableYears) {
+                console.log(`📊 Processing year ${year} for player ${playerId}`);
+                const yearData = await this.getPlayerStatsForYear(playerId, year);
+                
+                if (yearData && Object.keys(yearData.weeks).length > 0) {
+                    allPlayerData.years[year] = yearData;
+                    
+                    if (!allPlayerData.position && yearData.position) {
+                        allPlayerData.position = yearData.position;
+                        allPlayerData.team = yearData.team;
+                        allPlayerData.playerName = yearData.playerName || allPlayerData.playerName;
+                    }
+                }
+            }
 
-            <div class="stats-table-container">
-                <table class="player-stats-table">
-                    <thead>
-                        <tr>
-                            <th class="stat-name-col">Statistic</th>
-                            <th class="stat-value-col">Total</th>
-                            <th class="stat-value-col">Average</th>
-                            <th class="stat-value-col">Median</th>
-                            <th class="stat-value-col">Best</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${statsEntries.map(([statId, statData]) => {
-                            const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                                statData.fantasyStats : statData.rawStats;
-                            
-                            const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                            
-                            return `
-                                <tr class="stat-row">
-                                    <td class="stat-name">${statData.statName}</td>
-                                    <td class="stat-total">${this.formatStatValue(displayStats.total)}${suffix}</td>
-                                    <td class="stat-average">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                    <td class="stat-median">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                    <td class="stat-max">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        container.innerHTML = tableHTML;
-        container.style.display = 'block';
-        this.hideLoading();
-    }
-
-    // NEW: Description helpers for advanced analytics
-    getConsistencyDescription(score) {
-        if (score >= 90) return 'Very Reliable';
-        if (score >= 80) return 'Steady Producer';
-        if (score >= 70) return 'Fairly Consistent';
-        if (score >= 60) return 'Somewhat Volatile';
-        return 'Boom or Bust';
-    }
-
-    getVolatilityDescription(index) {
-        if (index <= 0.3) return 'Very Stable';
-        if (index <= 0.5) return 'Stable';
-        if (index <= 0.7) return 'Moderate';
-        if (index <= 1.0) return 'Volatile';
-        return 'Highly Volatile';
-    }
-
-    getBoomBustDescription(boomRate, bustRate) {
-        if (boomRate > 30) return 'High Ceiling Player';
-        if (bustRate > 30) return 'Risky Floor';
-        if (boomRate > 20 && bustRate < 20) return 'Upside Play';
-        return 'Balanced Profile';
-    }
-
-    getTdDependencyDescription(dependency) {
-        if (dependency > 50) return 'TD Dependent';
-        if (dependency > 30) return 'Moderate TD Reliance';
-        if (dependency > 15) return 'Some TD Reliance';
-        return 'Volume-Based';
-    }
-
-    // [All other existing methods remain unchanged...]
-    formatStatValue(value) {
-        if (typeof value !== 'number') return '0';
-        if (value === 0) return '0';
-        if (value % 1 === 0) return value.toString();
-        return value.toFixed(1);
-    }
-
-    showLoading() {
-        document.getElementById('loadingState').style.display = 'block';
-        document.getElementById('playerStatsContainer').style.display = 'none';
-        document.getElementById('errorState').style.display = 'none';
-    }
-
-    hideLoading() {
-        document.getElementById('loadingState').style.display = 'none';
-    }
-
-    showError(message) {
-        document.getElementById('errorMessage').textContent = message;
-        document.getElementById('errorState').style.display = 'block';
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('playerStatsContainer').style.display = 'none';
-    }
-
-    updatePlayerHeader() {
-        const headerInfo = document.getElementById('playerHeaderInfo');
-        if (headerInfo && this.playerData) {
-            const currentYear = this.currentFilters.year === 'ALL' ? '2024' : this.currentFilters.year;
-            const yearData = this.playerData.years[currentYear];
+            console.log(`✅ Complete player data retrieved for ${playerId}:`, allPlayerData);
+            return allPlayerData;
             
-            let rankDisplay = '';
-            if (yearData && yearData.rank) {
-                rankDisplay = `<span class="rank-badge">#${yearData.rank} Overall</span>`;
+        } catch (error) {
+            console.error(`❌ Error getting complete stats for player ${playerId}:`, error);
+            throw error;
+        }
+    }
+
+    async getPlayerStatsForYear(playerId, year) {
+        try {
+            console.log(`📊 Getting player ${playerId} stats for year ${year}`);
+            
+            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+            const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
+            
+            console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
+            
+            const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
+            
+            console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
+            
+            if (missingWeeks.length > 0) {
+                console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
+                const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
+                
+                if (missingData) {
+                    await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
+                    
+                    const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
+                    if (updatedData) {
+                        console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
+                        return updatedData;
+                    }
+                }
             }
             
-            headerInfo.innerHTML = `
-                <div class="player-title">
-                    <h1>${this.playerData.playerName}</h1>
-                    <div class="player-meta">
-                        <span class="position-badge">${this.playerData.position}</span>
-                        <span class="team-badge">${this.playerData.team}</span>
-                        ${rankDisplay}
-                    </div>
-                </div>
-            `;
+            if (cachedData) {
+                console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
+                return cachedData;
+            }
+
+            console.log(`⚠️ No data found for player ${playerId} year ${year}`);
+            return null;
+            
+        } catch (error) {
+            console.error(`❌ Error getting player stats for year ${year}:`, error);
+            return null;
         }
     }
 
-    setupEventListeners() {
-        document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                
-                const newMode = e.target.dataset.mode === 'fantasy';
-                if (newMode !== this.currentFilters.showFantasyStats) {
-                    this.currentFilters.showFantasyStats = newMode;
-                    this.recalculateAndRender();
+    async fetchMissingWeeksFromBackend(playerId, year, missingWeeks) {
+        try {
+            const params = new URLSearchParams({
+                playerId,
+                year,
+                missingWeeks: missingWeeks.join(',')
+            });
+
+            const url = `${this.baseMissingWeeksUrl}?${params}`;
+            console.log(`🌐 Fetching missing weeks: ${url}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
             });
-        });
 
-        const yearSelect = document.getElementById('year-select');
-        if (yearSelect) {
-            yearSelect.addEventListener('change', (e) => {
-                this.currentFilters.year = e.target.value;
-                this.recalculateAndRender();
-            });
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        const weekFilter = document.querySelector('.week-filter');
-        if (weekFilter) {
-            weekFilter.style.display = 'none';
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Backend request failed');
+            }
+
+            if (!data.data) {
+                console.log(`⚠️ No missing weeks data returned for player ${playerId} year ${year}`);
+                return null;
+            }
+
+            console.log(`✅ Fetched ${data.weeksFound}/${missingWeeks.length} missing weeks for player ${playerId}`);
+            return data.data;
+            
+        } catch (error) {
+            console.error(`❌ Error fetching missing weeks from backend:`, error);
+            return null;
         }
     }
 
-    async loadScoringRules() {
+    async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
         try {
-            const activeLeagueId = localStorage.getItem('activeLeagueId');
-            if (activeLeagueId && window.statsAPI) {
-                const rulesData = await window.statsAPI.getScoringRules(activeLeagueId);
-                if (rulesData && rulesData[activeLeagueId]) {
-this.scoringRules = rulesData[activeLeagueId];
-                   console.log(`✅ Loaded ${Object.keys(this.scoringRules).length} scoring rules for fantasy calculations`);
-               }
+            await this.ensureInitialized();
+            
+            const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
+            
+            const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
+            
+            let playerRecord;
+            
+            if (existingRecord) {
+                playerRecord = {
+                    ...existingRecord,
+                    weeklyStats: {
+                        ...existingRecord.weeklyStats,
+                        ...weeklyStats
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
+            } else {
+                playerRecord = {
+                    playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
+                    year: parseInt(year),
+                    playerId,
+                    name,
+                    position,
+                    team,
+                    rank: rank || 999999,
+                    yearPosition: `${year}_${position}`,
+                    yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
+                    weeklyStats,
+                    timestamp: new Date().toISOString()
+                };
+                console.log(`🆕 Creating new record for player ${playerId}`);
+            }
+
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+            const store = transaction.objectStore(this.cache.playersStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(playerRecord);
+                request.onsuccess = () => {
+                    console.log(`✅ Stored/updated player ${playerId} with missing weeks in IndexedDB`);
+                    resolve();
+                };
+                request.onerror = () => reject(request.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
+        }
+    }
+
+    async getPlayerRecordFromIndexedDB(playerId, year) {
+        try {
+            await this.ensureInitialized();
+            
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+            const store = transaction.objectStore(this.cache.playersStore);
+            const yearIndex = store.index('year');
+            
+            return new Promise((resolve, reject) => {
+                const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+                
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    
+                    if (cursor) {
+                        const record = cursor.value;
+                        
+                        if (record.playerId === playerId) {
+                            resolve(record);
+                            return;
+                        }
+                        
+                        cursor.continue();
+                    } else {
+                        resolve(null);
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error getting player record from IndexedDB:`, error);
+            return null;
+        }
+    }
+
+    async getPlayerFromIndexedDB(playerId, year) {
+        try {
+            await this.ensureInitialized();
+            
+            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+            const store = transaction.objectStore(this.cache.playersStore);
+            const yearIndex = store.index('year');
+            
+            return new Promise((resolve, reject) => {
+                const playerData = {
+                    playerId,
+                    year: parseInt(year),
+                    playerName: null,
+                    position: null,
+                    team: null,
+                    weeks: {},
+                    rank: null
+                };
+
+                const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
+                
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    
+                    if (cursor) {
+                        const record = cursor.value;
+                        
+                        if (record.playerId === playerId) {
+                            if (!playerData.playerName) {
+                                playerData.playerName = record.name;
+                                playerData.position = record.position;
+                                playerData.team = record.team;
+                                
+                                if (record.yearRank) {
+                                    const rankPart = record.yearRank.split('_')[1];
+                                    playerData.rank = parseInt(rankPart);
+                                }
+                            }
+                            
+                            if (record.weeklyStats) {
+                                Object.entries(record.weeklyStats).forEach(([week, stats]) => {
+                                    if (week !== 'total' && stats && this.hasNonZeroStats(stats)) {
+                                        playerData.weeks[week] = {
+                                            week: parseInt(week),
+                                            stats,
+                                            timestamp: record.timestamp
+                                        };
+                                    }
+                                });
+                            }
+                        }
+                        
+                        cursor.continue();
+                    } else {
+                        const weeksFound = Object.keys(playerData.weeks).length;
+                        console.log(`📊 IndexedDB: Found ${weeksFound} weeks for player ${playerId} year ${year}`);
+                        
+                        if (weeksFound > 0) {
+                            resolve(playerData);
+                        } else {
+                            resolve(null);
+                        }
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error getting player from IndexedDB:`, error);
+            return null;
+        }
+    }
+
+    hasNonZeroStats(stats) {
+        if (!stats || typeof stats !== 'object') return false;
+        return Object.values(stats).some(value => value && value !== 0);
+    }
+
+    // ENHANCED: Your existing calculatePlayerAnalytics method with added advanced analytics
+    calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
+        console.log(`🧮 Calculating analytics for player data:`, playerData);
+        
+        const analytics = {
+            metadata: {
+                playerId: playerData.playerId,
+                playerName: playerData.playerName,
+                position: playerData.position,
+                team: playerData.team,
+                selectedYear,
+                selectedWeek,
+                showFantasyStats,
+                lastCalculated: new Date().toISOString()
+            },
+            stats: {},
+            summary: {
+                totalGames: 0,
+                totalWeeks: 0,
+                yearsPlayed: Object.keys(playerData.years).length
+            },
+            // NEW: Advanced Analytics
+            advancedAnalytics: null
+        };
+
+        const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
+        analytics.summary.totalGames = gameData.length;
+        analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
+
+        if (gameData.length === 0) {
+            console.log('⚠️ No game data found for analytics calculation');
+            return analytics;
+        }
+
+        // NEW: Calculate advanced analytics if in fantasy mode
+        if (showFantasyStats && Object.keys(scoringRules).length > 0) {
+            const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
+            if (fantasyPoints.length > 0) {
+                analytics.advancedAnalytics = this.calculateAdvancedAnalytics(
+                    fantasyPoints, gameData, playerData.position, scoringRules
+                );
+            }
+        }
+
+        const allStatIds = new Set();
+gameData.forEach(game => {
+           Object.keys(game.stats).forEach(statId => allStatIds.add(statId));
+       });
+
+       // Calculate analytics for each stat
+       allStatIds.forEach(statId => {
+           const statValues = gameData
+               .map(game => game.stats[statId] || 0)
+               .filter(value => value !== null && value !== undefined);
+
+           if (statValues.length > 0) {
+               const statName = this.getStatName(statId);
+               
+               analytics.stats[statId] = {
+                   statId,
+                   statName,
+                   rawStats: this.calculateStatMetrics(statValues),
+                   fantasyStats: showFantasyStats && scoringRules[statId] ? 
+                       this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null
+               };
            }
-       } catch (error) {
-           console.warn('⚠️ Could not load scoring rules, fantasy stats will be unavailable:', error);
-       }
+       });
+
+       console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats`);
+       return analytics;
    }
 
-   recalculateAndRender() {
-       if (!this.playerData) {
-           console.warn('⚠️ No player data available for calculation');
-           return;
-       }
-
-       console.log(`🧮 Recalculating analytics with filters:`, this.currentFilters);
-
-       this.currentAnalytics = window.playerStatsAPI.calculatePlayerAnalytics(
-           this.playerData,
-           this.currentFilters.year,
-           this.currentFilters.week,
-           this.currentFilters.showFantasyStats,
-           this.scoringRules
-       );
-
-       this.renderStatsTable();
-   }
-
-   async loadPlayerData() {
-       if (this.isLoading) {
-           console.log('⏳ Already loading player data...');
-           return;
-       }
-
-       this.isLoading = true;
-       this.showLoading();
-
-       try {
-           console.log(`📊 Loading complete player data for: ${this.playerId}`);
+   // NEW: Calculate Fantasy Points for Each Game
+   calculateFantasyPointsForGames(gameData, scoringRules) {
+       return gameData.map(game => {
+           let totalPoints = 0;
            
-           this.playerData = await window.playerStatsAPI.getPlayerCompleteStats(this.playerId);
-
-           if (this.playerData && Object.keys(this.playerData.years).length > 0) {
-               this.updatePlayerHeader();
-               this.recalculateAndRender();
-           } else {
-               this.showError('No data found for this player');
-           }
-
-       } catch (error) {
-           console.error('❌ Error loading player data:', error);
-           this.showError(`Failed to load player data: ${error.message}`);
-       } finally {
-           this.isLoading = false;
-       }
+           Object.entries(game.stats).forEach(([statId, value]) => {
+               if (scoringRules[statId] && value > 0) {
+                   const rule = scoringRules[statId];
+                   let points = value * parseFloat(rule.points || 0);
+                   
+                   // Add bonus points
+                   if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                       rule.bonuses.forEach(bonusRule => {
+                           const target = parseFloat(bonusRule.bonus.target || 0);
+                           const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                           
+                           if (value >= target && target > 0) {
+                               const bonusesEarned = Math.floor(value / target);
+                               points += bonusesEarned * bonusPoints;
+                           }
+                       });
+                   }
+                   
+                   totalPoints += points;
+               }
+           });
+           
+           return Math.round(totalPoints * 100) / 100;
+       });
    }
 
-   async initializeStatsAPI() {
-       try {
-           console.log('🔄 Initializing StatsAPI and IndexedDB...');
-           if (window.statsAPI && window.statsAPI.cache) {
-               await window.statsAPI.cache.init();
-               console.log('✅ StatsAPI IndexedDB initialized');
-           }
-       } catch (error) {
-           console.warn('⚠️ Failed to initialize StatsAPI:', error);
-       }
-   }
-}
+   // NEW: Calculate Advanced Analytics
+   calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
+       if (fantasyPoints.length === 0) return {};
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', async () => {
-   if (!window.STAT_ID_MAPPING) {
-       window.STAT_ID_MAPPING = {
-           0: "Games Played", 1: "Pass Att", 2: "Comp", 3: "Inc", 4: "Pass Yds",
-           5: "Pass TD", 6: "Int", 7: "Sack", 8: "Rush Att", 9: "Rush Yds",
-           10: "Rush TD", 11: "Rec", 12: "Rec Yds", 13: "Rec TD", 14: "Ret Yds",
-           15: "Ret TD", 16: "Off Fum Ret TD", 17: "2-PT", 18: "Fum", 19: "Fum Lost",
-           20: "FG", 21: "FGM", 22: "Pts Allow", 23: "Tack Solo", 24: "Tack Ast",
-           25: "Pass Def", 26: "Sack", 27: "Int", 28: "Fum Rec", 29: "Fum Force",
-           30: "TD", 31: "Safe", 32: "Blk Kick", 33: "Ret Yds", 34: "Ret TD",
-           57: "Off Snaps", 58: "Off Snap %", 59: "Def Snaps", 60: "Def Snap %",
-           61: "ST Snaps", 62: "ST Snap %", 63: "Games Started", 64: "Off Plays",
-           78: "Tack Total", 79: "Tack Loss", 80: "Rec 1st Downs", 81: "Rush 1st Downs"
+       const validPoints = fantasyPoints.filter(p => p > 0);
+       const mean = validPoints.reduce((sum, p) => sum + p, 0) / validPoints.length;
+       const median = this.calculateMedian(validPoints);
+       const standardDev = this.calculateStandardDeviation(validPoints, mean);
+       
+       // 1. Consistency Score: (Median ÷ Mean) × 100
+       const consistencyScore = mean > 0 ? Math.round((median / mean) * 100) : 0;
+       
+       // 2. Volatility Index: Standard Deviation ÷ Mean
+       const volatilityIndex = mean > 0 ? Math.round((standardDev / mean) * 100) / 100 : 0;
+       
+       // 3. Boom Rate: % of games > 120% of average
+       const boomThreshold = mean * 1.2;
+       const boomGames = fantasyPoints.filter(p => p > boomThreshold).length;
+       const boomRate = Math.round((boomGames / fantasyPoints.length) * 100);
+       
+       // 4. Bust Rate: Position-specific low scores
+       const bustThresholds = {
+           'QB': 12, 'RB': 8, 'WR': 8, 'TE': 6, 'K': 4, 'DST': 5
+       };
+       const bustThreshold = bustThresholds[position] || 8;
+       const bustGames = fantasyPoints.filter(p => p < bustThreshold).length;
+       const bustRate = Math.round((bustGames / fantasyPoints.length) * 100);
+       
+       // 5. TD Dependency: (6 × Total TDs ÷ Total Fantasy Points) × 100
+       const tdDependency = this.calculateTdDependency(gameData, scoringRules, fantasyPoints);
+       
+       // 6. Opportunity Efficiency & First Down Rate
+       const { opportunityEfficiency, firstDownRate } = this.calculateOpportunityMetrics(
+           gameData, fantasyPoints, position
+       );
+       
+       // 7. Floor/Ceiling: 10th percentile / 90th percentile
+       const sortedPoints = [...validPoints].sort((a, b) => a - b);
+       const floor = this.calculatePercentile(sortedPoints, 10);
+       const ceiling = this.calculatePercentile(sortedPoints, 90);
+
+       return {
+           consistencyScore,
+           volatilityIndex,
+           boomRate,
+           bustRate,
+           tdDependency,
+           opportunityEfficiency,
+           firstDownRate,
+           floorCeiling: { floor: Math.round(floor * 10) / 10, ceiling: Math.round(ceiling * 10) / 10 },
+           mean: Math.round(mean * 10) / 10,
+           median: Math.round(median * 10) / 10,
+           standardDev: Math.round(standardDev * 10) / 10
        };
    }
 
-   if (!window.statsAPI) {
-       console.error('❌ statsAPI not found. Make sure stats-api.js is loaded first.');
-       return;
+   // NEW: Calculate TD Dependency
+   calculateTdDependency(gameData, scoringRules, fantasyPoints) {
+       let totalTDs = 0;
+       const totalFantasyPoints = fantasyPoints.reduce((sum, p) => sum + p, 0);
+       
+       gameData.forEach(game => {
+           // Count all types of TDs (stat IDs: 5=Pass TD, 10=Rush TD, 13=Rec TD, etc.)
+           const tdStatIds = ['5', '10', '13', '15', '16', '30']; // Various TD types
+           tdStatIds.forEach(statId => {
+               if (game.stats[statId]) {
+                   totalTDs += game.stats[statId];
+               }
+           });
+       });
+       
+       if (totalFantasyPoints === 0) return 0;
+       const tdPoints = totalTDs * 6; // Standard 6 points per TD
+       return Math.round((tdPoints / totalFantasyPoints) * 100);
    }
 
-   const playerPage = new PlayerDetailPage();
-   await playerPage.init();
-});
+   // NEW: Calculate Opportunity Metrics
+   calculateOpportunityMetrics(gameData, fantasyPoints, position) {
+       let totalOpportunities = 0;
+       let totalFirstDowns = 0;
+       let totalTouches = 0;
+       
+       gameData.forEach(game => {
+           let gameOpportunities = 0;
+           let gameFirstDowns = 0;
+           let gameTouches = 0;
+           
+           if (position === 'QB') {
+               gameOpportunities = (game.stats['1'] || 0) + (game.stats['8'] || 0); // Pass Att + Rush Att
+               gameTouches = gameOpportunities;
+           } else if (['RB', 'WR', 'TE'].includes(position)) {
+               gameOpportunities = (game.stats['8'] || 0) + (game.stats['11'] || 0); // Rush Att + Receptions
+               gameTouches = gameOpportunities;
+               gameFirstDowns = (game.stats['80'] || 0) + (game.stats['81'] || 0); // Rec + Rush 1st Downs
+           }
+           
+           totalOpportunities += gameOpportunities;
+           totalFirstDowns += gameFirstDowns;
+           totalTouches += gameTouches;
+       });
+       
+       const totalFantasyPoints = fantasyPoints.reduce((sum, p) => sum + p, 0);
+       const opportunityEfficiency = totalOpportunities > 0 ? 
+           Math.round((totalFantasyPoints / totalOpportunities) * 100) / 100 : 0;
+       const firstDownRate = totalTouches > 0 ? 
+           Math.round((totalFirstDowns / totalTouches) * 100) : 0;
+       
+       return { opportunityEfficiency, firstDownRate };
+   }
+
+   // NEW: Helper Functions
+   calculateStandardDeviation(values, mean) {
+       if (values.length === 0) return 0;
+       const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+       const avgSquaredDiff = squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
+       return Math.sqrt(avgSquaredDiff);
+   }
+
+   calculatePercentile(sortedValues, percentile) {
+       if (sortedValues.length === 0) return 0;
+       const index = (percentile / 100) * (sortedValues.length - 1);
+       const lower = Math.floor(index);
+       const upper = Math.ceil(index);
+       const weight = index % 1;
+       
+       if (upper >= sortedValues.length) return sortedValues[sortedValues.length - 1];
+       return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+   }
+
+   // ALL YOUR EXISTING METHODS REMAIN EXACTLY THE SAME...
+   collectGameData(playerData, selectedYear, selectedWeek) {
+       const gameData = [];
+       
+       const yearsToProcess = selectedYear === 'ALL' ? 
+           Object.keys(playerData.years) : [selectedYear];
+
+       yearsToProcess.forEach(year => {
+           const yearData = playerData.years[year];
+           if (!yearData) return;
+
+           const weeksToProcess = selectedWeek === 'ALL' ? 
+               Object.keys(yearData.weeks) : [selectedWeek];
+
+           weeksToProcess.forEach(week => {
+               const weekData = yearData.weeks[week];
+               if (weekData && weekData.stats && this.hasNonZeroStats(weekData.stats)) {
+                   gameData.push({
+                       year: parseInt(year),
+                       week,
+                       stats: weekData.stats,
+                       timestamp: weekData.timestamp
+                   });
+               }
+           });
+       });
+
+       return gameData.sort((a, b) => {
+           if (a.year !== b.year) return b.year - a.year;
+           if (a.week === 'total') return -1;
+           if (b.week === 'total') return 1;
+           return parseInt(b.week) - parseInt(a.week);
+       });
+   }
+
+   calculateStatMetrics(values) {
+       const validValues = values.filter(v => v !== 0);
+       const total = values.reduce((sum, v) => sum + v, 0);
+       
+       return {
+           total,
+           average: validValues.length > 0 ? (total / validValues.length) : 0,
+           median: this.calculateMedian(validValues),
+           min: validValues.length > 0 ? Math.min(...validValues) : 0,
+           max: validValues.length > 0 ? Math.max(...validValues) : 0,
+           gamesPlayed: validValues.length,
+           totalGames: values.length
+       };
+   }
+
+   calculateFantasyStatMetrics(values, scoringRule) {
+       const fantasyValues = values.map(value => {
+           let points = value * parseFloat(scoringRule.points || 0);
+           
+           if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
+               scoringRule.bonuses.forEach(bonusRule => {
+                   const target = parseFloat(bonusRule.bonus.target || 0);
+                   const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                   
+                   if (value >= target && target > 0) {
+                       const bonusesEarned = Math.floor(value / target);
+                       points += bonusesEarned * bonusPoints;
+                   }
+               });
+           }
+           
+           return Math.round(points * 100) / 100;
+       });
+
+       const validValues = fantasyValues.filter(v => v !== 0);
+       const total = fantasyValues.reduce((sum, v) => sum + v, 0);
+       
+       return {
+           total,
+           average: validValues.length > 0 ? (total / validValues.length) : 0,
+           median: this.calculateMedian(validValues),
+           min: validValues.length > 0 ? Math.min(...validValues) : 0,
+           max: validValues.length > 0 ? Math.max(...validValues) : 0,
+           gamesPlayed: validValues.length,
+           totalGames: fantasyValues.length
+       };
+   }
+
+   calculateMedian(values) {
+       if (values.length === 0) return 0;
+       
+       const sorted = [...values].sort((a, b) => a - b);
+       const mid = Math.floor(sorted.length / 2);
+       
+       return sorted.length % 2 === 0 ? 
+           (sorted[mid - 1] + sorted[mid]) / 2 : 
+           sorted[mid];
+   }
+
+   getStatName(statId) {
+       return window.STAT_ID_MAPPING ? window.STAT_ID_MAPPING[statId] : `Stat ${statId}`;
+   }
+}
+
+// Create global instance - THIS IS CRITICAL FOR YOUR CODE TO WORK
+window.playerStatsAPI = new PlayerStatsAPI();
