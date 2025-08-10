@@ -260,6 +260,31 @@ body {
     display: none;
 }
 
+/* Conditional row shading based on average vs median */
+.stat-row.above-median {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.04)) !important;
+    border-left: 3px solid rgba(16, 185, 129, 0.3);
+}
+
+.stat-row.below-median {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04)) !important;
+    border-left: 3px solid rgba(239, 68, 68, 0.3);
+}
+
+.stat-row.above-median:hover {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.06)) !important;
+}
+
+.stat-row.below-median:hover {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.06)) !important;
+}
+
+/* Override even row styling when shaded */
+.player-stats-table tbody tr.stat-row.above-median:nth-child(even),
+.player-stats-table tbody tr.stat-row.below-median:nth-child(even) {
+    background: inherit !important;
+}
+
 /* MAIN CONTAINER */
 .container {
     max-width: 1200px;
