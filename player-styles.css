@@ -420,7 +420,7 @@ body {
     line-height: 1;
 }
 
-/* TABLE SECTION - ENHANCED WITH NARROWER COLUMNS */
+/* TABLE SECTION - AUTO-WIDTH STAT NAMES AND NO GRID LINES */
 .stats-table-container {
     background: white;
     border-radius: var(--border-radius);
@@ -432,7 +432,7 @@ body {
 .player-stats-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
+    table-layout: auto; /* Changed from fixed to auto for flexible widths */
     font-size: 0.9rem;
 }
 
@@ -447,7 +447,7 @@ body {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border: none;
+    border: none; /* Removed all borders */
     vertical-align: middle;
     position: relative;
 }
@@ -464,20 +464,23 @@ body {
 
 .player-stats-table td {
     padding: 0.75rem 0.5rem;
-    border: none;
-    border-bottom: 1px solid var(--gray-100);
+    border: none; /* Removed side borders */
+    border-bottom: 1px solid var(--gray-100); /* Only bottom border */
     vertical-align: middle;
     transition: all 0.2s ease;
 }
 
-/* NARROWER COLUMN WIDTHS */
+/* AUTO-WIDTH COLUMN SETTINGS */
 .stat-name-col {
-    width: 35%;
+    width: auto; /* Auto-width based on content */
+    min-width: 120px; /* Minimum width to prevent too narrow */
     text-align: left;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .stat-value-col {
-    width: 16.25%;
+    width: auto; /* Auto-width for value columns */
+    min-width: 80px; /* Minimum width for readability */
     text-align: center;
 }
 
@@ -488,6 +491,7 @@ body {
     text-align: left;
     font-size: 0.9rem;
     line-height: 1.2;
+    white-space: nowrap; /* Prevent stat names from wrapping */
 }
 
 .stat-total,
@@ -499,6 +503,7 @@ body {
     font-weight: 600;
     font-size: 0.85rem;
     line-height: 1.2;
+    white-space: nowrap; /* Prevent value wrapping */
 }
 
 .stat-total {
@@ -519,6 +524,7 @@ body {
 
 .player-stats-table tbody tr {
     transition: all 0.2s ease;
+    border: none; /* Remove any row borders */
 }
 
 .player-stats-table tbody tr:hover {
@@ -532,6 +538,40 @@ body {
 
 .player-stats-table tbody tr:nth-child(even):hover {
     background: linear-gradient(90deg, rgba(49, 130, 206, 0.08), rgba(49, 130, 206, 0.03));
+}
+
+/* Remove the last row's bottom border for cleaner look */
+.player-stats-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* RESPONSIVE DESIGN UPDATES */
+@media (max-width: 768px) {
+    .player-stats-table {
+        min-width: 400px; /* Reduced since auto-width is more efficient */
+    }
+
+    .stat-name-col {
+        min-width: 100px;
+    }
+
+    .stat-value-col {
+        min-width: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-stats-table {
+        min-width: 350px; /* Further reduced */
+    }
+
+    .stat-name-col {
+        min-width: 90px;
+    }
+
+    .stat-value-col {
+        min-width: 50px;
+    }
 }
 
 /* LOADING STATES */
