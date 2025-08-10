@@ -154,7 +154,7 @@ class PlayerDetailPage {
            return;
        }
 
-       console.log(`🧮 Recalculating analytics with filters:`, this.currentFilters);
+       //console.log(`🧮 Recalculating analytics with filters:`, this.currentFilters);
 
        this.currentAnalytics = window.playerStatsAPI.calculatePlayerAnalytics(
            this.playerData,
