@@ -350,7 +350,6 @@ async getPlayerFromIndexedDB(playerId, year) {
     }
 
     // ENHANCED: Calculate Player Analytics with zero filtering
-    // ENHANCED: Calculate Player Analytics with zero filtering AND PROPER FANTASY CALCULATION
 calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
     console.log(`🧮 Calculating analytics for player data:`, playerData);
     
@@ -394,13 +393,50 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
         }
     }
 
-    // Get all possible stats from the data
+    // FIRST: Add Games Played stat manually using collected data
+    const gamesPlayed = gameData.length;
+    const totalPossibleGames = selectedYear === 'ALL' ? 
+        Object.keys(playerData.years).length * 18 : 18; // Assume 18 games per season
+    const gamesPlayedPercentage = Math.round((gamesPlayed / totalPossibleGames) * 100);
+
+    // Add Games Played as a special stat
+    analytics.stats['games_played'] = {
+        statId: 'games_played',
+        statName: 'Games Played',
+        rawStats: {
+            total: gamesPlayed,
+            average: gamesPlayed,
+            median: gamesPlayed,
+            min: gamesPlayed,
+            max: gamesPlayed,
+            gamesPlayed: gamesPlayed,
+            totalGames: gamesPlayed,
+            // Custom display format
+            displayValue: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
+        },
+        fantasyStats: showFantasyStats ? {
+            total: gamesPlayed,
+            average: gamesPlayed,
+            median: gamesPlayed,
+            min: gamesPlayed,
+            max: gamesPlayed,
+            gamesPlayed: gamesPlayed,
+            totalGames: gamesPlayed,
+            displayValue: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
+        } : null
+    };
+
+    // Get all possible stats from the data (excluding games played since we handle it separately)
     const allStatIds = new Set();
     gameData.forEach(game => {
-        Object.keys(game.stats).forEach(statId => allStatIds.add(statId));
+        Object.keys(game.stats).forEach(statId => {
+            if (statId !== '0') { // Skip games played stat ID since we handle it above
+                allStatIds.add(statId);
+            }
+        });
     });
 
-    // FIXED: Calculate analytics for each stat and PROPERLY filter out meaningless stats
+    // Calculate analytics for each stat with proper filtering
     allStatIds.forEach(statId => {
         const statValues = gameData
             .map(game => game.stats[statId] || 0)
@@ -413,7 +449,6 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
             // PROPER FANTASY CALCULATION USING SHARED CONFIG
             let fantasyStats = null;
             if (showFantasyStats && scoringRules[statId]) {
-                // Calculate fantasy values for each game
                 const fantasyValues = statValues.map(rawValue => {
                     return window.STATS_CONFIG.calculateFantasyPoints(statId, rawValue, scoringRules[statId]);
                 });
@@ -423,13 +458,12 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
 
             // STRICT FILTERING: Only include stats with meaningful variation
             const hasRawData = rawStats.total > 0;
-            const hasFantasyData = fantasyStats && fantasyStats.total !== 0; // Allow negative totals
-            const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed; // Filter out all 1's
+            const hasFantasyData = fantasyStats && fantasyStats.total !== 0;
+            const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed;
             
             // Only show if we have actual meaningful data
             if (showFantasyStats) {
-                // In fantasy mode, only show if fantasy stats exist and have variation
-                if (hasFantasyData && (fantasyStats.min !== fantasyStats.max || Math.abs(fantasyStats.total) > fantasyStats.gamesPlayed)) {
+                if (hasFantasyData) {
                     analytics.stats[statId] = {
                         statId,
                         statName,
@@ -438,7 +472,6 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
                     };
                 }
             } else {
-                // In raw mode, only show if raw stats exist and have variation
                 if (hasRawData && hasVariation) {
                     analytics.stats[statId] = {
                         statId,
@@ -451,7 +484,7 @@ calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL',
         }
     });
 
-    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} meaningful stats`);
+    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats (including Games Played)`);
     return analytics;
 }
 
