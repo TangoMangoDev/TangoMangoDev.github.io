@@ -142,6 +142,7 @@ class PlayerStatsAPI extends StatsAPI {
 
     // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
    // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
+// ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
 async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
     try {
         await this.ensureInitialized();
