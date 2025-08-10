@@ -530,7 +530,7 @@ calculateFantasyPointsForGames(gameData, scoringRules) {
         let totalPoints = 0;
         
         Object.entries(game.stats).forEach(([statId, value]) => {
-            if (scoringRules[statId] && value > 0) {
+            if (scoringRules[statId] && value !== 0) { // Allow negative values
                 const points = window.STATS_CONFIG.calculateFantasyPoints(statId, value, scoringRules[statId]);
                 totalPoints += points;
             }
@@ -655,20 +655,20 @@ calculateFantasyPointsForGames(gameData, scoringRules) {
         return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
     }
 
-    calculateStatMetrics(values) {
-        const validValues = values.filter(v => v !== 0);
-        const total = values.reduce((sum, v) => sum + v, 0);
-        
-        return {
-            total,
-            average: validValues.length > 0 ? (total / validValues.length) : 0,
-            median: this.calculateMedian(validValues),
-            min: validValues.length > 0 ? Math.min(...validValues) : 0,
-            max: validValues.length > 0 ? Math.max(...validValues) : 0,
-            gamesPlayed: validValues.length,
-            totalGames: values.length
-        };
-    }
+calculateStatMetrics(values) {
+    const nonZeroValues = values.filter(v => v !== 0);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    
+    return {
+        total,
+        average: nonZeroValues.length > 0 ? (total / nonZeroValues.length) : 0,
+        median: this.calculateMedian(nonZeroValues),
+        min: nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0,
+        max: nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 0,
+        gamesPlayed: nonZeroValues.length,
+        totalGames: values.length
+    };
+}
 
     calculateMedian(values) {
         if (values.length === 0) return 0;
