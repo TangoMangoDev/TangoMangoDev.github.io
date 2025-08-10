@@ -470,33 +470,58 @@ allStatIds.forEach(statId => {
         });
     }
 
-    // ALL OTHER METHODS REMAIN THE SAME...
+calculateFantasyStatMetrics(values, scoringRule) {
+    const fantasyValues = values.map(value => {
+        if (!value || value === 0) return 0;
+        
+        // Use the shared config for consistent calculation
+        const statId = scoringRule.statId || Object.keys(window.STATS_CONFIG.STAT_ID_MAPPING).find(id => 
+            window.STATS_CONFIG.STAT_ID_MAPPING[id].name === scoringRule.statName
+        );
+        
+        if (statId) {
+            return window.STATS_CONFIG.calculateFantasyPoints(statId, value, scoringRule);
+        }
+        
+        // Fallback to basic calculation
+        let points = value * parseFloat(scoringRule.points || 0);
+        
+        if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
+            scoringRule.bonuses.forEach(bonusRule => {
+                const target = parseFloat(bonusRule.bonus.target || 0);
+                const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                
+                if (value >= target && target > 0) {
+                    const bonusesEarned = Math.floor(value / target);
+                    points += bonusesEarned * bonusPoints;
+                }
+            });
+        }
+        
+        return Math.round(points * 100) / 100;
+    });
+
+    const validValues = fantasyValues.filter(v => v !== 0);
+    const total = fantasyValues.reduce((sum, v) => sum + v, 0);
+    
+    return {
+        total,
+        average: validValues.length > 0 ? (total / validValues.length) : 0,
+        median: this.calculateMedian(validValues),
+        min: validValues.length > 0 ? Math.min(...validValues) : 0,
+        max: validValues.length > 0 ? Math.max(...validValues) : 0,
+        gamesPlayed: validValues.length,
+        totalGames: fantasyValues.length
+    };
+}
+
 calculateFantasyPointsForGames(gameData, scoringRules) {
     return gameData.map(game => {
         let totalPoints = 0;
         
         Object.entries(game.stats).forEach(([statId, value]) => {
             if (scoringRules[statId] && value > 0) {
-                const rule = scoringRules[statId];
-                let points = value * parseFloat(rule.points || 0);
-                
-                // Special handling for Tack Loss (stat ID 79)
-                if (statId === '79') {
-                    points = value * -1; // Each tackle for loss is -1 point
-                } else {
-                    if (rule.bonuses && Array.isArray(rule.bonuses)) {
-                        rule.bonuses.forEach(bonusRule => {
-                            const target = parseFloat(bonusRule.bonus.target || 0);
-                            const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                            
-                            if (value >= target && target > 0) {
-                                const bonusesEarned = Math.floor(value / target);
-                                points += bonusesEarned * bonusPoints;
-                            }
-                        });
-                    }
-                }
-                
+                const points = window.STATS_CONFIG.calculateFantasyPoints(statId, value, scoringRules[statId]);
                 totalPoints += points;
             }
         });
@@ -634,44 +659,6 @@ calculateFantasyPointsForGames(gameData, scoringRules) {
             totalGames: values.length
         };
     }
-
-    calculateFantasyStatMetrics(values, scoringRule) {
-    const fantasyValues = values.map(value => {
-        let points = value * parseFloat(scoringRule.points || 0);
-        
-        // Special handling for Tack Loss (stat ID 79) - should always be negative per count
-        if (scoringRule.statId === '79' || scoringRule.statId === 79) {
-            points = value * -1; // Each tackle for loss is -1 point
-        }
-        
-        if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
-            scoringRule.bonuses.forEach(bonusRule => {
-                const target = parseFloat(bonusRule.bonus.target || 0);
-                const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                
-                if (value >= target && target > 0) {
-                    const bonusesEarned = Math.floor(value / target);
-                    points += bonusesEarned * bonusPoints;
-                }
-            });
-        }
-        
-        return Math.round(points * 100) / 100;
-    });
-
-    const validValues = fantasyValues.filter(v => v !== 0);
-    const total = fantasyValues.reduce((sum, v) => sum + v, 0);
-    
-    return {
-        total,
-        average: validValues.length > 0 ? (total / validValues.length) : 0,
-        median: this.calculateMedian(validValues),
-        min: validValues.length > 0 ? Math.min(...validValues) : 0,
-        max: validValues.length > 0 ? Math.max(...validValues) : 0,
-        gamesPlayed: validValues.length,
-        totalGames: fantasyValues.length
-    };
-}
 
     calculateMedian(values) {
         if (values.length === 0) return 0;
