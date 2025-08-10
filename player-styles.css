@@ -1,4 +1,4 @@
-/* ENHANCED PLAYER STATS PAGE - player-styles.css with narrower table columns - COMPLETE FILE */
+/* ENHANCED PLAYER STATS PAGE - Mobile-First with Sticky Column - COMPLETE FILE */
 
 /* Global Reset and Variables */
 :root {
@@ -151,9 +151,10 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* RESPONSIVE PLAYER CONTROLS */
 .player-controls {
     display: flex;
-    gap: 2rem; /* Consistent spacing between all controls */
+    gap: 2rem;
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
@@ -212,14 +213,6 @@ body {
     white-space: nowrap;
 }
 
-/* Remove any margin/padding that's causing spacing issues */
-.stats-toggle,
-.year-filter,
-.week-filter {
-    margin: 0;
-    padding: 0;
-}
-
 .filter-dropdown {
     padding: 0.75rem 1rem;
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -269,31 +262,6 @@ body {
 
 .filter-dropdown::-ms-expand {
     display: none;
-}
-
-/* Conditional row shading based on average vs median */
-.stat-row.above-median {
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.04)) !important;
-    border-left: 3px solid rgba(16, 185, 129, 0.3);
-}
-
-.stat-row.below-median {
-    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04)) !important;
-    border-left: 3px solid rgba(239, 68, 68, 0.3);
-}
-
-.stat-row.above-median:hover {
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.06)) !important;
-}
-
-.stat-row.below-median:hover {
-    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.06)) !important;
-}
-
-/* Override even row styling when shaded */
-.player-stats-table tbody tr.stat-row.above-median:nth-child(even),
-.player-stats-table tbody tr.stat-row.below-median:nth-child(even) {
-    background: inherit !important;
 }
 
 /* MAIN CONTAINER */
@@ -432,44 +400,6 @@ body {
     font-style: italic;
 }
 
-.yoy-change {
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-left: 0.5rem;
-    padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-    white-space: nowrap;
-}
-
-/* New stats (purple) */
-.yoy-new {
-    color: #7c3aed;
-    background: rgba(139, 92, 246, 0.1);
-    border: 1px solid rgba(139, 92, 246, 0.2);
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-left: 0.5rem;
-    padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-    white-space: nowrap;
-}
-
-/* Good trends (green) */
-.yoy-positive {
-    color: #059669;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-/* Bad trends (red) */
-.yoy-negative {
-    color: #dc2626;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
 /* Color-coded card values */
 .analytics-card.consistency .card-value {
     color: var(--consistency-color);
@@ -548,29 +478,31 @@ body {
     line-height: 1;
 }
 
-/* TABLE SECTION - FIXED COLUMN WIDTHS TO FIT CONTENT EXACTLY */
+/* ENHANCED TABLE SECTION - MOBILE-FIRST WITH STICKY COLUMN */
 .stats-table-container {
     background: white;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-md);
-    overflow-x: auto;
     border: 1px solid var(--gray-200);
-    width: fit-content; /* Changed from 100% to fit-content */
-    max-width: 100%; /* Ensure it doesn't exceed container */
-    margin: 0 auto; /* Center the table */
+    width: 100%;
+    overflow: hidden;
 }
 
 .player-stats-table {
-    width: auto; /* Keep as auto */
+    width: 100%;
     border-collapse: collapse;
     table-layout: auto;
     font-size: 0.9rem;
-    min-width: fit-content;
+    min-width: 100%;
+    position: relative;
 }
 
 .player-stats-table thead {
     background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
     color: white;
+    position: sticky;
+    top: 0;
+    z-index: 3;
 }
 
 .player-stats-table th {
@@ -583,6 +515,7 @@ body {
     vertical-align: middle;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
 }
 
 .player-stats-table th::after {
@@ -601,51 +534,44 @@ body {
     border-bottom: 1px solid var(--gray-100);
     vertical-align: middle;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-/* ALL COLUMNS FIT TO CONTENT - NO FIXED WIDTHS */
-.player-stats-table th,
-.player-stats-table td {
-    padding: 1rem 0.75rem;
-    border: none;
-    border-bottom: 1px solid var(--gray-100);
-    vertical-align: middle;
-    transition: all 0.2s ease;
-    width: auto; /* Let content determine width */
-    white-space: nowrap; /* Prevent text wrapping */
-}
-
-/* Remove all width constraints */
+/* STICKY FIRST COLUMN ON MOBILE */
 .stat-name-col,
 .stat-name {
-    width: auto;
-    min-width: fit-content;
-    max-width: none; /* Removed max-width constraint */
-    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 2;
+    min-width: 120px;
     text-align: left;
-    padding-right: 1rem; /* Spacing from next column */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
+.stat-name-col {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+}
+
+.stat-name {
+    background: white;
+    font-weight: 700;
+    color: var(--gray-800);
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+/* VALUE COLUMNS */
 .stat-value-col {
-    width: auto;
-    min-width: fit-content;
+    min-width: 100px;
     text-align: center;
 }
 
-/* TABLE DATA STYLES - FIT TO CONTENT */
-.stat-name {
-    font-weight: 700;
-    color: var(--gray-800);
-    text-align: left;
-    font-size: 0.85rem;
-    line-height: 1.2;
-    white-space: nowrap;
-    /* Removed overflow and text-overflow to show full text */
-}
-
+/* TABLE DATA STYLES WITH INTELLIGENT COLORING */
 .stat-total,
 .stat-average,
 .stat-median,
+.stat-range,
 .stat-max {
     text-align: center;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
@@ -653,20 +579,11 @@ body {
     font-size: 0.8rem;
     line-height: 1.2;
     white-space: nowrap;
-    /* Removed overflow and text-overflow to show full text */
-}
-.stat-range {
-    text-align: center;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-    font-weight: 600;
-    font-size: 0.8rem;
-    line-height: 1.2;
-    white-space: nowrap;
-    color: var(--gray-700);
 }
 
-/* Enhanced Total column to accommodate YoY data */
 .stat-total {
+    font-weight: 700;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -674,28 +591,36 @@ body {
     gap: 0.25rem;
 }
 
-.stat-average,
-.stat-median {
-    color: var(--accent-blue);
-}
-
-.stat-median {
-    font-weight: 600;
-}
-
-.stat-max {
-    color: var(--warning-orange);
+/* INTELLIGENT STAT COLORING - Applied by JavaScript */
+.stat-positive {
+    color: var(--success-green) !important;
     font-weight: 700;
 }
 
+.stat-negative {
+    color: var(--error-red) !important;
+    font-weight: 700;
+}
+
+.stat-best-game {
+    color: var(--success-green) !important;
+    font-weight: 700;
+}
+
+.stat-range {
+    color: var(--gray-700);
+}
+
+/* REMOVED ROW SHADING - Now using intelligent text coloring */
 .player-stats-table tbody tr {
     transition: all 0.2s ease;
     border: none;
+    background: white;
 }
 
 .player-stats-table tbody tr:hover {
     background: linear-gradient(90deg, rgba(49, 130, 206, 0.05), rgba(49, 130, 206, 0.02));
-    transform: scale(1.005);
+    transform: scale(1.002);
 }
 
 .player-stats-table tbody tr:nth-child(even) {
@@ -708,6 +633,42 @@ body {
 
 .player-stats-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+/* Year-over-Year styling */
+.yoy-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    white-space: nowrap;
+}
+
+.yoy-positive {
+    color: #059669;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.yoy-negative {
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.yoy-new {
+    color: #7c3aed;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    white-space: nowrap;
 }
 
 /* LOADING STATES */
@@ -790,39 +751,7 @@ body {
     font-weight: 700;
 }
 
-/* COMPACT TABLE VARIANT */
-.player-stats-table.compact th {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.7rem;
-}
-
-.player-stats-table.compact td {
-    padding: 0.5rem 0.25rem;
-}
-
-.player-stats-table.compact .stat-name {
-    font-size: 0.85rem;
-}
-
-.player-stats-table.compact .stat-total,
-.player-stats-table.compact .stat-average,
-.player-stats-table.compact .stat-median,
-.player-stats-table.compact .stat-max {
-    font-size: 0.8rem;
-}
-
-/* FANTASY MODE STYLING */
-body.fantasy-mode .analytics-cards {
-    animation: pulse-analytics 0.5s ease-in-out;
-}
-
-@keyframes pulse-analytics {
-    0% { opacity: 0.8; transform: scale(0.98); }
-    50% { opacity: 1; transform: scale(1.01); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-/* RESPONSIVE DESIGN */
+/* RESPONSIVE DESIGN - MOBILE FIRST */
 @media (max-width: 768px) {
     .container {
         padding: 1rem;
@@ -836,10 +765,44 @@ body.fantasy-mode .analytics-cards {
         font-size: 2rem;
     }
 
+    /* RESPONSIVE CONTROLS - Year above toggle on mobile */
     .player-controls {
         flex-direction: column;
         align-items: stretch;
         gap: 1rem;
+    }
+
+    .year-filter {
+        justify-content: center;
+        order: -1; /* Move year filter above stats toggle */
+    }
+
+    .stats-toggle {
+        align-self: center;
+        order: 1;
+    }
+
+    /* MOBILE TABLE - Full width with horizontal scroll */
+    .stats-table-container {
+        width: 100vw;
+        margin-left: calc(-50vw + 50%);
+        border-radius: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .player-stats-table {
+        min-width: 600px;
+    }
+
+    .stat-name-col,
+    .stat-name {
+        min-width: 100px;
+        max-width: 120px;
+    }
+
+    .stat-value-col {
+        min-width: 80px;
     }
 
     .analytics-cards {
@@ -879,42 +842,6 @@ body.fantasy-mode .analytics-cards {
         font-size: 2rem;
     }
 
-    .stats-table-container {
-        overflow-x: auto;
-    }
-
-    .player-stats-table {
-        table-layout: auto;
-        width: auto;
-        min-width: 500px;
-    }
-
-    .stat-name-col {
-        max-width: 150px;
-    }
-
-    .stat-name {
-        font-size: 0.8rem;
-    }
-
-    .stat-total,
-    .stat-average,
-    .stat-median,
-    .stat-max {
-        font-size: 0.75rem;
-    }
-
-.stat-total {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-}
-}
-
-/* Responsive adjustments for YoY display */
-@media (max-width: 768px) {
     .yoy-change,
     .yoy-new {
         font-size: 0.65rem;
@@ -928,11 +855,22 @@ body.fantasy-mode .analytics-cards {
     }
 }
 
-@media (max-width: 480px) {
-    .yoy-change,
-    .yoy-new {
-        font-size: 0.6rem;
-        padding: 0.05rem 0.2rem;
+/* SIDE-BY-SIDE LAYOUT FOR WIDER MOBILE SCREENS */
+@media (min-width: 480px) and (max-width: 768px) {
+    .player-controls {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .year-filter {
+        order: 0;
+        justify-content: flex-start;
+    }
+
+    .stats-toggle {
+        order: 1;
+        align-self: center;
     }
 }
 
@@ -959,17 +897,35 @@ body.fantasy-mode .analytics-cards {
         font-size: 1.75rem;
     }
 
-    .player-stats-table {
-        min-width: 450px;
+    .stats-table-container {
+        margin-left: calc(-50vw + 50%);
+        width: 100vw;
     }
 
-    .stat-name-col {
-        max-width: 120px;
+    .player-stats-table {
+        min-width: 500px;
+    }
+
+    .stat-name-col,
+    .stat-name {
+        min-width: 80px;
+        max-width: 100px;
+    }
+
+    .stat-value-col {
+        min-width: 70px;
     }
 
     .player-stats-table th,
     .player-stats-table td {
-        padding: 0.4rem 0.2rem;
+        padding: 0.4rem 0.3rem;
+        font-size: 0.75rem;
+    }
+
+    .yoy-change,
+    .yoy-new {
+        font-size: 0.6rem;
+        padding: 0.05rem 0.2rem;
     }
 }
 
@@ -979,28 +935,6 @@ body.fantasy-mode .analytics-cards {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
-    }
-}
-
-@media (max-width: 768px) {
-    .stats-table-container {
-        width: 100%;
-        margin: 0;
-    }
-    
-    .player-stats-table {
-        min-width: 600px; /* Increased to accommodate Range column */
-    }
-}
-
-@media (max-width: 480px) {
-    .player-stats-table {
-        min-width: 550px; /* Adjusted for smaller screens */
-    }
-    
-    .player-stats-table th,
-    .player-stats-table td {
-        padding: 0.4rem 0.3rem;
     }
 }
 
@@ -1024,5 +958,13 @@ body.fantasy-mode .analytics-cards {
     .stats-table-container {
         box-shadow: none !important;
         border: 1px solid #000 !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .stat-name-col,
+    .stat-name {
+        position: static !important;
+        box-shadow: none !important;
     }
 }
