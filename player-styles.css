@@ -446,15 +446,17 @@ body {
     box-shadow: var(--shadow-md);
     overflow-x: auto;
     border: 1px solid var(--gray-200);
-    width: 100%;
+    width: fit-content; /* Changed from 100% to fit-content */
+    max-width: 100%; /* Ensure it doesn't exceed container */
+    margin: 0 auto; /* Center the table */
 }
 
 .player-stats-table {
-    width: auto; /* Changed from 100% to auto */
+    width: auto; /* Keep as auto */
     border-collapse: collapse;
-    table-layout: auto; /* Ensures columns size to content */
+    table-layout: auto;
     font-size: 0.9rem;
-    min-width: fit-content; /* Only as wide as needed */
+    min-width: fit-content;
 }
 
 .player-stats-table thead {
