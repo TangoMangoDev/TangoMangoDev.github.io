@@ -490,44 +490,30 @@ function getFilteredPlayers() {
     return filteredPlayers;
 }
 
-// Fantasy points calculation - SIMPLE MULTIPLICATION
+// Replace the positionStats and keyStats objects with:
+const positionStats = window.STATS_CONFIG.POSITION_STATS;
+const keyStats = window.STATS_CONFIG.POSITION_KEY_STATS;
+
+// Update the calculateFantasyPoints function:
 function calculateFantasyPoints(statName, rawStatValue) {
     if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
         return rawStatValue || 0;
     }
     
-    // SAFE: If no scoring rules, just return raw value
     if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
         return rawStatValue || 0;
     }
     
     // Find the stat ID for the given stat name
-    const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-        STAT_ID_MAPPING[id] === statName
+    const statId = Object.keys(window.STATS_CONFIG.STAT_ID_MAPPING).find(id => 
+        window.STATS_CONFIG.STAT_ID_MAPPING[id].name === statName
     );
     
     if (!statId || !currentScoringRules[statId]) {
         return rawStatValue || 0;
     }
     
-    const rule = currentScoringRules[statId];
-    
-    // Base points calculation - THIS WILL BE NEGATIVE FOR NEGATIVE STATS
-    let points = rawStatValue * parseFloat(rule.points || 0);
-    
-    // Add bonus points if applicable (bonuses can also be negative)
-    if (rule.bonuses && Array.isArray(rule.bonuses)) {
-        rule.bonuses.forEach(bonusRule => {
-            const target = parseFloat(bonusRule.bonus.target || 0);
-            const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-            
-            if (rawStatValue >= target) {
-                points += bonusPoints; // This can add negative points too
-            }
-        });
-    }
-    
-    return Math.round(points * 100) / 100;
+    return window.STATS_CONFIG.calculateFantasyPoints(statId, rawStatValue, currentScoringRules[statId]);
 }
 
 // Calculate total fantasy points for a player
