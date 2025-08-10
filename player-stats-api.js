@@ -338,7 +338,7 @@ class PlayerStatsAPI extends StatsAPI {
                 const hasFantasyData = fantasyStats && fantasyStats.total !== 0;
                 const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed;
                 
-                console.log(`🔍 FILTERING ${statName}:`, {
+                //console.log(`🔍 FILTERING ${statName}:`, {
                     isPositionRelevant,
                     hasRawData,
                     hasFantasyData,
