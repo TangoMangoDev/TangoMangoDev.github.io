@@ -1,4 +1,4 @@
-// player.js - ENHANCED with Year-over-Year tracking display
+// player.js - FIXED Year-over-Year color logic and stat categorization
 class PlayerDetailPage {
     constructor() {
         this.playerId = null;
@@ -11,7 +11,38 @@ class PlayerDetailPage {
         this.currentAnalytics = null;
         this.scoringRules = {};
         this.isLoading = false;
+        
+        // NEW: Define which stats are "negative" (worse when they increase)
+        this.negativeStats = new Set([
+            'Int',           // Interceptions
+            'Sack',          // Sacks (for QB)
+            'Fum',           // Fumbles
+            'Fum Lost',      // Fumbles Lost
+            'Inc',           // Incompletions
+            'FGM 0-19',      // Field Goal Misses
+            'FGM 20-29',
+            'FGM 30-39', 
+            'FGM 40-49',
+            'FGM 50+',
+            'PAT Miss',      // PAT Misses
+            'FG Miss',       // Generic FG Miss
+            'Pts Allow',     // Points Allowed (Defense)
+            'Pts Allow 1-6', // Points Allowed ranges
+            'Pts Allow 7-13',
+            'Pts Allow 14-20',
+            'Pts Allow 21-27',
+            'Pts Allow 28-34',
+            'Pts Allow 35+',
+            'Def Yds Allow', // Defense Yards Allowed
+            'Yds Allow 100-199',
+            'Yds Allow 200-299',
+            'Yds Allow 300-399',
+            'Yds Allow 400-499',
+            'Yds Allow 500+'
+        ]);
     }
+
+    // ... [All existing methods remain the same until formatYearOverYearDisplay] ...
 
     async init() {
         console.log('🚀 Initializing Player Detail Page...');
@@ -171,8 +202,8 @@ class PlayerDetailPage {
         }
     }
 
-    // NEW: Format Year-over-Year display
-    formatYearOverYearDisplay(yoyData) {
+    // FIXED: Intelligent Year-over-Year display with proper color logic
+    formatYearOverYearDisplay(yoyData, statName) {
         if (!yoyData) return '';
         
         if (yoyData.isNew) {
@@ -183,7 +214,24 @@ class PlayerDetailPage {
         
         const percentage = yoyData.percentage;
         const sign = percentage >= 0 ? '+' : '';
-        const colorClass = percentage >= 0 ? 'yoy-positive' : 'yoy-negative';
+        
+        // INTELLIGENT COLOR LOGIC
+        let colorClass;
+        const isNegativeStat = this.negativeStats.has(statName);
+        
+        console.log(`🎨 COLOR LOGIC for ${statName}: percentage=${percentage}%, isNegativeStat=${isNegativeStat}`);
+        
+        if (isNegativeStat) {
+            // For negative stats (fumbles, INTs, etc.):
+            // Increase = bad (red), Decrease = good (green)
+            colorClass = percentage >= 0 ? 'yoy-negative' : 'yoy-positive';
+            console.log(`🔴 NEGATIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
+        } else {
+            // For positive stats (yards, TDs, etc.):
+            // Increase = good (green), Decrease = bad (red)
+            colorClass = percentage >= 0 ? 'yoy-positive' : 'yoy-negative';
+            console.log(`🟢 POSITIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
+        }
         
         return `<span class="yoy-change ${colorClass}">(${sign}${percentage}%)</span>`;
     }
@@ -316,9 +364,9 @@ class PlayerDetailPage {
                                 }
                             }
 
-                            // NEW: Year-over-Year display
+                            // FIXED: Year-over-Year display with intelligent color logic
                             const yoyDisplay = showYearOverYear && yearOverYear[statId] ? 
-                                this.formatYearOverYearDisplay(yearOverYear[statId]) : '';
+                                this.formatYearOverYearDisplay(yearOverYear[statId], statData.statName) : '';
                             
                             return `
                                 <tr class="${rowClass}">
