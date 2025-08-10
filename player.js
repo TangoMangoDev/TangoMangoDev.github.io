@@ -258,10 +258,10 @@ const tableHTML = `
                 <tr>
                     <th class="stat-name-col">Statistic</th>
                     <th class="stat-value-col">Total</th>
-                    <th class="stat-value-col">Average</th>
-                    <th class="stat-value-col">Median</th>
-                    <th class="stat-value-col">Range</th>
-                    <th class="stat-value-col">Best</th>
+                    <th class="stat-value-col">AVG. PPG</th>
+                    <th class="stat-value-col">Season Mid</th>
+                    <th class="stat-value-col">Spread</th>
+                    <th class="stat-value-col">Best Game</th>
                 </tr>
             </thead>
             <tbody>
