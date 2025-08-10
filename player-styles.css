@@ -874,6 +874,28 @@ body.fantasy-mode .analytics-cards {
     }
 }
 
+@media (max-width: 768px) {
+    .stats-table-container {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .player-stats-table {
+        min-width: 600px; /* Increased to accommodate Range column */
+    }
+}
+
+@media (max-width: 480px) {
+    .player-stats-table {
+        min-width: 550px; /* Adjusted for smaller screens */
+    }
+    
+    .player-stats-table th,
+    .player-stats-table td {
+        padding: 0.4rem 0.3rem;
+    }
+}
+
 /* PRINT STYLES */
 @media print {
     .header {
