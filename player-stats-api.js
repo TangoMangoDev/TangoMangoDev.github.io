@@ -1,4 +1,4 @@
-// player-stats-api.js - FIXED with complete week checking and fetching + ENHANCED with Advanced Fantasy Analytics
+// player-stats-api.js - ENHANCED with zero filtering and improved data handling
 class PlayerStatsAPI extends StatsAPI {
     constructor() {
         super();
@@ -7,7 +7,7 @@ class PlayerStatsAPI extends StatsAPI {
         this.allWeeks = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
     }
 
-    // FIXED: Ensure IndexedDB is properly initialized
+    // EXISTING METHODS REMAIN THE SAME...
     async ensureInitialized() {
         if (!this.cache.db) {
             console.log('🔄 Initializing IndexedDB for player stats...');
@@ -16,7 +16,6 @@ class PlayerStatsAPI extends StatsAPI {
         return this.cache.db;
     }
 
-    // Main method to get ALL data for a specific player across years/weeks
     async getPlayerCompleteStats(playerId) {
         console.log(`🎯 Getting complete stats for player: ${playerId}`);
         
@@ -30,8 +29,7 @@ class PlayerStatsAPI extends StatsAPI {
                 lastUpdated: new Date().toISOString()
             };
 
-            // Get data for all available years
-            const availableYears = ['2024', '2023']; // Add more years as needed
+            const availableYears = ['2024', '2023'];
             
             for (const year of availableYears) {
                 console.log(`📊 Processing year ${year} for player ${playerId}`);
@@ -40,7 +38,6 @@ class PlayerStatsAPI extends StatsAPI {
                 if (yearData && Object.keys(yearData.weeks).length > 0) {
                     allPlayerData.years[year] = yearData;
                     
-                    // Set player metadata from most recent year
                     if (!allPlayerData.position && yearData.position) {
                         allPlayerData.position = yearData.position;
                         allPlayerData.team = yearData.team;
@@ -58,32 +55,26 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // FIXED: Get all stats for a player in a specific year - CHECK ALL 18 WEEKS
     async getPlayerStatsForYear(playerId, year) {
         try {
             console.log(`📊 Getting player ${playerId} stats for year ${year}`);
             
-            // First, check what we have in IndexedDB
             const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
             const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
             
             console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
             
-            // Determine missing weeks (we need ALL 18 weeks + total)
             const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
             
             console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
             
-            // If we have missing weeks, fetch them from backend
             if (missingWeeks.length > 0) {
                 console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
                 const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
                 
                 if (missingData) {
-                    // Merge missing data with existing data
                     await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                     
-                    // Get updated data from IndexedDB
                     const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                     if (updatedData) {
                         console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
@@ -92,7 +83,6 @@ class PlayerStatsAPI extends StatsAPI {
                 }
             }
             
-            // Return cached data (if any)
             if (cachedData) {
                 console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
                 return cachedData;
@@ -107,7 +97,6 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Fetch missing weeks from backend
     async fetchMissingWeeksFromBackend(playerId, year, missingWeeks) {
         try {
             const params = new URLSearchParams({
@@ -151,31 +140,28 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Store missing weeks data in IndexedDB (merge with existing)
+    // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
     async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
         try {
             await this.ensureInitialized();
             
             const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
             
-            // Get existing record or create new one
             const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
             
             let playerRecord;
             
             if (existingRecord) {
-                // Merge with existing record
                 playerRecord = {
                     ...existingRecord,
                     weeklyStats: {
                         ...existingRecord.weeklyStats,
-                        ...weeklyStats
+                        ...weeklyStats  // Store ALL weeks including 0:0 games
                     },
                     timestamp: new Date().toISOString()
                 };
                 console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
             } else {
-                // Create new record
                 playerRecord = {
                     playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
                     year: parseInt(year),
@@ -186,7 +172,7 @@ class PlayerStatsAPI extends StatsAPI {
                     rank: rank || 999999,
                     yearPosition: `${year}_${position}`,
                     yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
-                    weeklyStats,
+                    weeklyStats,  // Store ALL weeks including 0:0 games
                     timestamp: new Date().toISOString()
                 };
                 console.log(`🆕 Creating new record for player ${playerId}`);
@@ -209,7 +195,6 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // NEW: Get specific player record from IndexedDB
     async getPlayerRecordFromIndexedDB(playerId, year) {
         try {
             await this.ensureInitialized();
@@ -247,7 +232,7 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // EXISTING: Get player data from IndexedDB
+    // ENHANCED: Get player data but mark ALL weeks as existing (even 0:0 games) to prevent re-fetching
     async getPlayerFromIndexedDB(playerId, year) {
         try {
             await this.ensureInitialized();
@@ -264,7 +249,8 @@ class PlayerStatsAPI extends StatsAPI {
                     position: null,
                     team: null,
                     weeks: {},
-                    rank: null
+                    rank: null,
+                    allWeeksStored: [] // Track ALL weeks we've stored (including 0:0)
                 };
 
                 const cursorRequest = yearIndex.openCursor(IDBKeyRange.only(parseInt(year)));
@@ -281,7 +267,6 @@ class PlayerStatsAPI extends StatsAPI {
                                 playerData.position = record.position;
                                 playerData.team = record.team;
                                 
-                                // EXTRACT RANK from yearRank field (format: "2024_000001")
                                 if (record.yearRank) {
                                     const rankPart = record.yearRank.split('_')[1];
                                     playerData.rank = parseInt(rankPart);
@@ -290,8 +275,13 @@ class PlayerStatsAPI extends StatsAPI {
                             
                             if (record.weeklyStats) {
                                 Object.entries(record.weeklyStats).forEach(([week, stats]) => {
-                                    // EXCLUDE "total" week from calculations
-                                    if (week !== 'total' && stats && this.hasNonZeroStats(stats)) {
+                                    // Track ALL weeks we have stored
+                                    if (week !== 'total') {
+                                        playerData.allWeeksStored.push(week);
+                                    }
+                                    
+                                    // Only include weeks with actual gameplay in calculations (exclude 0:0 games)
+                                    if (week !== 'total' && stats && this.hasGameplay(stats)) {
                                         playerData.weeks[week] = {
                                             week: parseInt(week),
                                             stats,
@@ -305,10 +295,20 @@ class PlayerStatsAPI extends StatsAPI {
                         cursor.continue();
                     } else {
                         const weeksFound = Object.keys(playerData.weeks).length;
-                        console.log(`📊 IndexedDB: Found ${weeksFound} weeks for player ${playerId} year ${year}`);
+                        const allWeeksStored = playerData.allWeeksStored.length;
+                        console.log(`📊 IndexedDB: Found ${weeksFound} gameplay weeks, ${allWeeksStored} total weeks stored for player ${playerId} year ${year}`);
                         
-                        if (weeksFound > 0) {
-                            resolve(playerData);
+                        // Return the stored weeks count for missing week calculation
+                        if (allWeeksStored > 0) {
+                            // Override the weeks property to return stored weeks for missing calculation
+                            const result = { ...playerData };
+                            result.weeks = {};
+                            playerData.allWeeksStored.forEach(week => {
+                                result.weeks[week] = true; // Mark as existing to prevent re-fetch
+                            });
+                            // But keep the actual gameplay weeks in a separate property
+                            result.gameplayWeeks = playerData.weeks;
+                            resolve(result);
                         } else {
                             resolve(null);
                         }
@@ -324,13 +324,20 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // Check if stats object has any non-zero values
+    // NEW: Check if stats represent actual gameplay (not a 0:0 game)
+    hasGameplay(stats) {
+        if (!stats || typeof stats !== 'object') return false;
+        // If games played (stat ID 0) is 0, this is not a gameplay week
+        return stats['0'] && stats['0'] > 0;
+    }
+
+    // EXISTING: Check if stats object has any non-zero values
     hasNonZeroStats(stats) {
         if (!stats || typeof stats !== 'object') return false;
         return Object.values(stats).some(value => value && value !== 0);
     }
 
-    // ENHANCED: Calculate Player Analytics with Advanced Fantasy Metrics
+    // ENHANCED: Calculate Player Analytics with zero filtering
     calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
         console.log(`🧮 Calculating analytics for player data:`, playerData);
         
@@ -351,11 +358,10 @@ class PlayerStatsAPI extends StatsAPI {
                 totalWeeks: 0,
                 yearsPlayed: Object.keys(playerData.years).length
             },
-            // NEW: Advanced Analytics
             advancedAnalytics: null
         };
 
-        // Collect all relevant game data based on filters
+        // Use gameplayWeeks if available, otherwise use weeks
         const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
         analytics.summary.totalGames = gameData.length;
         analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
@@ -365,7 +371,7 @@ class PlayerStatsAPI extends StatsAPI {
             return analytics;
         }
 
-        // NEW: Calculate advanced analytics if in fantasy mode
+        // Calculate advanced analytics if in fantasy mode
         if (showFantasyStats && Object.keys(scoringRules).length > 0) {
             const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
             if (fantasyPoints.length > 0) {
@@ -381,7 +387,7 @@ class PlayerStatsAPI extends StatsAPI {
             Object.keys(game.stats).forEach(statId => allStatIds.add(statId));
         });
 
-        // Calculate analytics for each stat
+        // ENHANCED: Calculate analytics for each stat and filter out zero stats
         allStatIds.forEach(statId => {
             const statValues = gameData
                 .map(game => game.stats[statId] || 0)
@@ -389,22 +395,64 @@ class PlayerStatsAPI extends StatsAPI {
 
             if (statValues.length > 0) {
                 const statName = this.getStatName(statId);
-                
-                analytics.stats[statId] = {
-                    statId,
-                    statName,
-                    rawStats: this.calculateStatMetrics(statValues),
-                    fantasyStats: showFantasyStats && scoringRules[statId] ? 
-                        this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null
-                };
+                const rawStats = this.calculateStatMetrics(statValues);
+                const fantasyStats = showFantasyStats && scoringRules[statId] ? 
+                    this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null;
+
+                // ONLY include stats that have non-zero totals
+                if (rawStats.total > 0 || (fantasyStats && fantasyStats.total > 0)) {
+                    analytics.stats[statId] = {
+                        statId,
+                        statName,
+                        rawStats,
+                        fantasyStats
+                    };
+                }
             }
         });
 
-        console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats`);
+        console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} non-zero stats`);
         return analytics;
     }
 
-    // NEW: Calculate Fantasy Points for Each Game
+    // ENHANCED: Collect game data using gameplayWeeks when available
+    collectGameData(playerData, selectedYear, selectedWeek) {
+        const gameData = [];
+        
+        const yearsToProcess = selectedYear === 'ALL' ? 
+            Object.keys(playerData.years) : [selectedYear];
+
+        yearsToProcess.forEach(year => {
+            const yearData = playerData.years[year];
+            if (!yearData) return;
+
+            // Use gameplayWeeks if available (filtered weeks), otherwise use weeks
+            const weeksData = yearData.gameplayWeeks || yearData.weeks;
+            const weeksToProcess = selectedWeek === 'ALL' ? 
+                Object.keys(weeksData) : [selectedWeek];
+
+            weeksToProcess.forEach(week => {
+                const weekData = weeksData[week];
+                if (weekData && weekData.stats && this.hasGameplay(weekData.stats)) {
+                    gameData.push({
+                        year: parseInt(year),
+                        week,
+                        stats: weekData.stats,
+                        timestamp: weekData.timestamp
+                    });
+                }
+            });
+        });
+
+        return gameData.sort((a, b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            if (a.week === 'total') return -1;
+            if (b.week === 'total') return 1;
+            return parseInt(b.week) - parseInt(a.week);
+        });
+    }
+
+    // ALL OTHER METHODS REMAIN THE SAME...
     calculateFantasyPointsForGames(gameData, scoringRules) {
         return gameData.map(game => {
             let totalPoints = 0;
@@ -414,7 +462,6 @@ class PlayerStatsAPI extends StatsAPI {
                     const rule = scoringRules[statId];
                     let points = value * parseFloat(rule.points || 0);
                     
-                    // Add bonus points
                     if (rule.bonuses && Array.isArray(rule.bonuses)) {
                         rule.bonuses.forEach(bonusRule => {
                             const target = parseFloat(bonusRule.bonus.target || 0);
@@ -435,7 +482,6 @@ class PlayerStatsAPI extends StatsAPI {
         });
     }
 
-    // NEW: Calculate Advanced Analytics
     calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
         if (fantasyPoints.length === 0) return {};
 
@@ -444,18 +490,13 @@ class PlayerStatsAPI extends StatsAPI {
         const median = this.calculateMedian(validPoints);
         const standardDev = this.calculateStandardDeviation(validPoints, mean);
         
-        // 1. Consistency Score: (Median ÷ Mean) × 100
         const consistencyScore = mean > 0 ? Math.round((median / mean) * 100) : 0;
-        
-        // 2. Volatility Index: Standard Deviation ÷ Mean
         const volatilityIndex = mean > 0 ? Math.round((standardDev / mean) * 100) / 100 : 0;
         
-        // 3. Boom Rate: % of games > 120% of average
         const boomThreshold = mean * 1.2;
         const boomGames = fantasyPoints.filter(p => p > boomThreshold).length;
         const boomRate = Math.round((boomGames / fantasyPoints.length) * 100);
         
-        // 4. Bust Rate: Position-specific low scores
         const bustThresholds = {
             'QB': 12, 'RB': 8, 'WR': 8, 'TE': 6, 'K': 4, 'DST': 5
         };
@@ -463,15 +504,11 @@ class PlayerStatsAPI extends StatsAPI {
         const bustGames = fantasyPoints.filter(p => p < bustThreshold).length;
         const bustRate = Math.round((bustGames / fantasyPoints.length) * 100);
         
-        // 5. TD Dependency: (6 × Total TDs ÷ Total Fantasy Points) × 100
         const tdDependency = this.calculateTdDependency(gameData, scoringRules, fantasyPoints);
-        
-        // 6. Opportunity Efficiency & First Down Rate
         const { opportunityEfficiency, firstDownRate } = this.calculateOpportunityMetrics(
             gameData, fantasyPoints, position
         );
         
-        // 7. Floor/Ceiling: 10th percentile / 90th percentile
         const sortedPoints = [...validPoints].sort((a, b) => a - b);
         const floor = this.calculatePercentile(sortedPoints, 10);
         const ceiling = this.calculatePercentile(sortedPoints, 90);
@@ -491,14 +528,12 @@ class PlayerStatsAPI extends StatsAPI {
         };
     }
 
-    // NEW: Calculate TD Dependency
     calculateTdDependency(gameData, scoringRules, fantasyPoints) {
         let totalTDs = 0;
         const totalFantasyPoints = fantasyPoints.reduce((sum, p) => sum + p, 0);
         
         gameData.forEach(game => {
-            // Count all types of TDs (stat IDs: 5=Pass TD, 10=Rush TD, 13=Rec TD, etc.)
-            const tdStatIds = ['5', '10', '13', '15', '16', '30']; // Various TD types
+            const tdStatIds = ['5', '10', '13', '15', '16', '30'];
             tdStatIds.forEach(statId => {
                 if (game.stats[statId]) {
                     totalTDs += game.stats[statId];
@@ -507,29 +542,27 @@ class PlayerStatsAPI extends StatsAPI {
         });
         
         if (totalFantasyPoints === 0) return 0;
-        const tdPoints = totalTDs * 6; // Standard 6 points per TD
+        const tdPoints = totalTDs * 6;
         return Math.round((tdPoints / totalFantasyPoints) * 100);
     }
 
-    // NEW: Calculate Opportunity Metrics
     calculateOpportunityMetrics(gameData, fantasyPoints, position) {
         let totalOpportunities = 0;
         let totalFirstDowns = 0;
         let totalTouches = 0;
         
         gameData.forEach(game => {
-            // Calculate opportunities based on position
             let gameOpportunities = 0;
             let gameFirstDowns = 0;
             let gameTouches = 0;
             
             if (position === 'QB') {
-                gameOpportunities = (game.stats['1'] || 0) + (game.stats['8'] || 0); // Pass Att + Rush Att
+                gameOpportunities = (game.stats['1'] || 0) + (game.stats['8'] || 0);
                 gameTouches = gameOpportunities;
             } else if (['RB', 'WR', 'TE'].includes(position)) {
-                gameOpportunities = (game.stats['8'] || 0) + (game.stats['11'] || 0); // Rush Att + Receptions
+                gameOpportunities = (game.stats['8'] || 0) + (game.stats['11'] || 0);
                 gameTouches = gameOpportunities;
-                gameFirstDowns = (game.stats['80'] || 0) + (game.stats['81'] || 0); // Rec + Rush 1st Downs
+                gameFirstDowns = (game.stats['80'] || 0) + (game.stats['81'] || 0);
             }
             
             totalOpportunities += gameOpportunities;
@@ -546,7 +579,6 @@ class PlayerStatsAPI extends StatsAPI {
         return { opportunityEfficiency, firstDownRate };
     }
 
-    // NEW: Helper Functions
     calculateStandardDeviation(values, mean) {
         if (values.length === 0) return 0;
         const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
@@ -565,42 +597,6 @@ class PlayerStatsAPI extends StatsAPI {
         return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
     }
 
-    // Collect game data based on year/week filters
-    collectGameData(playerData, selectedYear, selectedWeek) {
-        const gameData = [];
-        
-        const yearsToProcess = selectedYear === 'ALL' ? 
-            Object.keys(playerData.years) : [selectedYear];
-
-        yearsToProcess.forEach(year => {
-            const yearData = playerData.years[year];
-            if (!yearData) return;
-
-            const weeksToProcess = selectedWeek === 'ALL' ? 
-                Object.keys(yearData.weeks) : [selectedWeek];
-
-            weeksToProcess.forEach(week => {
-                const weekData = yearData.weeks[week];
-                if (weekData && weekData.stats && this.hasNonZeroStats(weekData.stats)) {
-                    gameData.push({
-                        year: parseInt(year),
-                        week,
-                        stats: weekData.stats,
-                        timestamp: weekData.timestamp
-                    });
-                }
-            });
-        });
-
-        return gameData.sort((a, b) => {
-            if (a.year !== b.year) return b.year - a.year; // Most recent year first
-            if (a.week === 'total') return -1; // Season totals first
-            if (b.week === 'total') return 1;
-            return parseInt(b.week) - parseInt(a.week); // Most recent week first
-        });
-    }
-
-    // Calculate raw stat metrics (median, average, total, min, max)
     calculateStatMetrics(values) {
         const validValues = values.filter(v => v !== 0);
         const total = values.reduce((sum, v) => sum + v, 0);
@@ -616,12 +612,10 @@ class PlayerStatsAPI extends StatsAPI {
         };
     }
 
-    // Calculate fantasy stat metrics
     calculateFantasyStatMetrics(values, scoringRule) {
         const fantasyValues = values.map(value => {
             let points = value * parseFloat(scoringRule.points || 0);
             
-            // Add bonus points
             if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
                 scoringRule.bonuses.forEach(bonusRule => {
                     const target = parseFloat(bonusRule.bonus.target || 0);
@@ -651,7 +645,6 @@ class PlayerStatsAPI extends StatsAPI {
         };
     }
 
-    // Calculate median value
     calculateMedian(values) {
         if (values.length === 0) return 0;
         
@@ -663,11 +656,9 @@ class PlayerStatsAPI extends StatsAPI {
             sorted[mid];
     }
 
-    // Get readable stat name from stat ID
     getStatName(statId) {
         return window.STAT_ID_MAPPING ? window.STAT_ID_MAPPING[statId] : `Stat ${statId}`;
     }
 }
 
-// Create global instance
 window.playerStatsAPI = new PlayerStatsAPI();
