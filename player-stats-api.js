@@ -383,4 +383,3 @@ document.addEventListener('DOMContentLoaded', async () => {
    const playerPage = new PlayerDetailPage();
    await playerPage.init();
 });
-window.playerStatsAPI = new PlayerStatsAPI();
