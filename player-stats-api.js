@@ -388,28 +388,45 @@ class PlayerStatsAPI extends StatsAPI {
         });
 
         // ENHANCED: Calculate analytics for each stat and filter out zero stats
-        allStatIds.forEach(statId => {
-            const statValues = gameData
-                .map(game => game.stats[statId] || 0)
-                .filter(value => value !== null && value !== undefined);
+allStatIds.forEach(statId => {
+    const statValues = gameData
+        .map(game => game.stats[statId] || 0)
+        .filter(value => value !== null && value !== undefined);
 
-            if (statValues.length > 0) {
-                const statName = this.getStatName(statId);
-                const rawStats = this.calculateStatMetrics(statValues);
-                const fantasyStats = showFantasyStats && scoringRules[statId] ? 
-                    this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null;
+    if (statValues.length > 0) {
+        const statName = this.getStatName(statId);
+        const rawStats = this.calculateStatMetrics(statValues);
+        const fantasyStats = showFantasyStats && scoringRules[statId] ? 
+            this.calculateFantasyStatMetrics(statValues, scoringRules[statId]) : null;
 
-                // ONLY include stats that have non-zero totals
-                if (rawStats.total > 0 || (fantasyStats && fantasyStats.total > 0)) {
-                    analytics.stats[statId] = {
-                        statId,
-                        statName,
-                        rawStats,
-                        fantasyStats
-                    };
-                }
+        // STRICTER FILTERING: Only include stats that have MEANINGFUL non-zero totals
+        const hasRawData = rawStats.total > 0;
+        const hasFantasyData = fantasyStats && fantasyStats.total > 0;
+        
+        // Only show if we have actual data in the current mode
+        if (showFantasyStats) {
+            // In fantasy mode, only show if fantasy stats exist and are > 0
+            if (hasFantasyData) {
+                analytics.stats[statId] = {
+                    statId,
+                    statName,
+                    rawStats,
+                    fantasyStats
+                };
             }
-        });
+        } else {
+            // In raw mode, only show if raw stats exist and are > 0
+            if (hasRawData) {
+                analytics.stats[statId] = {
+                    statId,
+                    statName,
+                    rawStats,
+                    fantasyStats
+                };
+            }
+        }
+    }
+});
 
         console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} non-zero stats`);
         return analytics;
