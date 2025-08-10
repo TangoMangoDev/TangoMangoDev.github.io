@@ -46,37 +46,6 @@ window.convertStatsForDisplay = function(rawStats) {
     
     return displayStats;
 };
-
-// Position stat mappings - UPDATED TO MATCH YOUR STAT NAMES
-const positionStats = {
-    "QB": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack", "Rush Att", "Rush Yds", "Rush TD", "Fum", "Fum Lost", "Off Fum Ret TD", "2-PT"],
-    "RB": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rush 1st Downs"],
-    "WR": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rec 1st Downs"],
-    "TE": ["Rush Att", "Rush Yds", "Rush TD", "Rec", "Rec Yds", "Rec TD", "Ret Yds", "Ret TD", "Off Fum Ret TD", "2-PT", "Fum", "Fum Lost", "Rec 1st Downs"],
-    "K": ["FG", "FGM"],
-    "DST": ["Pts Allow", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD"],
-    "LB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Tack Loss"],
-    "CB": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "S": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
-    "DE": ["Ret Yds", "Ret TD", "Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Tack Loss"],
-    "DT": ["Tack Solo", "Tack Ast", "Tack Total", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick", "Ret Yds", "Ret TD", "Tack Loss"]
-};
-
-// Key stats for card view
-const keyStats = {
-    "QB": ["Pass Yds", "Pass TD", "Int", "Rush Yds"],
-    "RB": ["Rush Yds", "Rush TD", "Rec", "Rec Yds"],
-    "WR": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
-    "TE": ["Rec", "Rec Yds", "Rec TD", "Rush Yds"],
-    "K": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49"],
-    "DST": ["Pts Allow 0", "Sack", "Int", "Def TD"],
-    "LB": ["Tack Solo", "Sack", "Int", "Fum Force"],
-    "CB": ["Tack Solo", "Pass Def", "Int", "Def TD"],
-    "S": ["Tack Solo", "Pass Def", "Int", "Def TD"],
-    "DE": ["Tack Solo", "Sack", "Fum Force", "Def TD"],
-    "DT": ["Tack Solo", "Sack", "Fum Force", "Def TD"]
-};
-
 // Backend API functions
 async function loadUserLeagues() {
     try {
