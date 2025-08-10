@@ -73,7 +73,7 @@ class PlayerStatsAPI extends StatsAPI {
                 const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
                 
                 if (missingData) {
-                    await this.(missingData, existingWeeks);
+await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                     
                     const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                     if (updatedData) {
