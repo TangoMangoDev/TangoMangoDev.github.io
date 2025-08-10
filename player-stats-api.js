@@ -726,52 +726,51 @@ calculateFantasyPointsForGames(gameData, scoringRules) {
     });
 }
 
-   calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
-       if (fantasyPoints.length === 0) return {};
+ calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
+    if (fantasyPoints.length === 0) return {};
 
-       const validPoints = fantasyPoints.filter(p => p > 0);
-       const mean = validPoints.reduce((sum, p) => sum + p, 0) / validPoints.length;
-       const median = this.calculateMedian(validPoints);
-       const standardDev = this.calculateStandardDeviation(validPoints, mean);
-       
-       const consistencyScore = mean > 0 ? Math.round((median / mean) * 100) : 0;
-       const volatilityIndex = mean > 0 ? Math.round((standardDev / mean) * 100) / 100 : 0;
-       
-       const boomThreshold = mean * 1.2;
-       const boomGames = fantasyPoints.filter(p => p > boomThreshold).length;
-       const boomRate = Math.round((boomGames / fantasyPoints.length) * 100);
-       
-       const bustThresholds = {
-           'QB': 12, 'RB': 8, 'WR': 8, 'TE': 6, 'K': 4, 'DST': 5
-       };
-       const bustThreshold = bustThresholds[position] || 8;
-       const bustGames = fantasyPoints.filter(p => p < bustThreshold).length;
-       const bustRate = Math.round((bustGames / fantasyPoints.length) * 100);
-       
-       const tdDependency = this.calculateTdDependency(gameData, scoringRules, fantasyPoints);
-       const { opportunityEfficiency, firstDownRate } = this.calculateOpportunityMetrics(
-           gameData, fantasyPoints, position
-       );
-       
-       const sortedPoints = [...validPoints].sort((a, b) => a - b);
-       const floor = this.calculatePercentile(sortedPoints, 10);
-       const ceiling = this.calculatePercentile(sortedPoints, 90);
+    const validPoints = fantasyPoints.filter(p => p > 0);
+    const mean = validPoints.reduce((sum, p) => sum + p, 0) / validPoints.length;
+    const median = this.calculateMedian(validPoints);
+    const standardDev = this.calculateStandardDeviation(validPoints, mean);
+    
+    const consistencyScore = mean > 0 ? Math.round((median / mean) * 100) : 0;
+    const volatilityIndex = mean > 0 ? Math.round((standardDev / mean) * 100) / 100 : 0;
+    
+    const boomThreshold = mean * 1.2;
+    const boomGames = fantasyPoints.filter(p => p > boomThreshold).length;
+    const boomRate = Math.round((boomGames / fantasyPoints.length) * 100);
+    
+    const bustThresholds = {
+        'QB': 12, 'RB': 8, 'WR': 8, 'TE': 6, 'K': 4, 'DST': 5
+    };
+    const bustThreshold = bustThresholds[position] || 8;
+    const bustGames = fantasyPoints.filter(p => p < bustThreshold).length;
+    const bustRate = Math.round((bustGames / fantasyPoints.length) * 100);
+    
+    const tdDependency = this.calculateTdDependency(gameData, scoringRules, fantasyPoints);
+    const { opportunityEfficiency, firstDownRate } = this.calculateOpportunityMetrics(
+        gameData, fantasyPoints, position
+    );
+    
+    const sortedPoints = [...validPoints].sort((a, b) => a - b);
+    const floor = this.calculatePercentile(sortedPoints, 10);
+    const ceiling = this.calculatePercentile(sortedPoints, 90);
 
-       return {
-           consistencyScore,
-           volatilityIndex,
-           boomRate,
-           bustRate,
-           tdDependency,
-           opportunityEfficiency,
-           firstDownRate,
-           floorCeiling: { floor: Math.round(floor * 10) / 10, ceiling: Math.round(ceiling * 10) / 10 },
-           mean: Math.round(mean * 10) / 10,
-           median: Math.round(median * 10) / 10,
-           standardDev: Math.round(standardDev * 10) / 10
-       };
-   }
-
+    return {
+        consistencyScore,
+        volatilityIndex,
+        boomRate,
+        bustRate,
+        tdDependency,
+        opportunityEfficiency,
+        firstDownRate,
+        floorCeiling: { floor: Math.round(floor * 10) / 10, ceiling: Math.round(ceiling * 10) / 10 },
+        mean: Math.round(mean * 10) / 10,
+        median: Math.round(median * 10) / 10,
+        standardDev: Math.round(standardDev * 10) / 10
+    };
+}
    calculateTdDependency(gameData, scoringRules, fantasyPoints) {
        let totalTDs = 0;
        const totalFantasyPoints = fantasyPoints.reduce((sum, p) => sum + p, 0);
