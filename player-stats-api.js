@@ -388,6 +388,7 @@ class PlayerStatsAPI extends StatsAPI {
         });
 
         // ENHANCED: Calculate analytics for each stat and filter out zero stats
+// ENHANCED: Calculate analytics for each stat and filter out zero stats MORE STRICTLY
 allStatIds.forEach(statId => {
     const statValues = gameData
         .map(game => game.stats[statId] || 0)
