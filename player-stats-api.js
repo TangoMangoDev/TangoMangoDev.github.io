@@ -73,7 +73,7 @@ class PlayerStatsAPI extends StatsAPI {
                 const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
                 
                 if (missingData) {
-                    await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
+                    await this.(missingData, existingWeeks);
                     
                     const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                     if (updatedData) {
@@ -141,59 +141,66 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
-    async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
-        try {
-            await this.ensureInitialized();
-            
-            const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
-            
-            const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
-            
-            let playerRecord;
-            
-            if (existingRecord) {
-                playerRecord = {
-                    ...existingRecord,
-                    weeklyStats: {
-                        ...existingRecord.weeklyStats,
-                        ...weeklyStats  // Store ALL weeks including 0:0 games
-                    },
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
-            } else {
-                playerRecord = {
-                    playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
-                    year: parseInt(year),
-                    playerId,
-                    name,
-                    position,
-                    team,
-                    rank: rank || 999999,
-                    yearPosition: `${year}_${position}`,
-                    yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
-                    weeklyStats,  // Store ALL weeks including 0:0 games
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🆕 Creating new record for player ${playerId}`);
-            }
-
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
-            const store = transaction.objectStore(this.cache.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(playerRecord);
-                request.onsuccess = () => {
-                    console.log(`✅ Stored/updated player ${playerId} with missing weeks in IndexedDB`);
-                    resolve();
-                };
-                request.onerror = () => reject(request.error);
-            });
-            
-        } catch (error) {
-            console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
+   // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
+async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
+    try {
+        await this.ensureInitialized();
+        
+        const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
+        
+        const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
+        
+        let playerRecord;
+        
+        if (existingRecord) {
+            playerRecord = {
+                ...existingRecord,
+                weeklyStats: {
+                    ...existingRecord.weeklyStats,
+                    ...weeklyStats  // Store ALL weeks including 0:0 games
+                },
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
+        } else {
+            playerRecord = {
+                playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
+                year: parseInt(year),
+                playerId,
+                name,
+                position,
+                team,
+                rank: rank || 999999,
+                yearPosition: `${year}_${position}`,
+                yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
+                weeklyStats,  // Store ALL weeks including 0:0 games
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🆕 Creating new record for player ${playerId}`);
         }
+
+        // Log what we're storing to verify 0:0 games are included
+        console.log(`💾 STORING WEEKS FOR ${playerId}:`, Object.keys(weeklyStats).map(week => {
+            const gamesPlayed = weeklyStats[week]['0'] || 0;
+            return `Week ${week}: ${gamesPlayed === 0 ? '0:0 (DID NOT PLAY)' : 'PLAYED'}`;
+        }));
+
+        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+        const store = transaction.objectStore(this.cache.playersStore);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(playerRecord);
+            request.onsuccess = () => {
+                console.log(`✅ Stored/updated player ${playerId} with missing weeks in IndexedDB`);
+                resolve();
+            };
+            request.onerror = () => reject(request.error);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
     }
+}
 
     async getPlayerRecordFromIndexedDB(playerId, year) {
         try {
