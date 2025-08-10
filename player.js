@@ -63,7 +63,7 @@ class PlayerDetailPage {
 
    async loadPlayerData() {
        if (this.isLoading) {
-           console.log('⏳ Already loading player data...');
+           //console.log('⏳ Already loading player data...');
            return;
        }
 
@@ -71,7 +71,7 @@ class PlayerDetailPage {
        this.showLoading();
 
        try {
-           console.log(`📊 Loading complete player data for: ${this.playerId}`);
+           //console.log(`📊 Loading complete player data for: ${this.playerId}`);
            
            this.playerData = await window.playerStatsAPI.getPlayerCompleteStats(this.playerId);
 
@@ -95,7 +95,7 @@ class PlayerDetailPage {
            console.log('🔄 Initializing StatsAPI and IndexedDB...');
            if (window.statsAPI && window.statsAPI.cache) {
                await window.statsAPI.cache.init();
-               console.log('✅ StatsAPI IndexedDB initialized');
+               //console.log('✅ StatsAPI IndexedDB initialized');
            }
        } catch (error) {
            console.warn('⚠️ Failed to initialize StatsAPI:', error);
@@ -232,18 +232,18 @@ class PlayerDetailPage {
        let colorClass;
        const isNegativeStat = this.negativeStats.has(statName);
        
-       console.log(`🎨 COLOR LOGIC for ${statName}: percentage=${percentage}%, isNegativeStat=${isNegativeStat}`);
+       //console.log(`🎨 COLOR LOGIC for ${statName}: percentage=${percentage}%, isNegativeStat=${isNegativeStat}`);
        
        if (isNegativeStat) {
            // For negative stats (fumbles, INTs, etc.):
            // Increase = bad (red), Decrease = good (green)
            colorClass = percentage >= 0 ? 'yoy-negative' : 'yoy-positive';
-           console.log(`🔴 NEGATIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
+           //console.log(`🔴 NEGATIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
        } else {
            // For positive stats (yards, TDs, etc.):
            // Increase = good (green), Decrease = bad (red)
            colorClass = percentage >= 0 ? 'yoy-positive' : 'yoy-negative';
-           console.log(`🟢 POSITIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
+           //console.log(`🟢 POSITIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
        }
        
        return `<span class="yoy-change ${colorClass}">(${sign}${percentage}%)</span>`;
@@ -275,7 +275,7 @@ class PlayerDetailPage {
        const showYearOverYear = this.currentFilters.year === '2024' && yearOverYear && Object.keys(yearOverYear).length > 0;
        
        if (showYearOverYear) {
-           console.log(`📊 DISPLAYING YOY DATA for ${Object.keys(yearOverYear).length} stats`);
+           //console.log(`📊 DISPLAYING YOY DATA for ${Object.keys(yearOverYear).length} stats`);
        }
 
        // Advanced Analytics Cards (only show in fantasy mode)
