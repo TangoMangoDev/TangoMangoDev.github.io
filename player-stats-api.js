@@ -471,15 +471,19 @@ allStatIds.forEach(statId => {
     }
 
     // ALL OTHER METHODS REMAIN THE SAME...
-    calculateFantasyPointsForGames(gameData, scoringRules) {
-        return gameData.map(game => {
-            let totalPoints = 0;
-            
-            Object.entries(game.stats).forEach(([statId, value]) => {
-                if (scoringRules[statId] && value > 0) {
-                    const rule = scoringRules[statId];
-                    let points = value * parseFloat(rule.points || 0);
-                    
+calculateFantasyPointsForGames(gameData, scoringRules) {
+    return gameData.map(game => {
+        let totalPoints = 0;
+        
+        Object.entries(game.stats).forEach(([statId, value]) => {
+            if (scoringRules[statId] && value > 0) {
+                const rule = scoringRules[statId];
+                let points = value * parseFloat(rule.points || 0);
+                
+                // Special handling for Tack Loss (stat ID 79)
+                if (statId === '79') {
+                    points = value * -1; // Each tackle for loss is -1 point
+                } else {
                     if (rule.bonuses && Array.isArray(rule.bonuses)) {
                         rule.bonuses.forEach(bonusRule => {
                             const target = parseFloat(bonusRule.bonus.target || 0);
@@ -491,14 +495,15 @@ allStatIds.forEach(statId => {
                             }
                         });
                     }
-                    
-                    totalPoints += points;
                 }
-            });
-            
-            return Math.round(totalPoints * 100) / 100;
+                
+                totalPoints += points;
+            }
         });
-    }
+        
+        return Math.round(totalPoints * 100) / 100;
+    });
+}
 
     calculateAdvancedAnalytics(fantasyPoints, gameData, position, scoringRules) {
         if (fantasyPoints.length === 0) return {};
