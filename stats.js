@@ -29,9 +29,8 @@ let tableSort = {
 };
 let eventListenersSetup = false;
 
-// COMPLETE Yahoo stat ID mapping - ALL STATS FROM YOUR SCORING RULES
-// Add this to stats-api.js - CORRECTED Yahoo Fantasy Football Stat Mapping
-const YAHOO_STAT_MAP = {
+// COMPLETE ALL STATS FROM SCORING RULES
+const STAT_ID_MAPPING = {
     "1": "Pass Att",
     "2": "Comp", 
     "3": "Inc",
