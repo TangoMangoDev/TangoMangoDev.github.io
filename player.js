@@ -271,7 +271,22 @@ const tableHTML = `
                     
                     const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
                     
-                    // Calculate range (min - max) - now called "Spread"
+                    // Special handling for Games Played stat
+                    if (statId === 'games_played') {
+                        const displayValue = displayStats.displayValue || `${displayStats.total}/${18} (${Math.round((displayStats.total/18)*100)}%)`;
+                        return `
+                            <tr class="stat-row">
+                                <td class="stat-name">${statData.statName}</td>
+                                <td class="stat-total">${displayValue}</td>
+                                <td class="stat-average">${displayValue}</td>
+                                <td class="stat-median">${displayValue}</td>
+                                <td class="stat-range">${displayValue}</td>
+                                <td class="stat-max">${displayValue}</td>
+                            </tr>
+                        `;
+                    }
+                    
+                    // Regular stat handling
                     const spreadText = displayStats.min === displayStats.max ? 
                         this.formatStatValue(displayStats.min) : 
                         `${this.formatStatValue(displayStats.min)} - ${this.formatStatValue(displayStats.max)}`;
@@ -301,12 +316,6 @@ const tableHTML = `
         </table>
     </div>
 `;
-
-    container.innerHTML = tableHTML;
-    container.style.display = 'block';
-    this.hideLoading();
-}
-
     // NEW: Description helpers for advanced analytics
     getConsistencyDescription(score) {
         if (score >= 90) return 'Very Reliable';
