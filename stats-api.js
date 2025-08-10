@@ -455,7 +455,6 @@ class StatsAPI {
 if (player.stats && typeof player.stats === 'object') {
     Object.entries(player.stats).forEach(([statId, statValue]) => {
         if (statValue && statValue !== 0) {
-            // Updated to use CORRECT Yahoo stat IDs
             switch(statId) {
                 case '4': // Pass Yds (CORRECT)
                     totalFantasyPoints += statValue * 0.04;
