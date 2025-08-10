@@ -585,7 +585,7 @@ async function importPlayers() {
                 requestBody.week = parseInt(week);
             }
             
-            const response = await fetch('/data/admin/stats-enhanced', {
+            const response = await fetch('/data/admin/stats', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
