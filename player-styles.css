@@ -421,6 +421,7 @@ body {
 }
 
 /* TABLE SECTION - AUTO-WIDTH STAT NAMES AND NO GRID LINES */
+/* TABLE SECTION - FORCE NARROW STATISTIC COLUMN */
 .stats-table-container {
     background: white;
     border-radius: var(--border-radius);
@@ -432,7 +433,7 @@ body {
 .player-stats-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: auto; /* Changed from fixed to auto for flexible widths */
+    table-layout: fixed; /* Back to fixed for better control */
     font-size: 0.9rem;
 }
 
@@ -447,9 +448,10 @@ body {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border: none; /* Removed all borders */
+    border: none;
     vertical-align: middle;
     position: relative;
+    overflow: hidden;
 }
 
 .player-stats-table th::after {
@@ -464,34 +466,37 @@ body {
 
 .player-stats-table td {
     padding: 0.75rem 0.5rem;
-    border: none; /* Removed side borders */
-    border-bottom: 1px solid var(--gray-100); /* Only bottom border */
+    border: none;
+    border-bottom: 1px solid var(--gray-100);
     vertical-align: middle;
     transition: all 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* AUTO-WIDTH COLUMN SETTINGS */
+/* FORCED NARROW COLUMN WIDTHS */
 .stat-name-col {
-    width: auto; /* Auto-width based on content */
-    min-width: 120px; /* Minimum width to prevent too narrow */
+    width: 25%; /* Force narrower width */
     text-align: left;
-    white-space: nowrap; /* Prevent text wrapping */
+    padding-right: 0.25rem; /* Reduce right padding */
 }
 
 .stat-value-col {
-    width: auto; /* Auto-width for value columns */
-    min-width: 80px; /* Minimum width for readability */
+    width: 18.75%; /* Distribute remaining width evenly */
     text-align: center;
 }
 
-/* TABLE DATA STYLES */
+/* TABLE DATA STYLES WITH TIGHTER CONSTRAINTS */
 .stat-name {
     font-weight: 700;
     color: var(--gray-800);
     text-align: left;
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Slightly smaller */
     line-height: 1.2;
-    white-space: nowrap; /* Prevent stat names from wrapping */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis for long names */
+    max-width: 100%;
 }
 
 .stat-total,
@@ -501,15 +506,17 @@ body {
     text-align: center;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem; /* Smaller font */
     line-height: 1.2;
-    white-space: nowrap; /* Prevent value wrapping */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .stat-total {
     color: var(--success-green);
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
 
 .stat-average,
@@ -524,7 +531,7 @@ body {
 
 .player-stats-table tbody tr {
     transition: all 0.2s ease;
-    border: none; /* Remove any row borders */
+    border: none;
 }
 
 .player-stats-table tbody tr:hover {
@@ -540,37 +547,70 @@ body {
     background: linear-gradient(90deg, rgba(49, 130, 206, 0.08), rgba(49, 130, 206, 0.03));
 }
 
-/* Remove the last row's bottom border for cleaner look */
 .player-stats-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+/* COMPACT PADDING FOR TIGHTER TABLE */
+.player-stats-table th {
+    padding: 0.75rem 0.5rem; /* Reduced padding */
+}
+
+.player-stats-table td {
+    padding: 0.5rem 0.25rem; /* Much tighter padding */
+}
+
+.stat-name-col {
+    padding-left: 0.5rem;
+    padding-right: 0.25rem;
 }
 
 /* RESPONSIVE DESIGN UPDATES */
 @media (max-width: 768px) {
     .player-stats-table {
-        min-width: 400px; /* Reduced since auto-width is more efficient */
+        min-width: 350px;
     }
 
     .stat-name-col {
-        min-width: 100px;
+        width: 30%; /* Slightly wider on mobile */
     }
 
     .stat-value-col {
-        min-width: 60px;
+        width: 17.5%;
+    }
+
+    .stat-name {
+        font-size: 0.8rem;
+    }
+
+    .stat-total,
+    .stat-average,
+    .stat-median,
+    .stat-max {
+        font-size: 0.75rem;
+    }
+
+    .stat-total {
+        font-size: 0.85rem;
     }
 }
 
 @media (max-width: 480px) {
     .player-stats-table {
-        min-width: 350px; /* Further reduced */
+        min-width: 320px;
     }
 
     .stat-name-col {
-        min-width: 90px;
+        width: 35%;
     }
 
     .stat-value-col {
-        min-width: 50px;
+        width: 16.25%;
+    }
+
+    .player-stats-table th,
+    .player-stats-table td {
+        padding: 0.4rem 0.2rem;
     }
 }
 
