@@ -684,9 +684,9 @@ calculateFantasyPointsForGames(gameData, scoringRules) {
             sorted[mid];
     }
 
-    getStatName(statId) {
-        return window.STAT_ID_MAPPING ? window.STAT_ID_MAPPING[statId] : `Stat ${statId}`;
-    }
+getStatName(statId) {
+    return window.STATS_CONFIG.getStatName(statId);
+}
 }
 
 window.playerStatsAPI = new PlayerStatsAPI();
