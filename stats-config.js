@@ -125,39 +125,30 @@ window.STATS_CONFIG = {
 
     // FANTASY CALCULATION HELPERS
     calculateFantasyPoints: function(statId, rawValue, scoringRule) {
-        if (!rawValue || rawValue === 0) return 0;
-        if (!scoringRule) return rawValue;
+    if (!rawValue || rawValue === 0) return 0;
+    if (!scoringRule) return rawValue;
 
-        const statConfig = this.STAT_ID_MAPPING[statId];
-        if (!statConfig) return rawValue;
+    const statConfig = this.STAT_ID_MAPPING[statId];
+    if (!statConfig) return rawValue;
 
-        // Base points calculation
-        let points = rawValue * parseFloat(scoringRule.points || 0);
+    // Base points calculation - SIMPLE MULTIPLICATION
+    let points = rawValue * parseFloat(scoringRule.points || 0);
 
-        // Apply negative multiplier for negative stats
-        if (statConfig.isNegative) {
-            // For negative stats, ensure the result is negative
-            // If scoring rule is already negative, don't double-negative
-            if (points > 0) {
-                points = -points;
+    // Add bonus points if applicable (bonuses can also be negative)
+    if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
+        scoringRule.bonuses.forEach(bonusRule => {
+            const target = parseFloat(bonusRule.bonus.target || 0);
+            const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+            
+            if (rawValue >= target && target > 0) {
+                const bonusesEarned = Math.floor(rawValue / target);
+                points += bonusesEarned * bonusPoints;
             }
-        }
+        });
+    }
 
-        // Add bonus points if applicable
-        if (scoringRule.bonuses && Array.isArray(scoringRule.bonuses)) {
-            scoringRule.bonuses.forEach(bonusRule => {
-                const target = parseFloat(bonusRule.bonus.target || 0);
-                const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                
-                if (rawValue >= target && target > 0) {
-                    const bonusesEarned = Math.floor(rawValue / target);
-                    points += bonusesEarned * bonusPoints;
-                }
-            });
-        }
-
-        return Math.round(points * 100) / 100;
-    },
+    return Math.round(points * 100) / 100;
+},
 
     // Get stat name by ID
     getStatName: function(statId) {
