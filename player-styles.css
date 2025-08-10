@@ -145,17 +145,20 @@ body {
     gap: 1.5rem;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: center;
     position: relative;
     z-index: 1;
 }
 
 .stats-toggle {
-    display: flex;
+    display: inline-flex;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 0.75rem;
     padding: 0.25rem;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
+    width: fit-content;
+    gap: 0;
 }
 
 .stats-toggle-btn {
@@ -168,12 +171,20 @@ body {
     transition: all 0.3s ease;
     color: rgba(255, 255, 255, 0.8);
     font-size: 0.875rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: fit-content;
 }
 
 .stats-toggle-btn.active {
     background: white;
     color: var(--primary-blue);
     box-shadow: var(--shadow-sm);
+}
+
+.stats-toggle-btn:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .year-filter {
@@ -420,21 +431,22 @@ body {
     line-height: 1;
 }
 
-/* TABLE SECTION - AUTO-WIDTH STAT NAMES AND NO GRID LINES */
-/* TABLE SECTION - FORCE NARROW STATISTIC COLUMN */
+/* TABLE SECTION - AUTO-WIDTH STAT NAMES AND TIGHT TOGGLE */
 .stats-table-container {
     background: white;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-md);
-    overflow: hidden;
+    overflow-x: auto;
     border: 1px solid var(--gray-200);
+    width: 100%;
 }
 
 .player-stats-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; /* Back to fixed for better control */
+    table-layout: auto;
     font-size: 0.9rem;
+    min-width: 600px;
 }
 
 .player-stats-table thead {
@@ -470,33 +482,35 @@ body {
     border-bottom: 1px solid var(--gray-100);
     vertical-align: middle;
     transition: all 0.2s ease;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-/* FORCED NARROW COLUMN WIDTHS */
-.stat-name-col {
-    width: 25%; /* Force narrower width */
+/* FLEXIBLE COLUMN WIDTHS - AUTO-SIZING */
+.stat-name-col,
+.stat-name {
+    width: auto;
+    min-width: fit-content;
+    max-width: 200px;
+    white-space: nowrap;
     text-align: left;
-    padding-right: 0.25rem; /* Reduce right padding */
+    padding-right: 20px;
 }
 
 .stat-value-col {
-    width: 18.75%; /* Distribute remaining width evenly */
+    width: auto;
+    min-width: 80px;
     text-align: center;
 }
 
-/* TABLE DATA STYLES WITH TIGHTER CONSTRAINTS */
+/* TABLE DATA STYLES WITH AUTO-WIDTH */
 .stat-name {
     font-weight: 700;
     color: var(--gray-800);
     text-align: left;
-    font-size: 0.85rem; /* Slightly smaller */
+    font-size: 0.85rem;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Add ellipsis for long names */
-    max-width: 100%;
+    text-overflow: ellipsis;
 }
 
 .stat-total,
@@ -506,7 +520,7 @@ body {
     text-align: center;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
     font-weight: 600;
-    font-size: 0.8rem; /* Smaller font */
+    font-size: 0.8rem;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
@@ -549,69 +563,6 @@ body {
 
 .player-stats-table tbody tr:last-child td {
     border-bottom: none;
-}
-
-/* COMPACT PADDING FOR TIGHTER TABLE */
-.player-stats-table th {
-    padding: 0.75rem 0.5rem; /* Reduced padding */
-}
-
-.player-stats-table td {
-    padding: 0.5rem 0.25rem; /* Much tighter padding */
-}
-
-.stat-name-col {
-    padding-left: 0.5rem;
-    padding-right: 0.25rem;
-}
-
-/* RESPONSIVE DESIGN UPDATES */
-@media (max-width: 768px) {
-    .player-stats-table {
-        min-width: 350px;
-    }
-
-    .stat-name-col {
-        width: 30%; /* Slightly wider on mobile */
-    }
-
-    .stat-value-col {
-        width: 17.5%;
-    }
-
-    .stat-name {
-        font-size: 0.8rem;
-    }
-
-    .stat-total,
-    .stat-average,
-    .stat-median,
-    .stat-max {
-        font-size: 0.75rem;
-    }
-
-    .stat-total {
-        font-size: 0.85rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .player-stats-table {
-        min-width: 320px;
-    }
-
-    .stat-name-col {
-        width: 35%;
-    }
-
-    .stat-value-col {
-        width: 16.25%;
-    }
-
-    .player-stats-table th,
-    .player-stats-table td {
-        padding: 0.4rem 0.2rem;
-    }
 }
 
 /* LOADING STATES */
@@ -788,12 +739,13 @@ body.fantasy-mode .analytics-cards {
     }
 
     .player-stats-table {
+        table-layout: auto;
+        width: auto;
         min-width: 500px;
     }
 
-    .player-stats-table th,
-    .player-stats-table td {
-        padding: 0.5rem 0.25rem;
+    .stat-name-col {
+        max-width: 150px;
     }
 
     .stat-name {
@@ -839,17 +791,13 @@ body.fantasy-mode .analytics-cards {
         min-width: 450px;
     }
 
+    .stat-name-col {
+        max-width: 120px;
+    }
+
     .player-stats-table th,
     .player-stats-table td {
         padding: 0.4rem 0.2rem;
-    }
-
-    .stat-name-col {
-        width: 40%;
-    }
-
-    .stat-value-col {
-        width: 15%;
     }
 }
 
