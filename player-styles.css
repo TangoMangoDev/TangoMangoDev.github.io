@@ -264,6 +264,68 @@ body {
     display: none;
 }
 
+/* Prevent elastic scroll bounce on the entire page */
+html, body {
+    overscroll-behavior: none;
+    /* Prevent bounce on iOS Safari */
+    -webkit-overflow-scrolling: touch;
+    /* Ensure smooth scrolling */
+    scroll-behavior: smooth;
+}
+
+/* Prevent bounce on main container */
+.container, .main-content {
+    overscroll-behavior: none;
+}
+
+/* Player detail table with locked first column */
+.player-detail-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    position: relative;
+    overflow-x: auto;
+    /* Prevent elastic scroll bounce */
+    overscroll-behavior-x: none;
+}
+
+.player-detail-table thead th:first-child,
+.player-detail-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: var(--card-bg, #fff);
+    border-right: 2px solid var(--border-color, #e0e0e0);
+    /* Ensure it stays on top */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+/* Make sure the first column header has higher z-index */
+.player-detail-table thead th:first-child {
+    z-index: 11;
+    background: var(--header-bg, #f5f5f5);
+    font-weight: 600;
+}
+
+/* Scrollable content area */
+.player-detail-table-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    /* Prevent elastic bounce on horizontal scroll */
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
+    /* Add momentum scrolling for iOS */
+    scroll-behavior: smooth;
+}
+
+/* Make other columns scroll normally */
+.player-detail-table thead th:not(:first-child),
+.player-detail-table tbody td:not(:first-child) {
+    position: relative;
+    white-space: nowrap;
+    min-width: 80px;
+}
+
 /* MAIN CONTAINER */
 .container {
     max-width: 1200px;
@@ -991,4 +1053,38 @@ body {
         min-width: 80px;
     }
 }
+}
+
+/* Fix for mobile Safari specifically */
+@supports (-webkit-touch-callout: none) {
+    body {
+        /* Prevent rubber band effect on iOS */
+        position: fixed;
+        overflow: hidden;
+    }
+    
+    .main-scroll-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: none;
+    }
+}
+
+/* Alternative approach - prevent bounce without fixed positioning */
+@media (max-width: 768px) {
+    html {
+        /* Prevent pull-to-refresh and bottom bounce */
+        overscroll-behavior-y: none;
+    }
+    
+    body {
+        /* Prevent iOS Safari bounce */
+        touch-action: pan-x pan-y;
+        overscroll-behavior: none;
+    }
 }
