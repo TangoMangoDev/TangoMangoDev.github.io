@@ -203,179 +203,181 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     // ENHANCED: Calculate Player Analytics with Year-over-Year tracking
-    calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
-        //console.log(`🧮 Calculating analytics for player data:`, playerData);
-        console.log(`🔍 ANALYTICS FILTERS: Year=${selectedYear}, Week=${selectedWeek}, Fantasy=${showFantasyStats}`);
-        
-        const analytics = {
-            metadata: {
-                playerId: playerData.playerId,
-                playerName: playerData.playerName,
-                position: playerData.position,
-                team: playerData.team,
-                selectedYear,
-                selectedWeek,
-                showFantasyStats,
-                lastCalculated: new Date().toISOString()
-            },
-            stats: {},
-            summary: {
-                totalGames: 0,
-                totalWeeks: 0,
-                yearsPlayed: Object.keys(playerData.years).length
-            },
-            advancedAnalytics: null,
-            yearOverYear: null
-        };
+calculatePlayerAnalytics(playerData, selectedYear = 'ALL', selectedWeek = 'ALL', showFantasyStats = false, scoringRules = {}) {
+    console.log(`🔍 ANALYTICS FILTERS: Year=${selectedYear}, Week=${selectedWeek}, Fantasy=${showFantasyStats}`);
+    
+    const analytics = {
+        metadata: {
+            playerId: playerData.playerId,
+            playerName: playerData.playerName,
+            position: playerData.position,
+            team: playerData.team,
+            selectedYear,
+            selectedWeek,
+            showFantasyStats,
+            lastCalculated: new Date().toISOString()
+        },
+        stats: {},
+        summary: {
+            totalGames: 0,
+            totalWeeks: 0,
+            yearsPlayed: Object.keys(playerData.years).length
+        },
+        advancedAnalytics: null,
+        yearOverYear: null
+    };
 
-        // Use gameplayWeeks if available, otherwise use weeks
-        const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
-        analytics.summary.totalGames = gameData.length;
-        analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
+    // Use gameplayWeeks if available, otherwise use weeks
+    const gameData = this.collectGameData(playerData, selectedYear, selectedWeek);
+    analytics.summary.totalGames = gameData.length;
+    analytics.summary.totalWeeks = new Set(gameData.map(g => `${g.year}_${g.week}`)).size;
 
-        if (gameData.length === 0) {
-            console.log('⚠️ No game data found for analytics calculation');
-            return analytics;
-        }
-
-        // Calculate advanced analytics if in fantasy mode
-        if (showFantasyStats && Object.keys(scoringRules).length > 0) {
-            const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
-            if (fantasyPoints.length > 0) {
-                analytics.advancedAnalytics = this.calculateAdvancedAnalytics(
-                    fantasyPoints, gameData, playerData.position, scoringRules
-                );
-            }
-        }
-
-        // Calculate total games played and possible games for Starts calculation
-        const gamesPlayed = gameData.length;
-        const totalPossibleGames = selectedYear === 'ALL' ? 
-            Object.keys(playerData.years).length * 18 : 18;
-        const gamesPlayedPercentage = Math.round((gamesPlayed / totalPossibleGames) * 100);
-
-        // Store starts info for header display (don't add to stats table)
-        analytics.startsInfo = {
-            gamesPlayed,
-            totalPossibleGames,
-            percentage: gamesPlayedPercentage,
-            displayText: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
-        };
-
-        // NEW: Calculate Year-over-Year changes if viewing 2024 and we have 2023 data
-        let yearOverYearData = null;
-        if (selectedYear === '2024' && playerData.years['2023'] && playerData.years['2024']) {
-            //console.log(`📊 CALCULATING YEAR-OVER-YEAR: 2024 vs 2023`);
-            
-            const totals2024 = this.getStatTotalsForYear(playerData, '2024', selectedWeek, showFantasyStats, scoringRules);
-            const totals2023 = this.getStatTotalsForYear(playerData, '2023', selectedWeek, showFantasyStats, scoringRules);
-            
-            //console.log(`📈 2024 TOTALS:`, Object.keys(totals2024).length, 'stats');
-            //console.log(`📈 2023 TOTALS:`, Object.keys(totals2023).length, 'stats');
-            
-            yearOverYearData = {};
-            
-            // Calculate YOY for all stats that appear in either year
-            const allYoyStatIds = new Set([...Object.keys(totals2024), ...Object.keys(totals2023)]);
-            
-            allYoyStatIds.forEach(statId => {
-                const stat2024 = totals2024[statId];
-                const stat2023 = totals2023[statId];
-                
-                const current2024 = showFantasyStats ? 
-                    (stat2024?.fantasyTotal || 0) : (stat2024?.rawTotal || 0);
-                const previous2023 = showFantasyStats ? 
-                    (stat2023?.fantasyTotal || 0) : (stat2023?.rawTotal || 0);
-                
-                const yoyResult = this.calculateYearOverYearChange(current2024, previous2023);
-                
-                if (yoyResult.percentage !== null || yoyResult.isNew) {
-                    yearOverYearData[statId] = yoyResult;
-                }
-            });
-            
-            //console.log(`📊 YOY CALCULATED for ${Object.keys(yearOverYearData).length} stats`);
-            analytics.yearOverYear = yearOverYearData;
-        }
-
-        // Get position-relevant stats from config
-        const positionRelevantStats = window.STATS_CONFIG.getStatsForPosition(playerData.position);
-        //console.log(`📊 Position ${playerData.position} relevant stats:`, positionRelevantStats);
-
-        // Get all possible stats from the data (excluding games played)
-        const allStatIds = new Set();
-        gameData.forEach(game => {
-            Object.keys(game.stats).forEach(statId => {
-                if (statId !== '0') { // Skip games played stat ID
-                    allStatIds.add(statId);
-                }
-            });
-        });
-
-        // Calculate analytics for each stat with POSITION-AWARE filtering
-        allStatIds.forEach(statId => {
-            const statValues = gameData
-                .map(game => game.stats[statId] || 0)
-                .filter(value => value !== null && value !== undefined);
-
-            if (statValues.length > 0) {
-                const statName = this.getStatName(statId);
-                const rawStats = this.calculateStatMetrics(statValues);
-                
-                // PROPER FANTASY CALCULATION USING SHARED CONFIG
-                let fantasyStats = null;
-                if (showFantasyStats && scoringRules[statId]) {
-                    const fantasyValues = statValues.map(rawValue => {
-                        return window.STATS_CONFIG.calculateFantasyPoints(statId, rawValue, scoringRules[statId]);
-                    });
-                    
-                    fantasyStats = this.calculateStatMetrics(fantasyValues);
-                }
-
-                // IMPROVED FILTERING: Position-relevant stats get priority
-                const isPositionRelevant = positionRelevantStats.includes(statName);
-                const hasRawData = rawStats.total > 0;
-                const hasFantasyData = fantasyStats && fantasyStats.total !== 0;
-                const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed;
-
-               /*
-                console.log(`🔍 FILTERING ${statName}:`, {
-                    isPositionRelevant,
-                    hasRawData,
-                    hasFantasyData,
-                    hasVariation,
-                    rawTotal: rawStats.total,
-                    showFantasyStats
-                });
-                */
-                // POSITION-AWARE INCLUSION LOGIC
-                let shouldInclude = false;
-                
-                if (showFantasyStats) {
-                    // In fantasy mode: show if has fantasy data OR is position-relevant with any data
-                    shouldInclude = hasFantasyData || (isPositionRelevant && hasRawData);
-                } else {
-                    // In raw mode: show if position-relevant with data OR has significant variation
-                    shouldInclude = (isPositionRelevant && hasRawData) || (hasRawData && hasVariation);
-                }
-                
-                if (shouldInclude) {
-                    analytics.stats[statId] = {
-                        statId,
-                        statName,
-                        rawStats,
-                        fantasyStats
-                    };
-                    //console.log(`✅ INCLUDING ${statName} (${isPositionRelevant ? 'position-relevant' : 'variation-based'})`);
-                } else {
-                    //console.log(`❌ EXCLUDING ${statName}`);
-                }
-            }
-        });
-
-        console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats`);
+    if (gameData.length === 0) {
+        console.log('⚠️ No game data found for analytics calculation');
         return analytics;
     }
+
+    // Calculate advanced analytics if in fantasy mode
+    if (showFantasyStats && Object.keys(scoringRules).length > 0) {
+        const fantasyPoints = this.calculateFantasyPointsForGames(gameData, scoringRules);
+        if (fantasyPoints.length > 0) {
+            analytics.advancedAnalytics = this.calculateAdvancedAnalytics(
+                fantasyPoints, gameData, playerData.position, scoringRules
+            );
+        }
+    }
+
+    // Calculate total games played and possible games for Starts calculation
+    const gamesPlayed = gameData.length;
+    const totalPossibleGames = selectedYear === 'ALL' ? 
+        Object.keys(playerData.years).length * 18 : 18;
+    const gamesPlayedPercentage = Math.round((gamesPlayed / totalPossibleGames) * 100);
+
+    // Store starts info for header display (don't add to stats table)
+    analytics.startsInfo = {
+        gamesPlayed,
+        totalPossibleGames,
+        percentage: gamesPlayedPercentage,
+        displayText: `${gamesPlayed}/${totalPossibleGames} (${gamesPlayedPercentage}%)`
+    };
+
+    // NEW: Calculate Year-over-Year changes if viewing 2024 and we have 2023 data
+    let yearOverYearData = null;
+    if (selectedYear === '2024' && playerData.years['2023'] && playerData.years['2024']) {
+        const totals2024 = this.getStatTotalsForYear(playerData, '2024', selectedWeek, showFantasyStats, scoringRules);
+        const totals2023 = this.getStatTotalsForYear(playerData, '2023', selectedWeek, showFantasyStats, scoringRules);
+        
+        yearOverYearData = {};
+        
+        // Calculate YOY for all stats that appear in either year
+        const allYoyStatIds = new Set([...Object.keys(totals2024), ...Object.keys(totals2023)]);
+        
+        allYoyStatIds.forEach(statId => {
+            const stat2024 = totals2024[statId];
+            const stat2023 = totals2023[statId];
+            
+            const current2024 = showFantasyStats ? 
+                (stat2024?.fantasyTotal || 0) : (stat2024?.rawTotal || 0);
+            const previous2023 = showFantasyStats ? 
+                (stat2023?.fantasyTotal || 0) : (stat2023?.rawTotal || 0);
+            
+            const yoyResult = this.calculateYearOverYearChange(current2024, previous2023);
+            
+            if (yoyResult.percentage !== null || yoyResult.isNew) {
+                yearOverYearData[statId] = yoyResult;
+            }
+        });
+        
+        analytics.yearOverYear = yearOverYearData;
+    }
+
+    // Get position-relevant stats from config
+    const positionRelevantStats = window.STATS_CONFIG.getStatsForPosition(playerData.position);
+
+    // Get all possible stats from the data (excluding games played)
+    const allStatIds = new Set();
+    gameData.forEach(game => {
+        Object.keys(game.stats).forEach(statId => {
+            if (statId !== '0') { // Skip games played stat ID
+                allStatIds.add(statId);
+            }
+        });
+    });
+
+    // Calculate analytics for each stat with POSITION-AWARE filtering
+    allStatIds.forEach(statId => {
+        const statValues = gameData
+            .map(game => game.stats[statId] || 0)
+            .filter(value => value !== null && value !== undefined);
+
+        if (statValues.length > 0) {
+            const statName = this.getStatName(statId);
+            const rawStats = this.calculateStatMetricsWithLow(statValues);
+            
+            // PROPER FANTASY CALCULATION USING SHARED CONFIG
+            let fantasyStats = null;
+            if (showFantasyStats && scoringRules[statId]) {
+                const fantasyValues = statValues.map(rawValue => {
+                    return window.STATS_CONFIG.calculateFantasyPoints(statId, rawValue, scoringRules[statId]);
+                });
+                
+                fantasyStats = this.calculateStatMetricsWithLow(fantasyValues);
+            }
+
+            // IMPROVED FILTERING: Position-relevant stats get priority
+            const isPositionRelevant = positionRelevantStats.includes(statName);
+            const hasRawData = rawStats.total > 0;
+            const hasFantasyData = fantasyStats && fantasyStats.total !== 0;
+            const hasVariation = rawStats.min !== rawStats.max || rawStats.total > rawStats.gamesPlayed;
+            
+            // POSITION-AWARE INCLUSION LOGIC
+            let shouldInclude = false;
+            
+            if (showFantasyStats) {
+                // In fantasy mode: show if has fantasy data OR is position-relevant with any data
+                shouldInclude = hasFantasyData || (isPositionRelevant && hasRawData);
+            } else {
+                // In raw mode: show if position-relevant with data OR has significant variation
+                shouldInclude = (isPositionRelevant && hasRawData) || (hasRawData && hasVariation);
+            }
+            
+            if (shouldInclude) {
+                analytics.stats[statId] = {
+                    statId,
+                    statName,
+                    rawStats,
+                    fantasyStats
+                };
+            }
+        }
+    });
+
+    console.log(`✅ Analytics calculated for ${Object.keys(analytics.stats).length} stats`);
+    return analytics;
+}
+
+    // NEW: Calculate stat metrics with proper low value (excluding 0s unless they played)
+calculateStatMetricsWithLow(values) {
+    const nonZeroValues = values.filter(v => v !== 0);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    
+    // Calculate proper low value: lowest non-zero value, or 0 if all are 0
+    let lowGameValue = 0;
+    if (nonZeroValues.length > 0) {
+        lowGameValue = Math.min(...nonZeroValues);
+    }
+    
+    return {
+        total,
+        average: nonZeroValues.length > 0 ? (total / nonZeroValues.length) : 0,
+        median: this.calculateMedian(nonZeroValues),
+        min: nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0,
+        max: nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 0,
+        lowGameValue, // NEW: Proper low value for display
+        gamesPlayed: nonZeroValues.length,
+        totalGames: values.length
+    };
+}
 
     // REST OF EXISTING METHODS REMAIN UNCHANGED...
     async fetchMissingWeeksFromBackend(playerId, year, missingWeeks) {
@@ -423,64 +425,64 @@ class PlayerStatsAPI extends StatsAPI {
 
     // ENHANCED: Store ALL weeks including games not played (0:0) but don't include them in calculations
     async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks) {
-        try {
-            await this.ensureInitialized();
-            
-            const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
-            
-            const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
-            
-            let playerRecord;
-            
-            if (existingRecord) {
-                playerRecord = {
-                    ...existingRecord,
-                    weeklyStats: {
-                        ...existingRecord.weeklyStats,
-                        ...weeklyStats  // Store ALL weeks including 0:0 games
-                    },
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
-            } else {
-                playerRecord = {
-                    playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
-                    year: parseInt(year),
-                    playerId,
-                    name,
-                    position,
-                    team,
-                    rank: rank || 999999,
-                    yearPosition: `${year}_${position}`,
-                    yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
-                    weeklyStats,  // Store ALL weeks including 0:0 games
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🆕 Creating new record for player ${playerId}`);
-            }
-
-            // Log what we're storing to verify 0:0 games are included
-            console.log(`💾 STORING WEEKS FOR ${playerId}:`, Object.keys(weeklyStats).map(week => {
-                const gamesPlayed = weeklyStats[week]['0'] || 0;
-                return `Week ${week}: ${gamesPlayed === 0 ? '0:0 (DID NOT PLAY)' : 'PLAYED'}`;
-            }));
-
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
-            const store = transaction.objectStore(this.cache.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(playerRecord);
-                request.onsuccess = () => {
-                    console.log(`✅ Stored/updated player ${playerId} with missing weeks in IndexedDB`);
-                    resolve();
-                };
-                request.onerror = () => reject(request.error);
-            });
-            
-        } catch (error) {
-            console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
+    try {
+        await this.ensureInitialized();
+        
+        const { playerId, year, name, position, team, rank, weeklyStats } = missingWeeksData;
+        
+        const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
+        
+        let playerRecord;
+        
+        if (existingRecord) {
+            playerRecord = {
+                ...existingRecord,
+                weeklyStats: {
+                    ...existingRecord.weeklyStats,
+                    ...weeklyStats  // Store ALL weeks including 0:0 games
+                },
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🔄 Merging missing weeks with existing record for player ${playerId}`);
+        } else {
+            playerRecord = {
+                playerKey: this.cache.generatePlayerKey(year, playerId, position, rank || 999999),
+                year: parseInt(year),
+                playerId,
+                name,
+                position,
+                team,
+                rank: rank || 999999,
+                yearPosition: `${year}_${position}`,
+                yearRank: `${year}_${(rank || 999999).toString().padStart(6, '0')}`,
+                weeklyStats,  // Store ALL weeks including 0:0 games
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🆕 Creating new record for player ${playerId}`);
         }
+
+        // CRITICAL: Log and store ALL weeks including 0:0 to prevent re-fetching
+        console.log(`💾 STORING ALL WEEKS FOR ${playerId}:`, Object.keys(weeklyStats).map(week => {
+            const gamesPlayed = weeklyStats[week]['0'] || 0;
+            return `Week ${week}: ${gamesPlayed === 0 ? '0:0 (DID NOT PLAY - STORED)' : 'PLAYED'}`;
+        }));
+
+        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+        const store = transaction.objectStore(this.cache.playersStore);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(playerRecord);
+            request.onsuccess = () => {
+                console.log(`✅ SUCCESSFULLY STORED player ${playerId} with ALL ${Object.keys(weeklyStats).length} weeks in IndexedDB`);
+                resolve();
+            };
+            request.onerror = () => reject(request.error);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error storing missing weeks in IndexedDB:`, error);
     }
+}
 
     async getPlayerRecordFromIndexedDB(playerId, year) {
         try {
