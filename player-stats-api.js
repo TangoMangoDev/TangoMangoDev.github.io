@@ -60,7 +60,7 @@ class PlayerStatsAPI extends StatsAPI {
         try {
             console.log(`📊 Getting player ${playerId} stats for year ${year}`);
             
-            const cachedData = await this.(playerId, year);
+const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
             const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
             
             console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
@@ -76,7 +76,7 @@ class PlayerStatsAPI extends StatsAPI {
                 if (missingData) {
                     await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks);
                     
-                    const updatedData = await this.(playerId, year);
+const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                     if (updatedData) {
                         console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
                         return updatedData;
@@ -475,8 +475,8 @@ calculateStatMetricsWithLow(values) {
             }));
         }
 
-        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
-        const store = transaction.objectStore(this.cache.playersStore);
+const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+const store = transaction.objectStore(this.cache.playersStore);
         
         return new Promise((resolve, reject) => {
             const request = store.put(playerRecord);
