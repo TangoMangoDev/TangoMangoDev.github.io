@@ -311,67 +311,71 @@
             background: #e9ecef;
         }
 
-        .research-table-wrapper {
-            overflow: auto;
-            max-height: 80vh;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-        }
+/* 🔥 ENHANCED RESEARCH TABLE - MATCH PLAYER PAGE STYLING 🔥 */
+.research-table-wrapper {
+    background: white;
+    border-radius: var(--border-radius, 0.75rem);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    /* CRITICAL: Enable horizontal scroll but prevent bounce */
+    overflow-x: auto;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
+}
 
-        .research-table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 1200px;
-        }
+.research-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 0.9rem;
+    min-width: 1000px; /* Ensure table is wide enough to scroll */
+    position: relative;
+}
 
-        .research-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background: white;
-        }
+.research-table thead {
+    background: linear-gradient(135deg, #1a365d 0%, #2d4a6b 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
 
-        .research-table th {
-            background: #f8f9fa;
-            padding: 12px 8px;
-            text-align: left;
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            border-bottom: 2px solid #dee2e6;
-            border-right: 1px solid #dee2e6;
-            position: relative;
-            cursor: pointer;
-            user-select: none;
-        }
+.research-table th {
+    padding: 1rem 0.75rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    vertical-align: middle;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    min-width: 80px;
+}
 
-        .research-table th:last-child {
-            border-right: none;
-        }
+.research-table th::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
 
-        .research-table th:hover {
-            background: #e9ecef;
-        }
-
-        .research-table td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #eee;
-            border-right: 1px solid #eee;
-            font-size: 14px;
-            vertical-align: middle;
-        }
-
-        .research-table td:last-child {
-            border-right: none;
-        }
-
-        .research-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .research-table tr:hover {
-            background: #f8f9fa;
-        }
+.research-table td {
+    padding: 0.75rem 0.5rem;
+    border: none;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-width: 80px;
+}
 
         .player-name-cell {
             font-weight: 600;
