@@ -20,32 +20,32 @@ class StatsCache {
                 resolve(this.db);
             };
             
-request.onupgradeneeded = (event) => {
-    const db = event.target.result;
-    
-    // Clear all old stores
-    const existingStores = Array.from(db.objectStoreNames);
-    existingStores.forEach(storeName => {
-        db.deleteObjectStore(storeName);
-    });
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Clear all old stores
+                const existingStores = Array.from(db.objectStoreNames);
+                existingStores.forEach(storeName => {
+                    db.deleteObjectStore(storeName);
+                });
 
-    // Scoring rules store
-    const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
-    rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
+                // Scoring rules store
+                const rulesStore = db.createObjectStore(this.scoringRulesStore, { keyPath: 'leagueId' });
+                rulesStore.createIndex('timestamp', 'timestamp', { unique: false });
 
-    // Players store with composite key: YEAR.PlayerID.Position.Rank
-    const playersStore = db.createObjectStore(this.playersStore, { keyPath: 'playerKey' });
-    playersStore.createIndex('year', 'year', { unique: false });
-    playersStore.createIndex('position', 'position', { unique: false });
-    playersStore.createIndex('rank', 'rank', { unique: false }); // This is the key index for sorting
-    playersStore.createIndex('yearPosition', 'yearPosition', { unique: false });
-    playersStore.createIndex('yearRank', 'yearRank', { unique: false }); // Composite index for year + rank
-    playersStore.createIndex('timestamp', 'timestamp', { unique: false });
-    
-    console.log(`✅ Created new clean schema with proper rank indexing`);
-        };
-    });
-}
+                // Players store with composite key: YEAR.PlayerID.Position.Rank
+                const playersStore = db.createObjectStore(this.playersStore, { keyPath: 'playerKey' });
+                playersStore.createIndex('year', 'year', { unique: false });
+                playersStore.createIndex('position', 'position', { unique: false });
+                playersStore.createIndex('rank', 'rank', { unique: false }); // This is the key index for sorting
+                playersStore.createIndex('yearPosition', 'yearPosition', { unique: false });
+                playersStore.createIndex('yearRank', 'yearRank', { unique: false }); // Composite index for year + rank
+                playersStore.createIndex('timestamp', 'timestamp', { unique: false });
+                
+                console.log(`✅ Created new clean schema with proper rank indexing`);
+            };
+        });
+    }
 
     // Generate player key: YEAR.PlayerID.Position.Rank
     generatePlayerKey(year, playerId, position, rank) {
@@ -53,84 +53,119 @@ request.onupgradeneeded = (event) => {
     }
 
     // Store player with stats for specific week/total
-  // UPDATE: In stats-api.js - setPlayerRecord method
-// Store player with stats for specific week/total
-async setPlayerRecord(year, player, rank, week, stats) {
-    try {
-        await this.init();
-        
-        const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
-        const yearPosition = `${year}_${player.position}`;
-        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`; // Pad rank for proper sorting
-        
-        // Get existing record or create new one
-        const transaction = this.db.transaction([this.playersStore], 'readwrite');
-        const store = transaction.objectStore(this.playersStore);
-        
-        return new Promise((resolve, reject) => {
-            const getRequest = store.get(playerKey);
+    async setPlayerRecord(year, player, rank, week, stats) {
+        try {
+            await this.init();
             
-            getRequest.onsuccess = () => {
-                let playerRecord = getRequest.result;
-                
-                if (!playerRecord) {
-                    // Create new record
-                    playerRecord = {
-                        playerKey,
-                        year: parseInt(year),
-                        playerId: player.id,
-                        name: player.name,
-                        position: player.position,
-                        team: player.team,
-                        rank: rank,
-                        overallRank: player.overallRank || rank, // Store overall rank
-                        positionRank: player.positionRank || null, // Store position rank
-                        yearPosition,
-                        yearRank, // Add this for sorting
-                        weeklyStats: {},
-                        timestamp: new Date().toISOString()
-                    };
-                }
-                
-                // Add/update stats for this week
-                playerRecord.weeklyStats[week] = stats;
-                playerRecord.timestamp = new Date().toISOString();
-                
-                const putRequest = store.put(playerRecord);
-                putRequest.onsuccess = () => resolve(playerRecord);
-                putRequest.onerror = () => reject(putRequest.error);
-            };
+            const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
+            const yearPosition = `${year}_${player.position}`;
+            const yearRank = `${year}_${rank.toString().padStart(6, '0')}`; // Pad rank for proper sorting
             
-            getRequest.onerror = () => reject(getRequest.error);
-        });
-    } catch (error) {
-        console.error('Error storing player record:', error);
+            // Get existing record or create new one
+            const transaction = this.db.transaction([this.playersStore], 'readwrite');
+            const store = transaction.objectStore(this.playersStore);
+            
+            return new Promise((resolve, reject) => {
+                const getRequest = store.get(playerKey);
+                
+                getRequest.onsuccess = () => {
+                    let playerRecord = getRequest.result;
+                    
+                    if (!playerRecord) {
+                        // Create new record
+                        playerRecord = {
+                            playerKey,
+                            year: parseInt(year),
+                            playerId: player.id,
+                            name: player.name,
+                            position: player.position,
+                            team: player.team,
+                            rank: rank,
+                            overallRank: player.overallRank || rank, // Store overall rank
+                            positionRank: player.positionRank || null, // Store position rank
+                            yearPosition,
+                            yearRank, // Add this for sorting
+                            weeklyStats: {},
+                            timestamp: new Date().toISOString()
+                        };
+                    }
+                    
+                    // Add/update stats for this week
+                    playerRecord.weeklyStats[week] = stats;
+                    playerRecord.timestamp = new Date().toISOString();
+                    
+                    const putRequest = store.put(playerRecord);
+                    putRequest.onsuccess = () => resolve(playerRecord);
+                    putRequest.onerror = () => reject(putRequest.error);
+                };
+                
+                getRequest.onerror = () => reject(getRequest.error);
+            });
+        } catch (error) {
+            console.error('Error storing player record:', error);
+        }
     }
-}
- // FIXED: Get ranked players by position for a year - PROPERLY SORTED BY RANK
-async getRankedPlayersByPosition(year, position, limit = 50) {
-    try {
-        await this.init();
-        
-        const transaction = this.db.transaction([this.playersStore], 'readonly');
-        const store = transaction.objectStore(this.playersStore);
-        
-        return new Promise((resolve, reject) => {
-            const players = [];
+
+    // Get ranked players by position for a year - PROPERLY SORTED BY RANK
+    async getRankedPlayersByPosition(year, position, limit = 50) {
+        try {
+            await this.init();
             
-            if (position === 'ALL') {
-                // Get all players for the year using the RANK INDEX
-                const index = store.index('rank');
-                const cursorRequest = index.openCursor();
+            const transaction = this.db.transaction([this.playersStore], 'readonly');
+            const store = transaction.objectStore(this.playersStore);
+            
+            return new Promise((resolve, reject) => {
+                const players = [];
                 
-                cursorRequest.onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {  // 👈 REMOVE THE LIMIT CHECK HERE
-                        const player = cursor.value;
-                        
-                        // Only include players from the correct year
-                        if (player.year === parseInt(year)) {
-                            // Check if not expired (24 hours)
+                if (position === 'ALL') {
+                    // Get all players for the year using the RANK INDEX
+                    const index = store.index('rank');
+                    const cursorRequest = index.openCursor();
+                    
+                    cursorRequest.onsuccess = (event) => {
+                        const cursor = event.target.result;
+                        if (cursor) {  // 👈 REMOVE THE LIMIT CHECK HERE
+                            const player = cursor.value;
+                            
+                            // Only include players from the correct year
+                            if (player.year === parseInt(year)) {
+                                // Check if not expired (24 hours)
+                                const now = new Date();
+                                const cachedTime = new Date(player.timestamp);
+                                const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                                
+                                if (diffHours < 24) {
+                                    players.push(player);
+                                    
+                                    // 👈 CHECK LIMIT AFTER ADDING VALID PLAYER
+                                    if (players.length >= limit) {
+                                        console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
+                                        resolve(players);
+                                        return;
+                                    }
+                                }
+                            }
+                            cursor.continue();
+                        } else {
+                            // No more records
+                            console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
+                            resolve(players);
+                        }
+                    };
+                    
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
+                } else {
+                    // Similar fix for position-specific queries
+                    const index = store.index('yearPosition');
+                    const yearPosition = `${year}_${position}`;
+                    const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
+                    
+                    cursorRequest.onsuccess = (event) => {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            const player = cursor.value;
+                            
+                            // Check if not expired
                             const now = new Date();
                             const cachedTime = new Date(player.timestamp);
                             const diffHours = (now - cachedTime) / (1000 * 60 * 60);
@@ -140,66 +175,31 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
                                 
                                 // 👈 CHECK LIMIT AFTER ADDING VALID PLAYER
                                 if (players.length >= limit) {
-                                    console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
+                                    // Still need to sort by rank for position filtering
+                                    players.sort((a, b) => a.rank - b.rank);
+                                    console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
                                     resolve(players);
                                     return;
                                 }
                             }
+                            cursor.continue();
+                        } else {
+                            // MANUALLY sort by rank for position filtering
+                            players.sort((a, b) => a.rank - b.rank);
+                            console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
+                            resolve(players);
                         }
-                        cursor.continue();
-                    } else {
-                        // No more records
-                        console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
-                        resolve(players);
-                    }
-                };
-                
-                cursorRequest.onerror = () => reject(cursorRequest.error);
-            } else {
-                // Similar fix for position-specific queries
-                const index = store.index('yearPosition');
-                const yearPosition = `${year}_${position}`;
-                const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
-                
-                cursorRequest.onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        const player = cursor.value;
-                        
-                        // Check if not expired
-                        const now = new Date();
-                        const cachedTime = new Date(player.timestamp);
-                        const diffHours = (now - cachedTime) / (1000 * 60 * 60);
-                        
-                        if (diffHours < 24) {
-                            players.push(player);
-                            
-                            // 👈 CHECK LIMIT AFTER ADDING VALID PLAYER
-                            if (players.length >= limit) {
-                                // Still need to sort by rank for position filtering
-                                players.sort((a, b) => a.rank - b.rank);
-                                console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
-                                resolve(players);
-                                return;
-                            }
-                        }
-                        cursor.continue();
-                    } else {
-                        // MANUALLY sort by rank for position filtering
-                        players.sort((a, b) => a.rank - b.rank);
-                        console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
-                        resolve(players);
-                    }
-                };
-                
-                cursorRequest.onerror = () => reject(cursorRequest.error);
-            }
-        });
-    } catch (error) {
-        console.error('Error getting ranked players:', error);
-        return [];
+                    };
+                    
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
+                }
+            });
+        } catch (error) {
+            console.error('Error getting ranked players:', error);
+            return [];
+        }
     }
-}
+
     // Get player stats for specific week
     getPlayerStatsForWeek(playerRecord, week) {
         if (!playerRecord.weeklyStats) return null;
@@ -232,24 +232,23 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
         }
     }
 
-    // Store all ranked players for a year with season total stats
-// Updated StatsCache method to properly store ranked players
-async storeRankedPlayersForYear(year, rankedPlayers) {
-    try {
-        console.log(`💾 Storing ${rankedPlayers.length} ranked players for year ${year}`);
-        
-        const storePromises = rankedPlayers.map((player) => {
-            // Use the player's calculated rank
-            const rank = player.rank || 999999;
-            return this.setPlayerRecord(year, player, rank, 'total', player.stats);
-        });
-        
-        await Promise.all(storePromises);
-        console.log(`✅ Stored all ${rankedPlayers.length} ranked players for year ${year}`);
-    } catch (error) {
-        console.error('Error storing ranked players:', error);
+    // Updated StatsCache method to properly store ranked players
+    async storeRankedPlayersForYear(year, rankedPlayers) {
+        try {
+            console.log(`💾 Storing ${rankedPlayers.length} ranked players for year ${year}`);
+            
+            const storePromises = rankedPlayers.map((player) => {
+                // Use the player's calculated rank
+                const rank = player.rank || 999999;
+                return this.setPlayerRecord(year, player, rank, 'total', player.stats);
+            });
+            
+            await Promise.all(storePromises);
+            console.log(`✅ Stored all ${rankedPlayers.length} ranked players for year ${year}`);
+        } catch (error) {
+            console.error('Error storing ranked players:', error);
+        }
     }
-}
 
     // Scoring rules methods
     async getScoringRules(leagueId) {
@@ -344,8 +343,6 @@ async storeRankedPlayersForYear(year, rankedPlayers) {
 }
 
 // StatsAPI class
-// Updated StatsAPI class with weekly stats fetching
-// Updated StatsAPI class with proper ranking logic
 class StatsAPI {
     constructor() {
         this.baseUrl = '/data/stats/stats';
@@ -389,6 +386,7 @@ class StatsAPI {
                     position: playerRecord.position,
                     team: playerRecord.team,
                     overallRank: playerRecord.rank,
+                    positionRank: playerRecord.positionRank,
                     stats: window.convertStatsForDisplay ? window.convertStatsForDisplay(stats) : stats,
                     rawStats: stats
                 };
@@ -419,6 +417,7 @@ class StatsAPI {
                     position: playerRecord.position,
                     team: playerRecord.team,
                     overallRank: playerRecord.rank,
+                    positionRank: playerRecord.positionRank,
                     stats: window.convertStatsForDisplay ? window.convertStatsForDisplay(stats) : stats,
                     rawStats: stats
                 };
@@ -465,141 +464,125 @@ class StatsAPI {
             const playersWithFantasyPoints = allPlayersData.data.map(player => {
                 let totalFantasyPoints = 0;
                 
-// Calculate fantasy points using season total stats
-async loadAndRankAllPlayersForYear(year) {
-    if (this.yearDataLoaded.has(year)) {
-        console.log(`✅ Year ${year} already loaded and ranked`);
-        return;
-    }
-    
-    console.log(`🚀 Loading and ranking ALL players for year ${year}...`);
-    
-    try {
-        // Fetch ALL players for the year (season totals)
-        const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
-        
-        if (!allPlayersData.success || !allPlayersData.data) {
-            throw new Error('Failed to fetch players from API');
-        }
-        
-        console.log(`📊 Fetched ${allPlayersData.data.length} players from API for year ${year}`);
-        
-        // CALCULATE FANTASY POINTS AND RANK PLAYERS
-        console.log(`🏆 Calculating fantasy points and ranking players...`);
-        
-        // Calculate total fantasy points for each player
-        const playersWithFantasyPoints = allPlayersData.data.map(player => {
-            let totalFantasyPoints = 0;
-            
-            // Calculate fantasy points using season total stats
-            if (player.stats && typeof player.stats === 'object') {
-                Object.entries(player.stats).forEach(([statId, statValue]) => {
-                    if (statValue && statValue !== 0) {
-                        switch(statId) {
-                            case '4': // Pass Yds (CORRECT)
-                                totalFantasyPoints += statValue * 0.04;
-                                break;
-                            case '5': // Pass TD (CORRECT)
-                                totalFantasyPoints += statValue * 4;
-                                break;
-                            case '6': // Int (CORRECT)
-                                totalFantasyPoints -= statValue * 2;
-                                break;
-                            case '9': // Rush Yds (CORRECT)
-                                totalFantasyPoints += statValue * 0.1;
-                                break;
-                            case '10': // Rush TD (CORRECT)
-                                totalFantasyPoints += statValue * 6;
-                                break;
-                            case '11': // Rec (CORRECT)
-                                totalFantasyPoints += statValue * 1;
-                                break;
-                            case '12': // Rec Yds (CORRECT)
-                                totalFantasyPoints += statValue * 0.1;
-                                break;
-                            case '13': // Rec TD (CORRECT)
-                                totalFantasyPoints += statValue * 6;
-                                break;
-                            case '17': // Fum (CORRECT)
-                                totalFantasyPoints -= statValue * 2;
-                                break;
-                            case '18': // Fum Lost (CORRECT)
-                                totalFantasyPoints -= statValue * 2;
-                                break;
-                            // Add more stats as needed for kickers and defense
-                            case '19': case '20': case '21': case '22': case '23': // FG Made
-                                totalFantasyPoints += statValue * 3;
-                                break;
-                            case '29': // PAT Made
-                                totalFantasyPoints += statValue * 1;
-                                break;
-                            // Defense stats
-                            case '32': case '40': // Sack (appears twice in mapping)
-                                totalFantasyPoints += statValue * 1;
-                                break;
-                            case '33': case '41': // Int (defense)
-                                totalFantasyPoints += statValue * 2;
-                                break;
-                            case '34': case '43': // Fum Rec
-                                totalFantasyPoints += statValue * 2;
-                                break;
-                            case '35': case '44': // TD (defense)
-                                totalFantasyPoints += statValue * 6;
-                                break;
-                            case '36': case '45': // Safe
-                                totalFantasyPoints += statValue * 2;
-                                break;
+                // Calculate fantasy points using season total stats
+                if (player.stats && typeof player.stats === 'object') {
+                    Object.entries(player.stats).forEach(([statId, statValue]) => {
+                        if (statValue && statValue !== 0) {
+                            switch(statId) {
+                                case '4': // Pass Yds (CORRECT)
+                                    totalFantasyPoints += statValue * 0.04;
+                                    break;
+                                case '5': // Pass TD (CORRECT)
+                                    totalFantasyPoints += statValue * 4;
+                                    break;
+                                case '6': // Int (CORRECT)
+                                    totalFantasyPoints -= statValue * 2;
+                                    break;
+                                case '9': // Rush Yds (CORRECT)
+                                    totalFantasyPoints += statValue * 0.1;
+                                    break;
+                                case '10': // Rush TD (CORRECT)
+                                    totalFantasyPoints += statValue * 6;
+                                    break;
+                                case '11': // Rec (CORRECT)
+                                    totalFantasyPoints += statValue * 1;
+                                    break;
+                                case '12': // Rec Yds (CORRECT)
+                                    totalFantasyPoints += statValue * 0.1;
+                                    break;
+                                case '13': // Rec TD (CORRECT)
+                                    totalFantasyPoints += statValue * 6;
+                                    break;
+                                case '17': // Fum (CORRECT)
+                                    totalFantasyPoints -= statValue * 2;
+                                    break;
+                                case '18': // Fum Lost (CORRECT)
+                                    totalFantasyPoints -= statValue * 2;
+                                    break;
+                                // Add more stats as needed for kickers and defense
+                                case '19':
+                                case '20':
+                                case '21':
+                                case '22':
+                                case '23': // FG Made
+                                    totalFantasyPoints += statValue * 3;
+                                    break;
+                                case '29': // PAT Made
+                                    totalFantasyPoints += statValue * 1;
+                                    break;
+                                // Defense stats
+                                case '32':
+                                case '40': // Sack (appears twice in mapping)
+                                    totalFantasyPoints += statValue * 1;
+                                    break;
+                                case '33':
+                                case '41': // Int (defense)
+                                    totalFantasyPoints += statValue * 2;
+                                    break;
+                                case '34':
+                                case '43': // Fum Rec
+                                    totalFantasyPoints += statValue * 2;
+                                    break;
+                                case '35':
+                                case '44': // TD (defense)
+                                    totalFantasyPoints += statValue * 6;
+                                    break;
+                                case '36':
+                                case '45': // Safe
+                                    totalFantasyPoints += statValue * 2;
+                                    break;
+                            }
                         }
-                    }
-                });
-            }
-            
-            return {
-                ...player,
-                fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
-            };
-        });
-        
-        // RANK PLAYERS BY FANTASY POINTS
-        const rankedPlayers = playersWithFantasyPoints
-            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-            .map((player, index) => ({
-                ...player,
-                rank: index + 1,
-                overallRank: index + 1 // Store overall rank separately
-            }));
-        
-        // 🔥 CALCULATE POSITION-SPECIFIC RANKS 🔥
-        const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
-        
-        positions.forEach(position => {
-            const positionPlayers = rankedPlayers
-                .filter(player => player.position === position)
-                .sort((a, b) => b.fantasyPoints - a.fantasyPoints);
-            
-            positionPlayers.forEach((player, index) => {
-                player.positionRank = index + 1;
+                    });
+                }
+                
+                return {
+                    ...player,
+                    fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
+                };
             });
             
-            console.log(`🏆 Ranked ${positionPlayers.length} ${position} players`);
-        });
-        
-        console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points with position ranks`);
-        console.log(`🥇 Top 5 players:`, rankedPlayers.slice(0, 5).map(p => 
-            `${p.name} (${p.position}) - Overall:#${p.overallRank} Pos:#${p.positionRank} - ${p.fantasyPoints} pts`
-        ));
-        
-        // Store ranked players in IndexedDB
-        await this.cache.storeRankedPlayersForYear(year, rankedPlayers);
-        
-        this.yearDataLoaded.add(year);
-        console.log(`✅ Completed loading and ranking for year ${year}`);
-        
-    } catch (error) {
-        console.error(`❌ Error loading players for year ${year}:`, error);
-        throw error;
+            // RANK PLAYERS BY FANTASY POINTS
+            const rankedPlayers = playersWithFantasyPoints
+                .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+                .map((player, index) => ({
+                    ...player,
+                    rank: index + 1,
+                    overallRank: index + 1 // Store overall rank separately
+                }));
+            
+            // 🔥 CALCULATE POSITION-SPECIFIC RANKS 🔥
+            const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+            
+            positions.forEach(position => {
+                const positionPlayers = rankedPlayers
+                    .filter(player => player.position === position)
+                    .sort((a, b) => b.fantasyPoints - a.fantasyPoints);
+                
+                positionPlayers.forEach((player, index) => {
+                    player.positionRank = index + 1;
+                });
+                
+                console.log(`🏆 Ranked ${positionPlayers.length} ${position} players`);
+            });
+            
+            console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points with position ranks`);
+            console.log(`🥇 Top 5 players:`, rankedPlayers.slice(0, 5).map(p => 
+                `${p.name} (${p.position}) - Overall:#${p.overallRank} Pos:#${p.positionRank} - ${p.fantasyPoints} pts`
+            ));
+            
+            // Store ranked players in IndexedDB
+            await this.cache.storeRankedPlayersForYear(year, rankedPlayers);
+            
+            this.yearDataLoaded.add(year);
+            console.log(`✅ Completed loading and ranking for year ${year}`);
+            
+        } catch (error) {
+            console.error(`❌ Error loading players for year ${year}:`, error);
+            throw error;
+        }
     }
-}
+
     // NEW: Fetch weekly stats for players and store in IndexedDB
     async fetchAndStoreWeeklyStats(year, week, rankedPlayers) {
         try {
