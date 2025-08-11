@@ -757,18 +757,18 @@ function renderResearchView(players) {
                 <table class="research-table">
                     <thead>
                         <tr>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'overallRank\')">Overall Rank</th>' : ''}
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'positionRank\')">Pos Rank</th>' : ''}
-                            <th class="sortable" onclick="sortTable('name')">Player</th>
-                            <th class="sortable" onclick="sortTable('position')">Pos</th>
-                            <th class="sortable" onclick="sortTable('team')">Team</th>
-                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
+                            <th class="sortable">Player</th>
+                            <th class="sortable">Pos</th>
+                            <th class="sortable">Team</th>
+                            ${showFantasyStats ? '<th class="sortable">Overall Rank</th>' : ''}
+                            ${showFantasyStats ? '<th class="sortable">Pos Rank</th>' : ''}
+                            ${showFantasyStats ? '<th class="sortable">Total Fantasy Pts</th>' : ''}
                             ${visibleStats.map(stat => `
-                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
+                                <th class="sortable">${stat}</th>
                             `).join('')}
                             ${bonusStats.map(stat => {
                                 const target = getBonusTarget(stat);
-                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
+                                return `<th class="bonus-header sortable">${stat} ${target}</th>`;
                             }).join('')}
                         </tr>
                     </thead>
@@ -776,11 +776,11 @@ function renderResearchView(players) {
                         ${players.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
-                                    <td class="player-name-cell">${player.name}</td>
+                                    <td>${player.name}</td>
                                     <td>${player.position}</td>
                                     <td>${player.team}</td>
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
+                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
                                     ${showFantasyStats ? `
                                         <td class="fantasy-stat-cell total-points">
                                             ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
@@ -826,6 +826,13 @@ function renderResearchView(players) {
             }
         });
     }
+    
+    // 🔥 INITIALIZE TABLE SORTING AFTER RENDERING
+    setTimeout(() => {
+        if (window.tableSorter) {
+            window.tableSorter.initializeSorting();
+        }
+    }, 100);
 }
 
 function getStatAbbreviation(statName) {
