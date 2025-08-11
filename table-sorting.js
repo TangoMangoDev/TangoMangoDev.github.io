@@ -23,11 +23,11 @@ class TableSorter {
     }
 
     setupTableSorting(table, tableType) {
-        const headers = table.querySelectorAll('th.sortable, th:not(.no-sort)');
+        const headers = table.querySelectorAll('th');
         
         headers.forEach((header, index) => {
-            // Skip if already has sorting
-            if (header.classList.contains('sorting-enabled')) return;
+            // Skip if already has sorting or is marked as no-sort
+            if (header.classList.contains('sorting-enabled') || header.classList.contains('no-sort')) return;
             
             header.classList.add('sorting-enabled', 'sortable');
             header.style.cursor = 'pointer';
