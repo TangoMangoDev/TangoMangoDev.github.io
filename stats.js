@@ -47,7 +47,7 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 // Backend API functions
-// Update the loadUserLeagues function to handle rosters
+// Updated loadUserLeagues function in stats.js
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
@@ -95,7 +95,15 @@ async function loadUserLeagues() {
         
         if (data.leagues && data.scoringRules) {
             userLeagues = data.leagues;
-            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues:`, Object.keys(userLeagues));
+            
+            // 🔥 REMOVE EMPTY TEAMS ARRAYS FROM LEAGUES
+            Object.keys(userLeagues).forEach(leagueId => {
+                if (userLeagues[leagueId].teams) {
+                    delete userLeagues[leagueId].teams;
+                }
+            });
+            
+            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues (removed empty teams arrays):`, Object.keys(userLeagues));
             
             // STORE ALL SCORING RULES IN INDEXDB
             for (const [leagueId, scoringRules] of Object.entries(data.scoringRules)) {
@@ -140,7 +148,7 @@ async function loadUserLeagues() {
                 }
             }
             
-            // Cache the leagues data
+            // Cache the leagues data (without teams arrays)
             localStorage.setItem('userLeagues', JSON.stringify({
                 leagues: userLeagues,
                 timestamp: Date.now()
