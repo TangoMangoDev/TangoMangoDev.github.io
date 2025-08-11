@@ -118,11 +118,11 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
             if (position === 'ALL') {
                 // Get all players for the year using the RANK INDEX
                 const index = store.index('rank');
-                const cursorRequest = index.openCursor(); // This will iterate by rank automatically
+                const cursorRequest = index.openCursor();
                 
                 cursorRequest.onsuccess = (event) => {
                     const cursor = event.target.result;
-                    if (cursor && players.length < limit) {
+                    if (cursor) {  // 👈 REMOVE THE LIMIT CHECK HERE
                         const player = cursor.value;
                         
                         // Only include players from the correct year
@@ -134,20 +134,26 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
                             
                             if (diffHours < 24) {
                                 players.push(player);
+                                
+                                // 👈 CHECK LIMIT AFTER ADDING VALID PLAYER
+                                if (players.length >= limit) {
+                                    console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
+                                    resolve(players);
+                                    return;
+                                }
                             }
                         }
                         cursor.continue();
                     } else {
-                        // Players are already sorted by rank from the index
+                        // No more records
                         console.log(`✅ Retrieved TOP ${players.length} ranked players for ${year} ${position}`);
-                        //console.log(`🏆 Top 5 ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
-                        resolve(players.slice(0, limit));
+                        resolve(players);
                     }
                 };
                 
                 cursorRequest.onerror = () => reject(cursorRequest.error);
             } else {
-                // Get players for specific position, but still need to sort by rank
+                // Similar fix for position-specific queries
                 const index = store.index('yearPosition');
                 const yearPosition = `${year}_${position}`;
                 const cursorRequest = index.openCursor(IDBKeyRange.only(yearPosition));
@@ -164,14 +170,22 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
                         
                         if (diffHours < 24) {
                             players.push(player);
+                            
+                            // 👈 CHECK LIMIT AFTER ADDING VALID PLAYER
+                            if (players.length >= limit) {
+                                // Still need to sort by rank for position filtering
+                                players.sort((a, b) => a.rank - b.rank);
+                                console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
+                                resolve(players);
+                                return;
+                            }
                         }
                         cursor.continue();
                     } else {
                         // MANUALLY sort by rank for position filtering
                         players.sort((a, b) => a.rank - b.rank);
-                        console.log(`✅ Retrieved TOP ${Math.min(players.length, limit)} ranked ${position} players for ${year}`);
-                        console.log(`🏆 Top 5 ${position} ranks: ${players.slice(0, 5).map(p => `#${p.rank} ${p.name}`).join(', ')}`);
-                        resolve(players.slice(0, limit));
+                        console.log(`✅ Retrieved TOP ${players.length} ranked ${position} players for ${year}`);
+                        resolve(players);
                     }
                 };
                 
@@ -183,7 +197,6 @@ async getRankedPlayersByPosition(year, position, limit = 50) {
         return [];
     }
 }
-
     // Get player stats for specific week
     getPlayerStatsForWeek(playerRecord, week) {
         if (!playerRecord.weeklyStats) return null;
