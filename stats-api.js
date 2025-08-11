@@ -463,9 +463,7 @@ class StatsAPI {
             const playersWithFantasyPoints = allPlayersData.data.map(player => {
                 let totalFantasyPoints = 0;
                 
-                // Calculate fantasy points using season total stats
 // Calculate fantasy points using season total stats
-// UPDATED: Fix in stats-api.js - loadAndRankAllPlayersForYear method
 async loadAndRankAllPlayersForYear(year) {
     if (this.yearDataLoaded.has(year)) {
         console.log(`✅ Year ${year} already loaded and ranked`);
@@ -496,34 +494,34 @@ async loadAndRankAllPlayersForYear(year) {
                 Object.entries(player.stats).forEach(([statId, statValue]) => {
                     if (statValue && statValue !== 0) {
                         switch(statId) {
-                            case '4': // Pass Yds
+                            case '4': // Pass Yds (CORRECT)
                                 totalFantasyPoints += statValue * 0.04;
                                 break;
-                            case '5': // Pass TD
+                            case '5': // Pass TD (CORRECT)
                                 totalFantasyPoints += statValue * 4;
                                 break;
-                            case '6': // Int
+                            case '6': // Int (CORRECT)
                                 totalFantasyPoints -= statValue * 2;
                                 break;
-                            case '9': // Rush Yds
+                            case '9': // Rush Yds (CORRECT)
                                 totalFantasyPoints += statValue * 0.1;
                                 break;
-                            case '10': // Rush TD
+                            case '10': // Rush TD (CORRECT)
                                 totalFantasyPoints += statValue * 6;
                                 break;
-                            case '11': // Rec
+                            case '11': // Rec (CORRECT)
                                 totalFantasyPoints += statValue * 1;
                                 break;
-                            case '12': // Rec Yds
+                            case '12': // Rec Yds (CORRECT)
                                 totalFantasyPoints += statValue * 0.1;
                                 break;
-                            case '13': // Rec TD
+                            case '13': // Rec TD (CORRECT)
                                 totalFantasyPoints += statValue * 6;
                                 break;
-                            case '17': // Fum
+                            case '17': // Fum (CORRECT)
                                 totalFantasyPoints -= statValue * 2;
                                 break;
-                            case '18': // Fum Lost
+                            case '18': // Fum Lost (CORRECT)
                                 totalFantasyPoints -= statValue * 2;
                                 break;
                             // Add more stats as needed for kickers and defense
@@ -534,7 +532,7 @@ async loadAndRankAllPlayersForYear(year) {
                                 totalFantasyPoints += statValue * 1;
                                 break;
                             // Defense stats
-                            case '32': case '40': // Sack
+                            case '32': case '40': // Sack (appears twice in mapping)
                                 totalFantasyPoints += statValue * 1;
                                 break;
                             case '33': case '41': // Int (defense)
@@ -560,7 +558,7 @@ async loadAndRankAllPlayersForYear(year) {
             };
         });
         
-        // OVERALL RANKING BY FANTASY POINTS
+        // RANK PLAYERS BY FANTASY POINTS
         const rankedPlayers = playersWithFantasyPoints
             .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
             .map((player, index) => ({
