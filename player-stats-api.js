@@ -534,8 +534,8 @@ const store = transaction.objectStore(this.cache.playersStore);
     try {
         await this.ensureInitialized();
         
-        const transaction = this.cache.db.transaction([this.playersStore], 'readonly');
-        const store = transaction.objectStore(this.playersStore);
+const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+const store = transaction.objectStore(this.cache.playersStore);
         const yearIndex = store.index('year');
         
         return new Promise((resolve, reject) => {
