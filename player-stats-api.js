@@ -78,7 +78,7 @@ class PlayerStatsAPI extends StatsAPI {
                 const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
                 
                 // 🔥 ALWAYS store the result and mark as fully fetched
-                await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks, playerId, year);
+                await this.(missingData, existingWeeks, playerId, year);
                 
                 const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
                 if (updatedData) {
@@ -102,93 +102,100 @@ class PlayerStatsAPI extends StatsAPI {
     }
 
     // 🔥 FIXED: Always mark as fully fetched and store ALL weeks (even zeros)
-    async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks, playerId, year) {
-        try {
-            await this.ensureInitialized();
-            
-            let statsToStore = {};
-            let playerInfo = {
-                playerId,
-                name: 'Unknown Player',
-                position: 'UNKNOWN',
-                team: 'UNKNOWN',
-                rank: 999999
+   // 🔥 FIXED: Only store missing weeks as zeros, don't overwrite existing data
+async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks, playerId, year) {
+    try {
+        await this.ensureInitialized();
+        
+        // Get the existing record first
+        const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
+        
+        let statsToStore = {};
+        let playerInfo = {
+            playerId,
+            name: 'Unknown Player',
+            position: 'UNKNOWN',
+            team: 'UNKNOWN',
+            rank: 999999
+        };
+        
+        if (missingWeeksData && missingWeeksData.weeklyStats) {
+            // Use the actual data from backend
+            statsToStore = { ...missingWeeksData.weeklyStats };
+            playerInfo = {
+                playerId: missingWeeksData.playerId,
+                name: missingWeeksData.name || playerInfo.name,
+                position: missingWeeksData.position || playerInfo.position,
+                team: missingWeeksData.team || playerInfo.team,
+                rank: missingWeeksData.rank || playerInfo.rank
             };
-            
-            if (missingWeeksData && missingWeeksData.weeklyStats) {
-                // Use the data from backend
-                statsToStore = missingWeeksData.weeklyStats;
-                playerInfo = {
-                    playerId: missingWeeksData.playerId,
-                    name: missingWeeksData.name || playerInfo.name,
-                    position: missingWeeksData.position || playerInfo.position,
-                    team: missingWeeksData.team || playerInfo.team,
-                    rank: missingWeeksData.rank || playerInfo.rank
-                };
-                console.log(`📦 Backend returned ${Object.keys(statsToStore).length} weeks of data`);
-            } else {
-                console.log(`📦 Backend returned NO DATA - will store empty weeks`);
-            }
-            
-            // 🔥 CRITICAL: Store ALL missing weeks, even if backend didn't return them
-            this.allWeeks.forEach(week => {
-                if (!statsToStore[week]) {
-                    // Store empty week (player didn't play)
-                    statsToStore[week] = { '0': 0 }; // Games played = 0
-                }
-            });
-            
-            console.log(`💾 STORING ALL ${Object.keys(statsToStore).length} WEEKS FOR ${playerId} (including zeros)`);
-
-            const existingRecord = await this.getPlayerRecordFromIndexedDB(playerId, year);
-            
-            let playerRecord;
-            
-            if (existingRecord) {
-                playerRecord = {
-                    ...existingRecord,
-                    weeklyStats: {
-                        ...existingRecord.weeklyStats,
-                        ...statsToStore
-                    },
-                    hasBeenFetched: true, // 🔥 MARK AS FULLY FETCHED
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🔄 Merging ALL weeks with existing record for player ${playerId}`);
-            } else {
-                playerRecord = {
-                    playerKey: this.cache.generatePlayerKey(year, playerId, playerInfo.position, playerInfo.rank),
-                    year: parseInt(year),
-                    playerId,
-                    name: playerInfo.name,
-                    position: playerInfo.position,
-                    team: playerInfo.team,
-                    rank: playerInfo.rank,
-                    yearPosition: `${year}_${playerInfo.position}`,
-                    yearRank: `${year}_${playerInfo.rank.toString().padStart(6, '0')}`,
-                    weeklyStats: statsToStore,
-                    hasBeenFetched: true, // 🔥 MARK AS FULLY FETCHED
-                    timestamp: new Date().toISOString()
-                };
-                console.log(`🆕 Creating new COMPLETE record for player ${playerId}`);
-            }
-
-            const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
-            const store = transaction.objectStore(this.cache.playersStore);
-            
-            return new Promise((resolve, reject) => {
-                const request = store.put(playerRecord);
-                request.onsuccess = () => {
-                    console.log(`✅ SUCCESSFULLY STORED ALL WEEKS for ${playerId} - NO MORE API CALLS EVER`);
-                    resolve();
-                };
-                request.onerror = () => reject(request.error);
-            });
-            
-        } catch (error) {
-            console.error(`❌ Error storing response in IndexedDB:`, error);
+            console.log(`📦 Backend returned ${Object.keys(statsToStore).length} weeks of ACTUAL data`);
+        } else {
+            console.log(`📦 Backend returned NO DATA for missing weeks`);
         }
+        
+        // 🔥 CRITICAL: For weeks that backend didn't return, store as zeros
+        // BUT DON'T TOUCH EXISTING WEEKS
+        const requestedWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
+        requestedWeeks.forEach(week => {
+            if (!statsToStore[week]) {
+                // Store as zero/no gameplay week
+                statsToStore[week] = { '0': 0 }; // Games played = 0
+                console.log(`📝 Storing week ${week} as 0:0 (did not play)`);
+            }
+        });
+        
+        console.log(`💾 STORING ONLY ${Object.keys(statsToStore).length} NEW/MISSING WEEKS FOR ${playerId}`);
+
+        let playerRecord;
+        
+        if (existingRecord) {
+            // 🔥 CRITICAL: MERGE with existing, don't overwrite
+            playerRecord = {
+                ...existingRecord,
+                weeklyStats: {
+                    ...existingRecord.weeklyStats, // Keep existing weeks
+                    ...statsToStore // Add only new weeks
+                },
+                hasBeenFetched: true, // Mark as fully fetched
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🔄 MERGING ${Object.keys(statsToStore).length} new weeks with ${Object.keys(existingRecord.weeklyStats || {}).length} existing weeks`);
+        } else {
+            // Create new record with only the new data
+            playerRecord = {
+                playerKey: this.cache.generatePlayerKey(year, playerId, playerInfo.position, playerInfo.rank),
+                year: parseInt(year),
+                playerId,
+                name: playerInfo.name,
+                position: playerInfo.position,
+                team: playerInfo.team,
+                rank: playerInfo.rank,
+                yearPosition: `${year}_${playerInfo.position}`,
+                yearRank: `${year}_${playerInfo.rank.toString().padStart(6, '0')}`,
+                weeklyStats: statsToStore,
+                hasBeenFetched: true,
+                timestamp: new Date().toISOString()
+            };
+            console.log(`🆕 Creating new record for player ${playerId} with ${Object.keys(statsToStore).length} weeks`);
+        }
+
+        const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
+        const store = transaction.objectStore(this.cache.playersStore);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(playerRecord);
+            request.onsuccess = () => {
+                console.log(`✅ SUCCESSFULLY STORED - ${playerId} now has ALL weeks (real data + zeros) - NO MORE API CALLS`);
+                resolve();
+            };
+            request.onerror = () => reject(request.error);
+        });
+        
+    } catch (error) {
+        console.error(`❌ Error storing response in IndexedDB:`, error);
     }
+}
 
     async getPlayerRecordFromIndexedDB(playerId, year) {
         try {
