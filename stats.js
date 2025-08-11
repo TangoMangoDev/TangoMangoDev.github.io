@@ -784,6 +784,7 @@ function renderPlayerCard(player) {
 }
 
 // Render research view with ALL fantasy stats and bonus columns
+// Updated renderResearchView function in stats.js
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
@@ -806,18 +807,16 @@ function renderResearchView(players) {
                 <table class="research-table">
                     <thead>
                         <tr>
-                            <th class="sortable">Player</th>
-                            <th class="sortable">Pos</th>
-                            <th class="sortable">Team</th>
-                            ${showFantasyStats ? '<th class="sortable">Overall Rank</th>' : ''}
-                            ${showFantasyStats ? '<th class="sortable">Pos Rank</th>' : ''}
-                            ${showFantasyStats ? '<th class="sortable">Total Fantasy Pts</th>' : ''}
+                            <th class="sortable" onclick="sortTable('overallRank')">Overall Rank</th>
+                            <th class="sortable" onclick="sortTable('positionRank')">Pos Rank</th>
+                            <th class="sortable" onclick="sortTable('name')">Player</th>
+                            ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
                             ${visibleStats.map(stat => `
-                                <th class="sortable">${stat}</th>
+                                <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
                             `).join('')}
                             ${bonusStats.map(stat => {
                                 const target = getBonusTarget(stat);
-                                return `<th class="bonus-header sortable">${stat} ${target}</th>`;
+                                return `<th class="bonus-header sortable" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
                             }).join('')}
                         </tr>
                     </thead>
@@ -825,11 +824,17 @@ function renderResearchView(players) {
                         ${players.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
-                                    <td>${player.name}</td>
-                                    <td>${player.position}</td>
-                                    <td>${player.team}</td>
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.overallRank || '-'}</td>` : ''}
-                                    ${showFantasyStats ? `<td class="rank-cell">#${player.positionRank || '-'}</td>` : ''}
+                                    <td class="rank-cell">#${player.overallRank || '-'}</td>
+                                    <td class="rank-cell">#${player.positionRank || '-'}</td>
+                                    <td>
+                                        <div class="player-name-with-info">
+                                            <div class="player-name">${player.name}</div>
+                                            <div class="player-meta-info">
+                                                <span class="position-tag">${player.position}</span>
+                                                <span class="team-tag">${player.team}</span>
+                                            </div>
+                                        </div>
+                                    </td>
                                     ${showFantasyStats ? `
                                         <td class="fantasy-stat-cell total-points">
                                             ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
@@ -875,6 +880,7 @@ function renderResearchView(players) {
             }
         });
     }
+}
     
     // 🔥 INITIALIZE TABLE SORTING AFTER RENDERING
     setTimeout(() => {
