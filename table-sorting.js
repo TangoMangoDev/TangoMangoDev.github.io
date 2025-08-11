@@ -7,17 +7,20 @@ class TableSorter {
         };
     }
 
-    initializeSorting() {
-        const mainTable = document.querySelector('.research-table');
-        if (mainTable) {
-            this.setupTableSorting(mainTable, 'main');
-        }
-
-        const playerTable = document.querySelector('.player-stats-table');
-        if (playerTable) {
-            this.setupTableSorting(playerTable, 'player');
-        }
+// In table-sorting.js, update the initializeSorting method
+initializeSorting() {
+    // Main stats table
+    const mainTable = document.querySelector('.research-table');
+    if (mainTable) {
+        this.setupTableSorting(mainTable, 'main');
     }
+
+    // Player stats table - ADD THIS
+    const playerTable = document.querySelector('.player-stats-table');
+    if (playerTable) {
+        this.setupTableSorting(playerTable, 'player');
+    }
+}
 
     setupTableSorting(table, tableType) {
         const headers = table.querySelectorAll('th');
