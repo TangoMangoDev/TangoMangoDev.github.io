@@ -46,6 +46,8 @@ window.convertStatsForDisplay = function(rawStats) {
     
     return displayStats;
 };
+
+
 // Backend API functions
 // Updated loadUserLeagues function in stats.js
 async function loadUserLeagues() {
@@ -370,6 +372,16 @@ async function loadStats(resetPage = true) {
     
     updateFilterControlsUI();
     await render();
+}
+
+function sortTable(column) {
+    if (tableSort.column === column) {
+        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'desc'; // Start with descending for new columns
+    }
+    render(); // Re-render with the new sort
 }
 
 // COMPLETE setupEventListeners function
