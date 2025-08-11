@@ -893,7 +893,6 @@ function renderResearchView(players) {
             window.tableSorter.initializeSorting();
         }
     }, 100);
-}
 
 function getStatAbbreviation(statName) {
    const abbreviations = {
