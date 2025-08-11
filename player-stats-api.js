@@ -54,54 +54,53 @@ class PlayerStatsAPI extends StatsAPI {
         }
     }
 
-    // 🔥 FIXED: Only fetch missing weeks ONCE and mark all weeks as checked
-    async getPlayerStatsForYear(playerId, year) {
-        try {
-            console.log(`📊 Getting player ${playerId} stats for year ${year}`);
-            
-            const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
-            
-            // 🔥 CRITICAL FIX: Check if we've EVER fetched this player/year combo
-            if (cachedData && cachedData.hasBeenFetched) {
-                console.log(`✅ Player ${playerId} year ${year} already fully fetched - NO API CALLS`);
-                return cachedData;
-            }
-            
-            const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
-            console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
-            
-            const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
-            console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
-            
-            if (missingWeeks.length > 0) {
-                console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
-                const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
-                
-                // 🔥 ALWAYS store the result and mark as fully fetched
-                await this.(missingData, existingWeeks, playerId, year);
-                
-                const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
-                if (updatedData) {
-                    console.log(`✅ Updated player data with ${Object.keys(updatedData.weeks).length} total weeks`);
-                    return updatedData;
-                }
-            }
-            
-            if (cachedData) {
-                console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
-                return cachedData;
-            }
-
-            console.log(`⚠️ No data found for player ${playerId} year ${year}`);
-            return null;
-            
-        } catch (error) {
-            console.error(`❌ Error getting player stats for year ${year}:`, error);
-            return null;
+ // 🔥 FIXED: Only fetch missing weeks ONCE and mark all weeks as checked
+async getPlayerStatsForYear(playerId, year) {
+    try {
+        console.log(`📊 Getting player ${playerId} stats for year ${year}`);
+        
+        const cachedData = await this.getPlayerFromIndexedDB(playerId, year);
+        
+        // 🔥 CRITICAL FIX: Check if we've EVER fetched this player/year combo
+        if (cachedData && cachedData.hasBeenFetched) {
+            console.log(`✅ Player ${playerId} year ${year} already fully fetched - NO API CALLS EVER`);
+            return cachedData;
         }
-    }
+        
+        const existingWeeks = cachedData ? Object.keys(cachedData.weeks) : [];
+        console.log(`📋 Found ${existingWeeks.length} weeks in IndexedDB:`, existingWeeks);
+        
+        const missingWeeks = this.allWeeks.filter(week => !existingWeeks.includes(week));
+        console.log(`❌ Missing ${missingWeeks.length} weeks:`, missingWeeks);
+        
+        if (missingWeeks.length > 0) {
+            console.log(`🌐 Fetching ${missingWeeks.length} missing weeks from backend...`);
+            const missingData = await this.fetchMissingWeeksFromBackend(playerId, year, missingWeeks);
+            
+            // 🔥 ALWAYS store the result (real data + zeros for missing) and mark as fully fetched
+            await this.storeMissingWeeksInIndexedDB(missingData, existingWeeks, playerId, year);
+            
+            const updatedData = await this.getPlayerFromIndexedDB(playerId, year);
+            if (updatedData) {
+                console.log(`✅ Updated player data - NOW HAS ALL ${Object.keys(updatedData.weeks).length} WEEKS (real + zeros)`);
+                return updatedData;
+            }
+        }
+        
+        if (cachedData) {
+            console.log(`✅ Using cached data for player ${playerId} year ${year} (${existingWeeks.length} weeks)`);
+            return cachedData;
+        }
 
-    // 🔥 FIXED: Always mark as fully fetched and store ALL weeks (even zeros)
+        console.log(`⚠️ No data found for player ${playerId} year ${year}`);
+        return null;
+        
+    } catch (error) {
+        console.error(`❌ Error getting player stats for year ${year}:`, error);
+        return null;
+    }
+}
+
    // 🔥 FIXED: Only store missing weeks as zeros, don't overwrite existing data
 async storeMissingWeeksInIndexedDB(missingWeeksData, existingWeeks, playerId, year) {
     try {
