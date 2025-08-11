@@ -311,16 +311,39 @@
             background: #e9ecef;
         }
 
-/* 🔥 ENHANCED RESEARCH TABLE - MATCH PLAYER PAGE STYLING 🔥 */
+/* SORTING STYLES */
+.sortable {
+    cursor: pointer !important;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.sort-indicator svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* RESEARCH TABLE STYLING TO MATCH PLAYER PAGE */
 .research-table-wrapper {
     background: white;
-    border-radius: var(--border-radius, 0.75rem);
+    border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #e2e8f0;
     width: 100%;
     overflow: hidden;
     position: relative;
-    /* CRITICAL: Enable horizontal scroll but prevent bounce */
     overflow-x: auto;
     overscroll-behavior-x: none;
     -webkit-overflow-scrolling: touch;
@@ -331,7 +354,7 @@
     border-collapse: collapse;
     table-layout: auto;
     font-size: 0.9rem;
-    min-width: 1000px; /* Ensure table is wide enough to scroll */
+    min-width: 1000px;
     position: relative;
 }
 
@@ -357,16 +380,6 @@
     min-width: 80px;
 }
 
-.research-table th::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-}
-
 .research-table td {
     padding: 0.75rem 0.5rem;
     border: none;
@@ -377,12 +390,12 @@
     min-width: 80px;
 }
 
-/* 🔥 CRITICAL: STICKY FIRST COLUMN IMPLEMENTATION 🔥 */
+/* STICKY FIRST COLUMN */
 .research-table th:first-child,
 .research-table td:first-child {
     position: sticky;
     left: 0;
-    z-index: 5; /* Higher than other elements */
+    z-index: 5;
     background: inherit;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
     min-width: 150px;
@@ -391,14 +404,12 @@
     font-weight: 700;
 }
 
-/* Header first column styling */
 .research-table th:first-child {
     background: linear-gradient(135deg, #1a365d 0%, #2d4a6b 100%);
-    z-index: 6; /* Highest z-index */
+    z-index: 6;
     color: white;
 }
 
-/* Data first column styling */
 .research-table td:first-child {
     background: white;
     color: #2d3748;
@@ -412,20 +423,6 @@
     text-align: center;
     min-width: 80px;
 }
-
-/* Alternating row colors for first column */
-.research-table tbody tr:nth-child(even) td:first-child {
-    background: #f7fafc;
-}
-
-.research-table tbody tr:hover td:first-child {
-    background: rgba(49, 130, 206, 0.05);
-}
-
-.research-table tbody tr:nth-child(even):hover td:first-child {
-    background: rgba(49, 130, 206, 0.08);
-}
-
 /* SORTING STYLES */
 .sortable {
     cursor: pointer !important;
