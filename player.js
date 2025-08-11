@@ -215,6 +215,128 @@ class PlayerDetailPage {
        }
    }
 
+   // Add this function to player.js
+function sortPlayerTable(column) {
+    console.log(`🔄 Sorting player table by: ${column}`);
+    // For now, just log - you can implement the actual sorting logic
+}
+// Add this to player.js - COMPLETE SORTING FUNCTION
+let playerTableSort = {
+    column: null,
+    direction: 'desc'
+};
+
+function sortPlayerTable(column) {
+    console.log(`🔄 Sorting player table by: ${column}`);
+    
+    const table = document.querySelector('.player-stats-table');
+    if (!table) {
+        console.error('❌ Player stats table not found');
+        return;
+    }
+    
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Determine sort direction
+    let direction = 'desc';
+    if (playerTableSort.column === column) {
+        direction = playerTableSort.direction === 'desc' ? 'asc' : 'desc';
+    }
+    
+    playerTableSort = { column, direction };
+    
+    // Sort rows based on column
+    const sortedRows = rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(column) {
+            case 'statName':
+                aValue = a.cells[0].textContent.trim();
+                bValue = b.cells[0].textContent.trim();
+                break;
+            case 'total':
+                aValue = parseFloat(a.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'average':
+                aValue = parseFloat(a.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'median':
+                aValue = parseFloat(a.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'low':
+                aValue = parseFloat(a.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'max':
+                aValue = parseFloat(a.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        // Compare values
+        if (column === 'statName') {
+            // String comparison for stat names
+            if (direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        } else {
+            // Numeric comparison for stats
+            if (direction === 'asc') {
+                return aValue - bValue;
+            } else {
+                return bValue - aValue;
+            }
+        }
+    });
+    
+    // Update DOM
+    sortedRows.forEach(row => tbody.appendChild(row));
+    
+    // Update header indicators
+    updatePlayerTableSortIndicators(table, column, direction);
+    
+    console.log(`✅ Sorted player table by ${column} (${direction})`);
+}
+
+function updatePlayerTableSortIndicators(table, activeColumn, direction) {
+    // Remove existing sort indicators
+    table.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        const existingIndicator = th.querySelector('.sort-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+    });
+    
+    // Add sort indicator to active column
+    const headers = table.querySelectorAll('th');
+    const columnIndex = {
+        'statName': 0,
+        'total': 1,
+        'average': 2,
+        'median': 3,
+        'low': 4,
+        'max': 5
+    }[activeColumn];
+    
+    if (columnIndex !== undefined && headers[columnIndex]) {
+        const activeHeader = headers[columnIndex];
+        activeHeader.classList.add(`sort-${direction}`);
+        
+        const indicator = document.createElement('span');
+        indicator.className = 'sort-indicator';
+        indicator.innerHTML = direction === 'asc' ? ' ▲' : ' ▼';
+        activeHeader.appendChild(indicator);
+    }
+}
    // FIXED: Intelligent Year-over-Year display with proper color logic
    formatYearOverYearDisplay(yoyData, statName) {
        if (!yoyData) return '';
