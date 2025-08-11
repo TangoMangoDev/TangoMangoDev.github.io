@@ -463,101 +463,142 @@ class StatsAPI {
                 let totalFantasyPoints = 0;
                 
                 // Calculate fantasy points using season total stats
- // REPLACE the existing fantasy points calculation in loadAndRankAllPlayersForYear method
 // Calculate fantasy points using season total stats
-if (player.stats && typeof player.stats === 'object') {
-    Object.entries(player.stats).forEach(([statId, statValue]) => {
-        if (statValue && statValue !== 0) {
-            switch(statId) {
-                case '4': // Pass Yds (CORRECT)
-                    totalFantasyPoints += statValue * 0.04;
-                    break;
-                case '5': // Pass TD (CORRECT)
-                    totalFantasyPoints += statValue * 4;
-                    break;
-                case '6': // Int (CORRECT)
-                    totalFantasyPoints -= statValue * 2;
-                    break;
-                case '9': // Rush Yds (CORRECT)
-                    totalFantasyPoints += statValue * 0.1;
-                    break;
-                case '10': // Rush TD (CORRECT)
-                    totalFantasyPoints += statValue * 6;
-                    break;
-                case '11': // Rec (CORRECT)
-                    totalFantasyPoints += statValue * 1;
-                    break;
-                case '12': // Rec Yds (CORRECT)
-                    totalFantasyPoints += statValue * 0.1;
-                    break;
-                case '13': // Rec TD (CORRECT)
-                    totalFantasyPoints += statValue * 6;
-                    break;
-                case '17': // Fum (CORRECT)
-                    totalFantasyPoints -= statValue * 2;
-                    break;
-                case '18': // Fum Lost (CORRECT)
-                    totalFantasyPoints -= statValue * 2;
-                    break;
-                // Add more stats as needed for kickers and defense
-                case '19': case '20': case '21': case '22': case '23': // FG Made
-                    totalFantasyPoints += statValue * 3;
-                    break;
-                case '29': // PAT Made
-                    totalFantasyPoints += statValue * 1;
-                    break;
-                // Defense stats
-                case '32': case '40': // Sack (appears twice in mapping)
-                    totalFantasyPoints += statValue * 1;
-                    break;
-                case '33': case '41': // Int (defense)
-                    totalFantasyPoints += statValue * 2;
-                    break;
-                case '34': case '43': // Fum Rec
-                    totalFantasyPoints += statValue * 2;
-                    break;
-                case '35': case '44': // TD (defense)
-                    totalFantasyPoints += statValue * 6;
-                    break;
-                case '36': case '45': // Safe
-                    totalFantasyPoints += statValue * 2;
-                    break;
-            }
+// UPDATED: Fix in stats-api.js - loadAndRankAllPlayersForYear method
+async loadAndRankAllPlayersForYear(year) {
+    if (this.yearDataLoaded.has(year)) {
+        console.log(`✅ Year ${year} already loaded and ranked`);
+        return;
+    }
+    
+    console.log(`🚀 Loading and ranking ALL players for year ${year}...`);
+    
+    try {
+        // Fetch ALL players for the year (season totals)
+        const allPlayersData = await this.fetchFromAPI(year, 'total', 'ALL', 1, 9999);
+        
+        if (!allPlayersData.success || !allPlayersData.data) {
+            throw new Error('Failed to fetch players from API');
         }
-    });
-}
-                
-                return {
-                    ...player,
-                    fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
-                };
+        
+        console.log(`📊 Fetched ${allPlayersData.data.length} players from API for year ${year}`);
+        
+        // CALCULATE FANTASY POINTS AND RANK PLAYERS
+        console.log(`🏆 Calculating fantasy points and ranking players...`);
+        
+        // Calculate total fantasy points for each player
+        const playersWithFantasyPoints = allPlayersData.data.map(player => {
+            let totalFantasyPoints = 0;
+            
+            // Calculate fantasy points using season total stats
+            if (player.stats && typeof player.stats === 'object') {
+                Object.entries(player.stats).forEach(([statId, statValue]) => {
+                    if (statValue && statValue !== 0) {
+                        switch(statId) {
+                            case '4': // Pass Yds
+                                totalFantasyPoints += statValue * 0.04;
+                                break;
+                            case '5': // Pass TD
+                                totalFantasyPoints += statValue * 4;
+                                break;
+                            case '6': // Int
+                                totalFantasyPoints -= statValue * 2;
+                                break;
+                            case '9': // Rush Yds
+                                totalFantasyPoints += statValue * 0.1;
+                                break;
+                            case '10': // Rush TD
+                                totalFantasyPoints += statValue * 6;
+                                break;
+                            case '11': // Rec
+                                totalFantasyPoints += statValue * 1;
+                                break;
+                            case '12': // Rec Yds
+                                totalFantasyPoints += statValue * 0.1;
+                                break;
+                            case '13': // Rec TD
+                                totalFantasyPoints += statValue * 6;
+                                break;
+                            case '17': // Fum
+                                totalFantasyPoints -= statValue * 2;
+                                break;
+                            case '18': // Fum Lost
+                                totalFantasyPoints -= statValue * 2;
+                                break;
+                            // Add more stats as needed for kickers and defense
+                            case '19': case '20': case '21': case '22': case '23': // FG Made
+                                totalFantasyPoints += statValue * 3;
+                                break;
+                            case '29': // PAT Made
+                                totalFantasyPoints += statValue * 1;
+                                break;
+                            // Defense stats
+                            case '32': case '40': // Sack
+                                totalFantasyPoints += statValue * 1;
+                                break;
+                            case '33': case '41': // Int (defense)
+                                totalFantasyPoints += statValue * 2;
+                                break;
+                            case '34': case '43': // Fum Rec
+                                totalFantasyPoints += statValue * 2;
+                                break;
+                            case '35': case '44': // TD (defense)
+                                totalFantasyPoints += statValue * 6;
+                                break;
+                            case '36': case '45': // Safe
+                                totalFantasyPoints += statValue * 2;
+                                break;
+                        }
+                    }
+                });
+            }
+            
+            return {
+                ...player,
+                fantasyPoints: Math.round(totalFantasyPoints * 100) / 100
+            };
+        });
+        
+        // OVERALL RANKING BY FANTASY POINTS
+        const rankedPlayers = playersWithFantasyPoints
+            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+            .map((player, index) => ({
+                ...player,
+                rank: index + 1,
+                overallRank: index + 1 // Store overall rank separately
+            }));
+        
+        // 🔥 CALCULATE POSITION-SPECIFIC RANKS 🔥
+        const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+        
+        positions.forEach(position => {
+            const positionPlayers = rankedPlayers
+                .filter(player => player.position === position)
+                .sort((a, b) => b.fantasyPoints - a.fantasyPoints);
+            
+            positionPlayers.forEach((player, index) => {
+                player.positionRank = index + 1;
             });
             
-            // RANK PLAYERS BY FANTASY POINTS
-            const rankedPlayers = playersWithFantasyPoints
-                .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-                .map((player, index) => ({
-                    ...player,
-                    rank: index + 1
-                }));
-            
-            console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points`);
-            console.log(`🥇 Top 5 players:`, rankedPlayers.slice(0, 5).map(p => 
-                `${p.name} (${p.position}) - ${p.fantasyPoints} pts`
-            ));
-            
-            // Store ranked players in IndexedDB
-            await this.cache.storeRankedPlayersForYear(year, rankedPlayers);
-            
-            this.yearDataLoaded.add(year);
-            console.log(`✅ Completed loading and ranking for year ${year}`);
-            
-        } catch (error) {
-            console.error(`❌ Error loading players for year ${year}:`, error);
-            throw error;
-        }
+            console.log(`🏆 Ranked ${positionPlayers.length} ${position} players`);
+        });
+        
+        console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points with position ranks`);
+        console.log(`🥇 Top 5 players:`, rankedPlayers.slice(0, 5).map(p => 
+            `${p.name} (${p.position}) - Overall:#${p.overallRank} Pos:#${p.positionRank} - ${p.fantasyPoints} pts`
+        ));
+        
+        // Store ranked players in IndexedDB
+        await this.cache.storeRankedPlayersForYear(year, rankedPlayers);
+        
+        this.yearDataLoaded.add(year);
+        console.log(`✅ Completed loading and ranking for year ${year}`);
+        
+    } catch (error) {
+        console.error(`❌ Error loading players for year ${year}:`, error);
+        throw error;
     }
-
+}
     // NEW: Fetch weekly stats for players and store in IndexedDB
     async fetchAndStoreWeeklyStats(year, week, rankedPlayers) {
         try {
