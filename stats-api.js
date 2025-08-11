@@ -1,10 +1,12 @@
 // stats-api.js - New player-centric IndexedDB schema
+// Add to StatsCache class
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
-        this.version = 20; // New version for clean schema
+        this.version = 21; // 🆕 INCREMENT VERSION FOR NEW ROSTERS STORE
         this.scoringRulesStore = 'scoring_rules';
-        this.playersStore = 'players'; // Main store: YEAR.PlayerID.Position.Rank
+        this.playersStore = 'players';
+        this.rostersStore = 'rosters'; // 🆕 ADD ROSTERS STORE
         this.db = null;
     }
 
@@ -37,15 +39,177 @@ class StatsCache {
                 const playersStore = db.createObjectStore(this.playersStore, { keyPath: 'playerKey' });
                 playersStore.createIndex('year', 'year', { unique: false });
                 playersStore.createIndex('position', 'position', { unique: false });
-                playersStore.createIndex('rank', 'rank', { unique: false }); // This is the key index for sorting
+                playersStore.createIndex('rank', 'rank', { unique: false });
                 playersStore.createIndex('yearPosition', 'yearPosition', { unique: false });
-                playersStore.createIndex('yearRank', 'yearRank', { unique: false }); // Composite index for year + rank
+                playersStore.createIndex('yearRank', 'yearRank', { unique: false });
                 playersStore.createIndex('timestamp', 'timestamp', { unique: false });
                 
-                console.log(`✅ Created new clean schema with proper rank indexing`);
+                // 🆕 ADD ROSTERS STORE
+                const rostersStore = db.createObjectStore(this.rostersStore, { keyPath: 'rosterKey' });
+                rostersStore.createIndex('leagueId', 'leagueId', { unique: false });
+                rostersStore.createIndex('week', 'week', { unique: false });
+                rostersStore.createIndex('leagueWeek', 'leagueWeek', { unique: false });
+                rostersStore.createIndex('timestamp', 'timestamp', { unique: false });
+                
+                console.log(`✅ Created new clean schema with proper rank indexing AND rosters store`);
             };
         });
     }
+
+    // 🆕 ADD ROSTERS METHODS
+    
+    // Generate roster key: leagueId.week
+    generateRosterKey(leagueId, week) {
+        return `${leagueId}.${week}`;
+    }
+
+    // Store rosters for a specific league and week
+    async setRosters(leagueId, week, rostersData) {
+        try {
+            await this.init();
+            
+            const rosterKey = this.generateRosterKey(leagueId, week);
+            const leagueWeek = `${leagueId}_${week}`;
+            
+            const rosterRecord = {
+                rosterKey,
+                leagueId,
+                week: parseInt(week),
+                leagueWeek,
+                rosters: rostersData.rosters || { Owned: {}, NotOwned: {} },
+                totalTeams: rostersData.totalTeams || 0,
+                totalPlayers: rostersData.totalPlayers || 0,
+                timestamp: new Date().toISOString()
+            };
+            
+            const transaction = this.db.transaction([this.rostersStore], 'readwrite');
+            const store = transaction.objectStore(this.rostersStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.put(rosterRecord);
+                
+                request.onsuccess = () => {
+                    console.log(`✅ Cached rosters for ${leagueId} week ${week}`);
+                    resolve();
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error setting rosters cache:', error);
+        }
+    }
+
+    // Get rosters for a specific league and week
+    async getRosters(leagueId, week) {
+        try {
+            await this.init();
+            
+            const rosterKey = this.generateRosterKey(leagueId, week);
+            const transaction = this.db.transaction([this.rostersStore], 'readonly');
+            const store = transaction.objectStore(this.rostersStore);
+            
+            return new Promise((resolve, reject) => {
+                const request = store.get(rosterKey);
+                
+                request.onsuccess = () => {
+                    const result = request.result;
+                    
+                    if (!result) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const now = new Date();
+                    const cachedTime = new Date(result.timestamp);
+                    const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                    
+                    if (diffHours > 24) {
+                        resolve(null);
+                        return;
+                    }
+                    
+                    resolve(result);
+                };
+                
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Error getting rosters from cache:', error);
+            return null;
+        }
+    }
+
+    // Get all rosters for a league
+    async getAllRostersForLeague(leagueId) {
+        try {
+            await this.init();
+            
+            const transaction = this.db.transaction([this.rostersStore], 'readonly');
+            const store = transaction.objectStore(this.rostersStore);
+            const index = store.index('leagueId');
+            
+            return new Promise((resolve, reject) => {
+                const rosters = {};
+                const cursorRequest = index.openCursor(IDBKeyRange.only(leagueId));
+                
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    
+                    if (cursor) {
+                        const record = cursor.value;
+                        
+                        // Check if not expired
+                        const now = new Date();
+                        const cachedTime = new Date(record.timestamp);
+                        const diffHours = (now - cachedTime) / (1000 * 60 * 60);
+                        
+                        if (diffHours < 24) {
+                            rosters[record.week] = {
+                                rosters: record.rosters,
+                                totalTeams: record.totalTeams,
+                                totalPlayers: record.totalPlayers,
+                                week: record.week
+                            };
+                        }
+                        
+                        cursor.continue();
+                    } else {
+                        resolve(rosters);
+                    }
+                };
+                
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+            });
+        } catch (error) {
+            console.error('Error getting all rosters for league:', error);
+            return {};
+        }
+    }
+
+    async clearAll() {
+        try {
+            await this.init();
+            
+            const storeNames = [this.scoringRulesStore, this.playersStore, this.rostersStore]; // 🆕 ADD ROSTERS STORE
+            const transaction = this.db.transaction(storeNames, 'readwrite');
+            
+            const clearPromises = storeNames.map(storeName => {
+                return new Promise((resolve, reject) => {
+                    const store = transaction.objectStore(storeName);
+                    const request = store.clear();
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            });
+            
+            await Promise.all(clearPromises);
+            console.log('🗑️ Cleared all cached data including rosters');
+        } catch (error) {
+            console.error('Cache clear all error:', error);
+        }
+    }
+}
 
     // Generate player key: YEAR.PlayerID.Position.Rank
     generatePlayerKey(year, playerId, position, rank) {
