@@ -513,6 +513,40 @@ class StatsAPI {
         this.yearDataLoaded = new Set();
     }
 
+
+     async getRosters(leagueId, week) {
+        console.log(`📋 getRosters called for league: ${leagueId}, week: ${week}`);
+        
+        if (!leagueId || !week) {
+            console.log('❌ No leagueId or week provided to getRosters');
+            return null;
+        }
+        
+        const cachedRosters = await this.cache.getRosters(leagueId, week);
+        if (cachedRosters) {
+            console.log(`✅ Using cached rosters for ${leagueId} week ${week}`);
+            return cachedRosters;
+        }
+
+        console.log(`⚠️ No cached rosters found for league ${leagueId} week ${week}`);
+        return null;
+    }
+
+    // Get all rosters for a league
+    async getAllRostersForLeague(leagueId) {
+        console.log(`📋 getAllRostersForLeague called for league: ${leagueId}`);
+        
+        if (!leagueId) {
+            console.log('❌ No leagueId provided to getAllRostersForLeague');
+            return {};
+        }
+        
+        const cachedRosters = await this.cache.getAllRostersForLeague(leagueId);
+        console.log(`✅ Retrieved ${Object.keys(cachedRosters).length} roster weeks for league ${leagueId}`);
+        return cachedRosters;
+    }
+}
+
     // Main method to get players for display
     async getPlayersForDisplay(year = '2024', week = 'total', position = 'ALL', limit = 50) {
         console.log(`🎯 Getting players for display: ${year}, ${week}, ${position}`);
