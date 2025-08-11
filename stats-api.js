@@ -53,15 +53,15 @@ request.onupgradeneeded = (event) => {
     }
 
     // Store player with stats for specific week/total
-    async setPlayerRecord(year, player, rank, week, stats) {
+  // UPDATE: In stats-api.js - setPlayerRecord method
+async setPlayerRecord(year, player, rank, week, stats) {
     try {
         await this.init();
         
         const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
         const yearPosition = `${year}_${player.position}`;
-        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`; // Pad rank for proper sorting
+        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`;
         
-        // Get existing record or create new one
         const transaction = this.db.transaction([this.playersStore], 'readwrite');
         const store = transaction.objectStore(this.playersStore);
         
@@ -72,7 +72,6 @@ request.onupgradeneeded = (event) => {
                 let playerRecord = getRequest.result;
                 
                 if (!playerRecord) {
-                    // Create new record
                     playerRecord = {
                         playerKey,
                         year: parseInt(year),
@@ -81,8 +80,10 @@ request.onupgradeneeded = (event) => {
                         position: player.position,
                         team: player.team,
                         rank: rank,
+                        overallRank: player.overallRank || rank, // 🔥 ADD OVERALL RANK
+                        positionRank: player.positionRank || null, // 🔥 ADD POSITION RANK
                         yearPosition,
-                        yearRank, // Add this for sorting
+                        yearRank,
                         weeklyStats: {},
                         timestamp: new Date().toISOString()
                     };
