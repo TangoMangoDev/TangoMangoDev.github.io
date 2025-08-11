@@ -3,19 +3,16 @@ class TableSorter {
     constructor() {
         this.currentSort = {
             column: null,
-            direction: 'desc' // Start with descending (big numbers first)
+            direction: 'desc'
         };
     }
 
-    // Initialize sorting for all tables
     initializeSorting() {
-        // Main stats table
         const mainTable = document.querySelector('.research-table');
         if (mainTable) {
             this.setupTableSorting(mainTable, 'main');
         }
 
-        // Player stats table
         const playerTable = document.querySelector('.player-stats-table');
         if (playerTable) {
             this.setupTableSorting(playerTable, 'player');
@@ -26,7 +23,6 @@ class TableSorter {
         const headers = table.querySelectorAll('th');
         
         headers.forEach((header, index) => {
-            // Skip if already has sorting or is marked as no-sort
             if (header.classList.contains('sorting-enabled') || header.classList.contains('no-sort')) return;
             
             header.classList.add('sorting-enabled', 'sortable');
@@ -34,13 +30,15 @@ class TableSorter {
             header.style.userSelect = 'none';
             header.style.position = 'relative';
             
-            // Add sort indicator
             this.addSortIndicator(header);
             
-            header.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.sortTable(table, index, tableType);
-            });
+            // Don't add click listener if there's already an onclick attribute
+            if (!header.getAttribute('onclick')) {
+                header.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.sortTable(table, index, tableType);
+                });
+            }
         });
     }
 
@@ -62,7 +60,6 @@ class TableSorter {
         const indicator = header.querySelector('.sort-indicator');
         if (!indicator) return;
         
-        // Reset all indicators
         header.closest('table').querySelectorAll('.sort-indicator').forEach(ind => {
             ind.style.opacity = '0.5';
             ind.innerHTML = `
@@ -73,7 +70,6 @@ class TableSorter {
             `;
         });
         
-        // Update current indicator
         indicator.style.opacity = '1';
         if (direction === 'asc') {
             indicator.innerHTML = `
@@ -95,15 +91,13 @@ class TableSorter {
         const rows = Array.from(tbody.querySelectorAll('tr'));
         const header = table.querySelectorAll('th')[columnIndex];
         
-        // Determine sort direction
-        let direction = 'desc'; // Default to descending (big numbers first)
+        let direction = 'desc';
         if (this.currentSort.column === columnIndex) {
             direction = this.currentSort.direction === 'desc' ? 'asc' : 'desc';
         }
         
         this.currentSort = { column: columnIndex, direction };
         
-        // Sort rows
         const sortedRows = rows.sort((a, b) => {
             const aValue = this.getCellValue(a, columnIndex);
             const bValue = this.getCellValue(b, columnIndex);
@@ -112,41 +106,49 @@ class TableSorter {
             return direction === 'asc' ? comparison : -comparison;
         });
         
-        // Update DOM
         sortedRows.forEach(row => tbody.appendChild(row));
-        
-        // Update sort indicators
         this.updateSortIndicator(header, direction);
         
         console.log(`🔄 Sorted table by column ${columnIndex} (${direction})`);
+    }
+
+    // NEW: Global sort function for onclick handlers
+    globalSort(columnName) {
+        console.log(`🎯 Global sort called for: ${columnName}`);
+        
+        // Update the global tableSort state in stats.js
+        if (window.tableSort) {
+            if (window.tableSort.column === columnName) {
+                window.tableSort.direction = window.tableSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                window.tableSort.column = columnName;
+                window.tableSort.direction = 'desc';
+            }
+            
+            // Call the render function from stats.js
+            if (window.render) {
+                window.render();
+            }
+        }
     }
 
     getCellValue(row, columnIndex) {
         const cell = row.children[columnIndex];
         if (!cell) return '';
         
-        // Get text content, excluding any YoY indicators
         let text = cell.textContent || cell.innerText || '';
-        
-        // Remove YoY percentage indicators like "(+15%)" or "NEW"
         text = text.replace(/\s*\([^)]*\)\s*/g, '').replace(/\s*NEW\s*/g, '').trim();
-        
-        // Remove "pts" suffix for fantasy stats
         text = text.replace(/\s*pts\s*$/i, '').trim();
-        
-        // Remove "#" prefix for ranks
         text = text.replace(/^#/, '').trim();
         
         return text;
     }
 
     compareValues(a, b) {
-        // Handle empty values
         if (a === '' && b === '') return 0;
         if (a === '') return 1;
         if (b === '') return -1;
         
-        // Try numeric comparison first
         const numA = parseFloat(a);
         const numB = parseFloat(b);
         
@@ -154,7 +156,6 @@ class TableSorter {
             return numA - numB;
         }
         
-        // Fallback to string comparison
         return a.toString().localeCompare(b.toString(), undefined, {
             numeric: true,
             sensitivity: 'base'
@@ -165,11 +166,8 @@ class TableSorter {
 // Initialize table sorting when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     const tableSorter = new TableSorter();
-    
-    // Initialize immediately if tables exist
     tableSorter.initializeSorting();
     
-    // Also reinitialize when tables are re-rendered
     const observer = new MutationObserver(() => {
         tableSorter.initializeSorting();
     });
@@ -179,6 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
         subtree: true
     });
     
-    // Make globally available
     window.tableSorter = tableSorter;
+    
+    // Expose global sortTable function for onclick handlers
+    window.sortTable = (columnName) => {
+        tableSorter.globalSort(columnName);
+    };
 });
