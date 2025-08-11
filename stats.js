@@ -646,28 +646,22 @@ function clearAllFilters() {
     render();
 }
 
-// Get sorted players with bonus column sorting
+// Update the getSortedPlayers function in stats.js
 function getSortedPlayers(players) {
     if (!tableSort.column) return players;
     
     return [...players].sort((a, b) => {
         let aValue, bValue;
         
-        if (tableSort.column === 'name') {
-            aValue = a.name;
-            bValue = b.name;
-        } else if (tableSort.column === 'position') {
-            aValue = a.position;
-            bValue = b.position;
-        } else if (tableSort.column === 'team') {
-            aValue = a.team;
-            bValue = b.team;
-        } else if (tableSort.column === 'overallRank') {
+        if (tableSort.column === 'overallRank') {
             aValue = a.overallRank || 999999;
             bValue = b.overallRank || 999999;
         } else if (tableSort.column === 'positionRank') {
             aValue = a.positionRank || 999999;
             bValue = b.positionRank || 999999;
+        } else if (tableSort.column === 'name') {
+            aValue = a.name;
+            bValue = b.name;
         } else if (tableSort.column === 'fantasyPoints') {
             aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
             bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
@@ -677,6 +671,7 @@ function getSortedPlayers(players) {
             aValue = getBonusPoints(a, statName);
             bValue = getBonusPoints(b, statName);
         } else {
+            // Handle stat columns
             aValue = getStatValue(a, tableSort.column);
             bValue = getStatValue(b, tableSort.column);
         }
