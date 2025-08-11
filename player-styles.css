@@ -637,6 +637,29 @@ body {
     min-width: 90px;
 }
 
+/* Add to player-styles.css */
+.player-stats-table th {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.player-stats-table th:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sort-indicator {
+    margin-left: 4px;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.sort-asc .sort-indicator,
+.sort-desc .sort-indicator {
+    opacity: 1;
+    font-weight: bold;
+}
+
 /* Player info styling */
 .player-name-with-info {
     display: flex;
