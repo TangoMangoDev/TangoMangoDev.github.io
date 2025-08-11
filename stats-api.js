@@ -54,14 +54,16 @@ request.onupgradeneeded = (event) => {
 
     // Store player with stats for specific week/total
   // UPDATE: In stats-api.js - setPlayerRecord method
+// Store player with stats for specific week/total
 async setPlayerRecord(year, player, rank, week, stats) {
     try {
         await this.init();
         
         const playerKey = this.generatePlayerKey(year, player.id, player.position, rank);
         const yearPosition = `${year}_${player.position}`;
-        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`;
+        const yearRank = `${year}_${rank.toString().padStart(6, '0')}`; // Pad rank for proper sorting
         
+        // Get existing record or create new one
         const transaction = this.db.transaction([this.playersStore], 'readwrite');
         const store = transaction.objectStore(this.playersStore);
         
@@ -72,6 +74,7 @@ async setPlayerRecord(year, player, rank, week, stats) {
                 let playerRecord = getRequest.result;
                 
                 if (!playerRecord) {
+                    // Create new record
                     playerRecord = {
                         playerKey,
                         year: parseInt(year),
@@ -80,10 +83,10 @@ async setPlayerRecord(year, player, rank, week, stats) {
                         position: player.position,
                         team: player.team,
                         rank: rank,
-                        overallRank: player.overallRank || rank, // 🔥 ADD OVERALL RANK
-                        positionRank: player.positionRank || null, // 🔥 ADD POSITION RANK
+                        overallRank: player.overallRank || rank, // Store overall rank
+                        positionRank: player.positionRank || null, // Store position rank
                         yearPosition,
-                        yearRank,
+                        yearRank, // Add this for sorting
                         weeklyStats: {},
                         timestamp: new Date().toISOString()
                     };
@@ -104,7 +107,6 @@ async setPlayerRecord(year, player, rank, week, stats) {
         console.error('Error storing player record:', error);
     }
 }
-    // Get ranked players by position for a year
  // FIXED: Get ranked players by position for a year - PROPERLY SORTED BY RANK
 async getRankedPlayersByPosition(year, position, limit = 50) {
     try {
