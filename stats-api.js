@@ -1,5 +1,4 @@
 // stats-api.js - New player-centric IndexedDB schema
-// Add to StatsCache class
 class StatsCache {
     constructor() {
         this.dbName = 'nfl_stats_cache';
@@ -54,6 +53,11 @@ class StatsCache {
                 console.log(`✅ Created new clean schema with proper rank indexing AND rosters store`);
             };
         });
+    }
+
+    // Generate player key: YEAR.PlayerID.Position.Rank
+    generatePlayerKey(year, playerId, position, rank) {
+        return `${year}.${playerId}.${position}.${rank}`;
     }
 
     // 🆕 ADD ROSTERS METHODS
@@ -185,35 +189,6 @@ class StatsCache {
             console.error('Error getting all rosters for league:', error);
             return {};
         }
-    }
-
-    async clearAll() {
-        try {
-            await this.init();
-            
-            const storeNames = [this.scoringRulesStore, this.playersStore, this.rostersStore]; // 🆕 ADD ROSTERS STORE
-            const transaction = this.db.transaction(storeNames, 'readwrite');
-            
-            const clearPromises = storeNames.map(storeName => {
-                return new Promise((resolve, reject) => {
-                    const store = transaction.objectStore(storeName);
-                    const request = store.clear();
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            });
-            
-            await Promise.all(clearPromises);
-            console.log('🗑️ Cleared all cached data including rosters');
-        } catch (error) {
-            console.error('Cache clear all error:', error);
-        }
-    }
-}
-
-    // Generate player key: YEAR.PlayerID.Position.Rank
-    generatePlayerKey(year, playerId, position, rank) {
-        return `${year}.${playerId}.${position}.${rank}`;
     }
 
     // Store player with stats for specific week/total
@@ -484,7 +459,7 @@ class StatsCache {
         try {
             await this.init();
             
-            const storeNames = [this.scoringRulesStore, this.playersStore];
+            const storeNames = [this.scoringRulesStore, this.playersStore, this.rostersStore]; // 🆕 ADD ROSTERS STORE
             const transaction = this.db.transaction(storeNames, 'readwrite');
             
             const clearPromises = storeNames.map(storeName => {
@@ -497,7 +472,7 @@ class StatsCache {
             });
             
             await Promise.all(clearPromises);
-            console.log('🗑️ Cleared all cached data');
+            console.log('🗑️ Cleared all cached data including rosters');
         } catch (error) {
             console.error('Cache clear all error:', error);
         }
@@ -513,8 +488,8 @@ class StatsAPI {
         this.yearDataLoaded = new Set();
     }
 
-
-     async getRosters(leagueId, week) {
+    // 🆕 ADD ROSTERS METHODS
+    async getRosters(leagueId, week) {
         console.log(`📋 getRosters called for league: ${leagueId}, week: ${week}`);
         
         if (!leagueId || !week) {
@@ -545,7 +520,6 @@ class StatsAPI {
         console.log(`✅ Retrieved ${Object.keys(cachedRosters).length} roster weeks for league ${leagueId}`);
         return cachedRosters;
     }
-}
 
     // Main method to get players for display
     async getPlayersForDisplay(year = '2024', week = 'total', position = 'ALL', limit = 50) {
@@ -835,98 +809,98 @@ class StatsAPI {
             const storePromises = data.data.map(player => {
                 const rankedPlayer = rankedPlayers.find(rp => rp.playerId === player.id);
                 if (rankedPlayer) {
-                    return this.cache.setPlayerRecord(year, player, rankedPlayer.rank, week, player.stats);
-                }
-            });
-            
-            await Promise.all(storePromises.filter(Boolean));
-            console.log(`✅ Stored weekly stats for week ${week} in IndexedDB`);
-            
-        } catch (error) {
-            console.error(`❌ Error fetching weekly stats for week ${week}:`, error);
-        }
-    }
+return this.cache.setPlayerRecord(year, player, rankedPlayer.rank, week, player.stats);
+               }
+           });
+           
+           await Promise.all(storePromises.filter(Boolean));
+           console.log(`✅ Stored weekly stats for week ${week} in IndexedDB`);
+           
+       } catch (error) {
+           console.error(`❌ Error fetching weekly stats for week ${week}:`, error);
+       }
+   }
 
-    // Get scoring rules
-    async getScoringRules(leagueId) {
-        console.log(`🔍 getScoringRules called for league: ${leagueId}`);
-        
-        if (!leagueId) {
-            console.log('❌ No leagueId provided to getScoringRules');
-            return {};
-        }
-        
-        const cachedRules = await this.cache.getScoringRules(leagueId);
-        if (cachedRules) {
-            console.log(`✅ Using cached scoring rules for ${leagueId}`);
-            return { [leagueId]: cachedRules };
-        }
+   // Get scoring rules
+   async getScoringRules(leagueId) {
+       console.log(`🔍 getScoringRules called for league: ${leagueId}`);
+       
+       if (!leagueId) {
+           console.log('❌ No leagueId provided to getScoringRules');
+           return {};
+       }
+       
+       const cachedRules = await this.cache.getScoringRules(leagueId);
+       if (cachedRules) {
+           console.log(`✅ Using cached scoring rules for ${leagueId}`);
+           return { [leagueId]: cachedRules };
+       }
 
-        console.log(`🌐 Fetching scoring rules from API for league: ${leagueId}`);
-        
-        try {
-            const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
-            if (!response.ok) {
-                throw new Error(`API request failed: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success && data.scoringRules && data.scoringRules[leagueId]) {
-                const rulesForLeague = data.scoringRules[leagueId];
-                await this.cache.setScoringRules(leagueId, rulesForLeague);
-                return { [leagueId]: rulesForLeague };
-            } else {
-                console.log(`⚠️ No scoring rules found in API response for league ${leagueId}`);
-                return {};
-            }
-            
-        } catch (error) {
-            console.error(`❌ Error loading scoring rules for ${leagueId}:`, error);
-            return {};
-        }
-    }
+       console.log(`🌐 Fetching scoring rules from API for league: ${leagueId}`);
+       
+       try {
+           const response = await fetch(`/data/stats/rules?leagueId=${leagueId}`);
+           if (!response.ok) {
+               throw new Error(`API request failed: ${response.status}`);
+           }
+           
+           const data = await response.json();
+           
+           if (data.success && data.scoringRules && data.scoringRules[leagueId]) {
+               const rulesForLeague = data.scoringRules[leagueId];
+               await this.cache.setScoringRules(leagueId, rulesForLeague);
+               return { [leagueId]: rulesForLeague };
+           } else {
+               console.log(`⚠️ No scoring rules found in API response for league ${leagueId}`);
+               return {};
+           }
+           
+       } catch (error) {
+           console.error(`❌ Error loading scoring rules for ${leagueId}:`, error);
+           return {};
+       }
+   }
 
-    // Fetch from API (for season totals)
-    async fetchFromAPI(year, week, position, page, limit = 50) {
-        const params = new URLSearchParams({
-            year,
-            week,
-            position,
-            page: page.toString(),
-            limit: limit.toString()
-        });
+   // Fetch from API (for season totals)
+   async fetchFromAPI(year, week, position, page, limit = 50) {
+       const params = new URLSearchParams({
+           year,
+           week,
+           position,
+           page: page.toString(),
+           limit: limit.toString()
+       });
 
-        const url = `${this.baseUrl}?${params}`;
-        console.log(`🌐 Fetching from API: ${url}`);
+       const url = `${this.baseUrl}?${params}`;
+       console.log(`🌐 Fetching from API: ${url}`);
 
-        const response = await fetch(url, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+       const response = await fetch(url, {
+           method: 'GET',
+           credentials: 'include',
+           headers: {
+               'Content-Type': 'application/json'
+           }
+       });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+       if (!response.ok) {
+           throw new Error(`HTTP error! status: ${response.status}`);
+       }
 
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error(data.error || 'API request failed');
-        }
+       const data = await response.json();
+       
+       if (!data.success) {
+           throw new Error(data.error || 'API request failed');
+       }
 
-        console.log(`✅ Fetched ${data.count} players from API`);
-        return data;
-    }
+       console.log(`✅ Fetched ${data.count} players from API`);
+       return data;
+   }
 
-    async clearCache() {
-        await this.cache.clearAll();
-        this.yearDataLoaded.clear();
-        console.log('🗑️ Cleared all caches');
-    }
+   async clearCache() {
+       await this.cache.clearAll();
+       this.yearDataLoaded.clear();
+       console.log('🗑️ Cleared all caches');
+   }
 }
 
 window.statsAPI = new StatsAPI();
