@@ -271,8 +271,7 @@ async function loadStats(resetPage = true) {
         console.log(`🎯 Loading stats for: ${currentFilters.year}, ${currentFilters.week}, ${currentFilters.position}`);
         
         // Calculate how many players to load (50 per page)
-        const playersToLoad = apiState.currentPage * 50;
-        
+        const playersToLoad = apiState.currentPage * 50;        
         // Use new getPlayersForDisplay method
         const playersData = await window.statsAPI.getPlayersForDisplay(
             currentFilters.year,
