@@ -47,9 +47,37 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 // Backend API functions
+// Backend API functions
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
+        
+        // 🔥 CHECK CACHE FIRST
+        const cached = localStorage.getItem('userLeagues');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < 3600000) { // 1 hour cache
+                userLeagues = parsed.leagues;
+                console.log(`✅ Using cached leagues - NO API CALL`);
+                
+                // Still need to set up scoring rules from IndexedDB
+                const defaultLeagueId = Object.keys(userLeagues)[0];
+                if (defaultLeagueId) {
+                    currentFilters.league = defaultLeagueId;
+                    localStorage.setItem('activeLeagueId', defaultLeagueId);
+                    
+                    // Load from IndexedDB
+                    const rulesData = await window.statsAPI.getScoringRules(defaultLeagueId);
+                    if (rulesData && rulesData[defaultLeagueId]) {
+                        currentScoringRules = rulesData[defaultLeagueId];
+                        console.log(`✅ Loaded cached scoring rules for ${defaultLeagueId}`);
+                    }
+                }
+                
+                return userLeagues;
+            }
+        }
+        
         const response = await fetch('/data/stats/rules');
         
         if (!response.ok) {
