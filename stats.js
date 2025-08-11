@@ -47,7 +47,7 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 // Backend API functions
-// Backend API functions
+// Update the loadUserLeagues function to handle rosters
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
@@ -103,6 +103,27 @@ async function loadUserLeagues() {
                     console.log(`💾 Storing ${Object.keys(scoringRules).length} scoring rules for league ${leagueId}`);
                     await window.statsAPI.cache.setScoringRules(leagueId, scoringRules);
                 }
+            }
+            
+            // 🆕 STORE ALL ROSTERS IN INDEXEDDB
+            if (data.rosters) {
+                console.log(`📋 Processing rosters for ${Object.keys(data.rosters).length} leagues...`);
+                
+                for (const [leagueId, leagueRosters] of Object.entries(data.rosters)) {
+                    if (leagueRosters && typeof leagueRosters === 'object') {
+                        console.log(`📋 Storing rosters for league ${leagueId} - ${Object.keys(leagueRosters).length} weeks`);
+                        
+                        // Store each week's rosters
+                        for (const [week, rosterData] of Object.entries(leagueRosters)) {
+                            if (rosterData && rosterData.rosters) {
+                                await window.statsAPI.cache.setRosters(leagueId, week, rosterData);
+                                console.log(`📋 Stored rosters for league ${leagueId} week ${week} - ${rosterData.totalPlayers} players`);
+                            }
+                        }
+                    }
+                }
+                
+                console.log(`✅ Completed storing rosters in IndexedDB`);
             }
             
             // Set default league (first one or the one specified by backend)
