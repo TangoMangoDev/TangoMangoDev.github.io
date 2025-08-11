@@ -585,26 +585,41 @@ class PlayerStatsAPI extends StatsAPI {
         return analytics;
     }
 
-    calculateStatMetricsWithLow(values) {
-        const nonZeroValues = values.filter(v => v !== 0);
-        const total = values.reduce((sum, v) => sum + v, 0);
-        
-        let lowGameValue = 0;
-        if (nonZeroValues.length > 0) {
-            lowGameValue = Math.min(...nonZeroValues);
-        }
-        
-        return {
-            total,
-            average: nonZeroValues.length > 0 ? (total / nonZeroValues.length) : 0,
-            median: this.calculateMedian(nonZeroValues),
-            min: nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0,
-            max: nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 0,
-            lowGameValue,
-            gamesPlayed: nonZeroValues.length,
-            totalGames: values.length
-        };
+// Updated calculateStatMetricsWithLow in player-stats-api.js to handle 0:0 properly
+calculateStatMetricsWithLow(values) {
+    // 🔥 FIXED: Properly handle 0:0 weeks in calculations
+    // For weekly analysis, we want to exclude 0:0 games from averages/medians
+    // but include them in totals when appropriate
+    
+    const nonZeroValues = values.filter(v => v !== 0);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    
+    // Calculate proper low value: lowest non-zero value, or 0 if all are 0
+    let lowGameValue = 0;
+    if (nonZeroValues.length > 0) {
+        lowGameValue = Math.min(...nonZeroValues);
     }
+    
+    return {
+        total,
+        // 🔥 FIXED: Use non-zero values for averages (excludes 0:0 weeks)
+        average: nonZeroValues.length > 0 ? (total / nonZeroValues.length) : 0,
+        median: this.calculateMedian(nonZeroValues),
+        min: nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0,
+        max: nonZeroValues.length > 0 ? Math.max(...nonZeroValues) : 0,
+        lowGameValue, // NEW: Proper low value for display
+        gamesPlayed: nonZeroValues.length, // Games where they actually played
+        totalGames: values.length // Total games including 0:0
+    };
+}
+
+// Updated hasGameplay function to be more explicit
+hasGameplay(stats) {
+    if (!stats || typeof stats !== 'object') return false;
+    // 🔥 FIXED: Check games played stat (ID "0") - if 0, this is a 0:0 week
+    return stats['0'] && parseInt(stats['0']) > 0;
+}
+    
 
     collectGameData(playerData, selectedYear, selectedWeek) {
         const gameData = [];
