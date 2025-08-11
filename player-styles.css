@@ -1,4 +1,4 @@
-/* ENHANCED PLAYER STATS PAGE - Mobile-First with Fixed Sticky Column */
+/* player-styles.css - COMPLETE AND ACCURATE VERSION */
 
 /* Global Reset and Variables */
 :root {
@@ -509,7 +509,7 @@ body {
     border-collapse: collapse;
     table-layout: auto;
     font-size: 0.9rem;
-    min-width: 600px;
+    min-width: 900px; /* Ensure table is wide enough for all columns */
     position: relative;
 }
 
@@ -535,6 +535,16 @@ body {
     min-width: 80px;
 }
 
+.player-stats-table th::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
 .player-stats-table td {
     padding: 0.75rem 0.5rem;
     border: none;
@@ -545,47 +555,40 @@ body {
     min-width: 80px;
 }
 
-/* 🔥 FIXED: STICKY LEFT COLUMNS - Player Info Block */
-.player-stats-table th.sticky-left,
-.player-stats-table td.sticky-left {
-    position: sticky;
-    left: 0;
-    z-index: 5;
-    background: inherit;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-}
-
-/* Specific sticky column widths and positions */
+/* 🔥 DESKTOP STICKY COLUMNS (3 leftmost columns) */
 .player-stats-table th:nth-child(1), /* Overall Rank */
 .player-stats-table td:nth-child(1) {
     position: sticky;
     left: 0;
     z-index: 6;
     background: inherit;
-    min-width: 80px;
-    max-width: 80px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    min-width: 100px;
+    max-width: 100px;
     text-align: center;
 }
 
 .player-stats-table th:nth-child(2), /* Position Rank */
 .player-stats-table td:nth-child(2) {
     position: sticky;
-    left: 80px;
+    left: 100px;
     z-index: 6;
     background: inherit;
-    min-width: 80px;
-    max-width: 80px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    min-width: 90px;
+    max-width: 90px;
     text-align: center;
 }
 
 .player-stats-table th:nth-child(3), /* Player Name + Team/Pos */
 .player-stats-table td:nth-child(3) {
     position: sticky;
-    left: 160px;
+    left: 190px;
     z-index: 6;
     background: inherit;
-    min-width: 180px;
-    max-width: 200px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    min-width: 200px;
+    max-width: 220px;
     text-align: left;
     font-weight: 700;
 }
@@ -625,6 +628,13 @@ body {
 .player-stats-table tbody tr:nth-child(even):hover td:nth-child(2),
 .player-stats-table tbody tr:nth-child(even):hover td:nth-child(3) {
     background: rgba(49, 130, 206, 0.08);
+}
+
+/* VALUE COLUMNS - Center aligned */
+.player-stats-table th:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)),
+.player-stats-table td:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)) {
+    text-align: center;
+    min-width: 90px;
 }
 
 /* Player info styling */
@@ -670,8 +680,6 @@ body {
     font-weight: 700;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
 }
-
-/* END OF TABLE SECTION
 
 /* TABLE DATA STYLES WITH INTELLIGENT COLORING */
 .stat-total,
@@ -719,13 +727,6 @@ body {
 
 .stat-range {
     color: var(--gray-700);
-}
-
-/* REMOVED ROW SHADING - Now using intelligent text coloring */
-.player-stats-table tbody tr {
-    transition: all 0.2s ease;
-    border: none;
-    background: white;
 }
 
 /* Year-over-Year styling */
@@ -844,8 +845,45 @@ body {
     font-weight: 700;
 }
 
-/* 🔥 MOBILE RESPONSIVE FIXES 🔥 */
-@media (max-width: 768px) {
+/* 🔥 TABLET RESPONSIVE (768px - 1023px) 🔥 */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .container {
+        padding: 1.5rem;
+    }
+
+    .player-stats-table {
+        min-width: 800px;
+    }
+
+    /* Tablet sticky columns - slightly narrower */
+    .player-stats-table th:nth-child(1),
+    .player-stats-table td:nth-child(1) {
+        min-width: 80px;
+        max-width: 80px;
+    }
+
+    .player-stats-table th:nth-child(2),
+    .player-stats-table td:nth-child(2) {
+        left: 80px;
+        min-width: 80px;
+        max-width: 80px;
+    }
+
+    .player-stats-table th:nth-child(3),
+    .player-stats-table td:nth-child(3) {
+        left: 160px;
+        min-width: 180px;
+        max-width: 200px;
+    }
+
+    .analytics-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+/* 🔥 MOBILE RESPONSIVE (0 - 767px) 🔥 */
+@media (max-width: 767px) {
     .container {
         padding: 1rem;
     }
@@ -859,142 +897,199 @@ body {
     }
 
     /* RESPONSIVE CONTROLS - Year above toggle on mobile */
-    .player-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 1rem;
-    }
+/* RESPONSIVE CONTROLS - Year above toggle on mobile */
+   .player-controls {
+       flex-direction: column;
+       align-items: stretch;
+       gap: 1rem;
+   }
 
-    .year-filter {
-        justify-content: center;
-        order: -1;
-    }
+   .year-filter {
+       justify-content: center;
+       order: -1;
+   }
 
-    .stats-toggle {
-        align-self: center;
-        order: 1;
-    }
+   .stats-toggle {
+       align-self: center;
+       order: 1;
+   }
 
-    /* 🔥 MOBILE TABLE - CRITICAL FIXES 🔥 */
-    .stats-table-container {
-        /* Full width minus padding */
-        width: calc(100vw - 2rem);
-        margin-left: calc(-50vw + 50% + 1rem);
-        border-radius: 0;
-        /* Enhanced scrolling */
-        overflow-x: auto;
-        overscroll-behavior-x: none;
-        -webkit-overflow-scrolling: touch;
-        /* Better scroll indicators */
-        scrollbar-width: thin;
-        scrollbar-color: rgba(0,0,0,0.3) transparent;
-    }
+   /* 🔥 MOBILE TABLE - CRITICAL FIXES 🔥 */
+   .stats-table-container {
+       /* Full width minus padding */
+       width: calc(100vw - 2rem);
+       margin-left: calc(-50vw + 50% + 1rem);
+       border-radius: 0;
+       /* Enhanced scrolling */
+       overflow-x: auto;
+       overscroll-behavior-x: none;
+       -webkit-overflow-scrolling: touch;
+       /* Better scroll indicators */
+       scrollbar-width: thin;
+       scrollbar-color: rgba(0,0,0,0.3) transparent;
+   }
 
-    /* Webkit scrollbar styling for mobile */
-    .stats-table-container::-webkit-scrollbar {
-        height: 4px;
-    }
-    
-    .stats-table-container::-webkit-scrollbar-track {
-        background: rgba(0,0,0,0.1);
-        border-radius: 2px;
-    }
-    
-    .stats-table-container::-webkit-scrollbar-thumb {
-        background: rgba(0,0,0,0.3);
-        border-radius: 2px;
-    }
+   /* Webkit scrollbar styling for mobile */
+   .stats-table-container::-webkit-scrollbar {
+       height: 4px;
+   }
+   
+   .stats-table-container::-webkit-scrollbar-track {
+       background: rgba(0,0,0,0.1);
+       border-radius: 2px;
+   }
+   
+   .stats-table-container::-webkit-scrollbar-thumb {
+       background: rgba(0,0,0,0.3);
+       border-radius: 2px;
+   }
 
-    .player-stats-table {
-        min-width: 700px; /* Wider on mobile for better spacing */
-    }
+   .player-stats-table {
+       min-width: 700px; /* Wider on mobile for better spacing */
+   }
 
-    /* Mobile-optimized sticky column */
-    .player-stats-table th:first-child,
-    .player-stats-table td:first-child {
-        min-width: 100px;
-        max-width: 120px;
-        font-size: 0.8rem;
-        padding-left: 0.75rem;
-        padding-right: 1rem;
-    }
+   /* Mobile-optimized sticky columns */
+   .player-stats-table th:nth-child(1),
+   .player-stats-table td:nth-child(1) {
+       min-width: 70px;
+       max-width: 70px;
+       font-size: 0.8rem;
+       padding-left: 0.5rem;
+       padding-right: 0.5rem;
+   }
 
-    .player-stats-table th:not(:first-child),
-    .player-stats-table td:not(:first-child) {
-        min-width: 90px;
-        padding: 0.75rem 0.5rem;
-    }
+   .player-stats-table th:nth-child(2),
+   .player-stats-table td:nth-child(2) {
+       left: 70px;
+       min-width: 70px;
+       max-width: 70px;
+       font-size: 0.8rem;
+       padding-left: 0.5rem;
+       padding-right: 0.5rem;
+   }
 
-    .analytics-cards {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
+   .player-stats-table th:nth-child(3),
+   .player-stats-table td:nth-child(3) {
+       left: 140px;
+       min-width: 160px;
+       max-width: 180px;
+       font-size: 0.8rem;
+       padding-left: 0.75rem;
+       padding-right: 0.75rem;
+   }
 
-    .analytics-card {
-        padding: 1.5rem;
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
+   .player-stats-table th:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)),
+   .player-stats-table td:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)) {
+       min-width: 80px;
+       padding: 0.75rem 0.5rem;
+   }
 
-    .card-icon {
-        font-size: 2.5rem;
-    }
+   .analytics-cards {
+       grid-template-columns: 1fr;
+       gap: 1.5rem;
+   }
 
-    .card-value {
-        font-size: 2rem;
-    }
+   .analytics-card {
+       padding: 1.5rem;
+       flex-direction: column;
+       text-align: center;
+       gap: 1rem;
+   }
 
-    .analytics-title {
-        font-size: 1.5rem;
-    }
+   .card-icon {
+       font-size: 2.5rem;
+   }
 
-    .stats-summary {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
+   .card-value {
+       font-size: 2rem;
+   }
 
-    .summary-item {
-        padding: 1.5rem;
-    }
+   .analytics-title {
+       font-size: 1.5rem;
+   }
 
-    .summary-value {
-        font-size: 2rem;
-    }
+   .stats-summary {
+       grid-template-columns: 1fr;
+       gap: 1rem;
+   }
 
-    .yoy-change,
-    .yoy-new {
-        font-size: 0.65rem;
-        padding: 0.1rem 0.25rem;
-        margin-left: 0.25rem;
-    }
-    
-    .stat-total {
-        flex-direction: column;
-        gap: 0.125rem;
-    }
+   .summary-item {
+       padding: 1.5rem;
+   }
+
+   .summary-value {
+       font-size: 2rem;
+   }
+
+   .yoy-change,
+   .yoy-new {
+       font-size: 0.65rem;
+       padding: 0.1rem 0.25rem;
+       margin-left: 0.25rem;
+   }
+   
+   .stat-total {
+       flex-direction: column;
+       gap: 0.125rem;
+   }
+
+   /* Mobile player info adjustments */
+   .player-name {
+       font-size: 0.8rem;
+   }
+
+   .player-meta-info {
+       gap: 0.25rem;
+   }
+
+   .position-tag, .team-tag {
+       font-size: 0.65rem;
+       padding: 0.1rem 0.3rem;
+   }
 }
 
 /* SIDE-BY-SIDE LAYOUT FOR WIDER MOBILE SCREENS */
-@media (min-width: 480px) and (max-width: 768px) {
-    .player-controls {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-    }
+@media (min-width: 480px) and (max-width: 767px) {
+   .player-controls {
+       flex-direction: row;
+       justify-content: space-between;
+       align-items: center;
+   }
 
-    .year-filter {
-        order: 0;
-        justify-content: flex-start;
-    }
+   .year-filter {
+       order: 0;
+       justify-content: flex-start;
+   }
 
-    .stats-toggle {
-        order: 1;
-        align-self: center;
-    }
+   .stats-toggle {
+       order: 1;
+       align-self: center;
+   }
+
+   /* Slightly wider sticky columns for wider mobile */
+   .player-stats-table th:nth-child(1),
+   .player-stats-table td:nth-child(1) {
+       min-width: 80px;
+       max-width: 80px;
+   }
+
+   .player-stats-table th:nth-child(2),
+   .player-stats-table td:nth-child(2) {
+       left: 80px;
+       min-width: 80px;
+       max-width: 80px;
+   }
+
+   .player-stats-table th:nth-child(3),
+   .player-stats-table td:nth-child(3) {
+       left: 160px;
+       min-width: 170px;
+       max-width: 190px;
+   }
 }
 
-@media (max-width: 480px) {
+/* EXTRA SMALL MOBILE (0 - 479px) */
+@media (max-width: 479px) {
    .player-meta {
        flex-direction: column;
        align-items: flex-start;
@@ -1024,20 +1119,40 @@ body {
    }
 
    .player-stats-table {
-       min-width: 600px;
+       min-width: 650px;
    }
 
-   .player-stats-table th:first-child,
-   .player-stats-table td:first-child {
-       min-width: 80px;
-       max-width: 100px;
+   .player-stats-table th:nth-child(1),
+   .player-stats-table td:nth-child(1) {
+       min-width: 60px;
+       max-width: 60px;
+       font-size: 0.75rem;
+       padding-left: 0.25rem;
+       padding-right: 0.25rem;
+   }
+
+   .player-stats-table th:nth-child(2),
+   .player-stats-table td:nth-child(2) {
+       left: 60px;
+       min-width: 60px;
+       max-width: 60px;
+       font-size: 0.75rem;
+       padding-left: 0.25rem;
+       padding-right: 0.25rem;
+   }
+
+   .player-stats-table th:nth-child(3),
+   .player-stats-table td:nth-child(3) {
+       left: 120px;
+       min-width: 140px;
+       max-width: 160px;
        font-size: 0.75rem;
        padding-left: 0.5rem;
-       padding-right: 0.75rem;
+       padding-right: 0.5rem;
    }
 
-   .player-stats-table th:not(:first-child),
-   .player-stats-table td:not(:first-child) {
+   .player-stats-table th:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)),
+   .player-stats-table td:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)) {
        min-width: 70px;
        padding: 0.5rem 0.25rem;
        font-size: 0.75rem;
@@ -1096,32 +1211,13 @@ body {
        min-width: auto !important;
    }
 
-   .player-stats-table th:first-child,
-   .player-stats-table td:first-child {
+   .player-stats-table th:nth-child(1),
+   .player-stats-table th:nth-child(2),
+   .player-stats-table th:nth-child(3),
+   .player-stats-table td:nth-child(1),
+   .player-stats-table td:nth-child(2),
+   .player-stats-table td:nth-child(3) {
        position: static !important;
        box-shadow: none !important;
    }
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-    .player-stats-table th:nth-child(1),
-    .player-stats-table td:nth-child(1) {
-        min-width: 60px;
-        max-width: 60px;
-    }
-
-    .player-stats-table th:nth-child(2),
-    .player-stats-table td:nth-child(2) {
-        left: 60px;
-        min-width: 60px;
-        max-width: 60px;
-    }
-
-    .player-stats-table th:nth-child(3),
-    .player-stats-table td:nth-child(3) {
-        left: 120px;
-        min-width: 160px;
-        max-width: 180px;
-    }
 }
