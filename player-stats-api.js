@@ -475,7 +475,7 @@ calculateStatMetricsWithLow(values) {
             }));
         }
 
-const transaction = this.cache.db.transaction([this.cache.playersStore], 'readonly');
+const transaction = this.cache.db.transaction([this.cache.playersStore], 'readwrite');
 const store = transaction.objectStore(this.cache.playersStore);
         
         return new Promise((resolve, reject) => {
