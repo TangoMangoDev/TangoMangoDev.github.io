@@ -789,7 +789,6 @@ function renderPlayerCard(player) {
 }
 
 // Render research view with ALL fantasy stats and bonus columns
-// Updated renderResearchView function in stats.js
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
@@ -812,9 +811,9 @@ function renderResearchView(players) {
                 <table class="research-table">
                     <thead>
                         <tr>
-                            <th class="sortable" onclick="sortTable('overallRank')">Overall Rank</th>
-                            <th class="sortable" onclick="sortTable('positionRank')">Pos Rank</th>
-                            <th class="sortable" onclick="sortTable('name')">Player</th>
+                            <th class="sortable sticky-header" onclick="sortTable('overallRank')">Overall Rank</th>
+                            <th class="sortable sticky-header" onclick="sortTable('positionRank')">Pos Rank</th>
+                            <th class="sortable sticky-header" onclick="sortTable('name')">Player</th>
                             ${showFantasyStats ? '<th class="sortable" onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
                             ${visibleStats.map(stat => `
                                 <th class="sortable" onclick="sortTable('${stat}')">${stat}</th>
@@ -829,9 +828,9 @@ function renderResearchView(players) {
                         ${players.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
-                                    <td class="rank-cell">#${player.overallRank || '-'}</td>
-                                    <td class="rank-cell">#${player.positionRank || '-'}</td>
-                                    <td>
+                                    <td class="rank-cell sticky-cell">#${player.overallRank || '-'}</td>
+                                    <td class="rank-cell sticky-cell">#${player.positionRank || '-'}</td>
+                                    <td class="sticky-cell">
                                         <div class="player-name-with-info">
                                             <div class="player-name">${player.name}</div>
                                             <div class="player-meta-info">
