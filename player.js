@@ -63,7 +63,6 @@ class PlayerDetailPage {
 
    async loadPlayerData() {
        if (this.isLoading) {
-           //console.log('⏳ Already loading player data...');
            return;
        }
 
@@ -71,8 +70,6 @@ class PlayerDetailPage {
        this.showLoading();
 
        try {
-           //console.log(`📊 Loading complete player data for: ${this.playerId}`);
-           
            this.playerData = await window.playerStatsAPI.getPlayerCompleteStats(this.playerId);
 
            if (this.playerData && Object.keys(this.playerData.years).length > 0) {
@@ -95,7 +92,6 @@ class PlayerDetailPage {
            console.log('🔄 Initializing StatsAPI and IndexedDB...');
            if (window.statsAPI && window.statsAPI.cache) {
                await window.statsAPI.cache.init();
-               //console.log('✅ StatsAPI IndexedDB initialized');
            }
        } catch (error) {
            console.warn('⚠️ Failed to initialize StatsAPI:', error);
@@ -154,8 +150,6 @@ class PlayerDetailPage {
            return;
        }
 
-       //console.log(`🧮 Recalculating analytics with filters:`, this.currentFilters);
-
        this.currentAnalytics = window.playerStatsAPI.calculatePlayerAnalytics(
            this.playerData,
            this.currentFilters.year,
@@ -173,13 +167,11 @@ class PlayerDetailPage {
            const currentYear = this.currentFilters.year === 'ALL' ? '2024' : this.currentFilters.year;
            const yearData = this.playerData.years[currentYear];
            
-           // EXTRACT RANK FROM INDEXEDDB yearRank field
            let rankDisplay = '';
            if (yearData && yearData.rank) {
                rankDisplay = `<span class="rank-badge">#${yearData.rank} Overall</span>`;
            }
 
-           // Get starts info from analytics if available
            let startsDisplay = '';
            if (this.currentAnalytics && this.currentAnalytics.startsInfo) {
                const { displayText } = this.currentAnalytics.startsInfo;
@@ -200,144 +192,18 @@ class PlayerDetailPage {
        }
    }
 
-   // NEW: Determine if a stat value should be colored as positive or negative
    getStatColorClass(statName, value, isAverage = false) {
        const isNegativeStat = this.negativeStats.has(statName);
        
-       if (value === 0) return ''; // No coloring for zero values
+       if (value === 0) return '';
        
        if (isNegativeStat) {
-           // For negative stats: lower values are better (green), higher values are worse (red)
            return value > 0 ? 'stat-negative' : 'stat-positive';
        } else {
-           // For positive stats: higher values are better (green), lower values could be neutral
            return value > 0 ? 'stat-positive' : '';
        }
    }
 
-   // Add this function to player.js
-function sortPlayerTable(column) {
-    console.log(`🔄 Sorting player table by: ${column}`);
-    // For now, just log - you can implement the actual sorting logic
-}
-// Add this to player.js - COMPLETE SORTING FUNCTION
-let playerTableSort = {
-    column: null,
-    direction: 'desc'
-};
-
-function sortPlayerTable(column) {
-    console.log(`🔄 Sorting player table by: ${column}`);
-    
-    const table = document.querySelector('.player-stats-table');
-    if (!table) {
-        console.error('❌ Player stats table not found');
-        return;
-    }
-    
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    // Determine sort direction
-    let direction = 'desc';
-    if (playerTableSort.column === column) {
-        direction = playerTableSort.direction === 'desc' ? 'asc' : 'desc';
-    }
-    
-    playerTableSort = { column, direction };
-    
-    // Sort rows based on column
-    const sortedRows = rows.sort((a, b) => {
-        let aValue, bValue;
-        
-        switch(column) {
-            case 'statName':
-                aValue = a.cells[0].textContent.trim();
-                bValue = b.cells[0].textContent.trim();
-                break;
-            case 'total':
-                aValue = parseFloat(a.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-                bValue = parseFloat(b.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-                break;
-            case 'average':
-                aValue = parseFloat(a.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
-                bValue = parseFloat(b.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
-                break;
-            case 'median':
-                aValue = parseFloat(a.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
-                bValue = parseFloat(b.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
-                break;
-            case 'low':
-                aValue = parseFloat(a.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
-                bValue = parseFloat(b.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
-                break;
-            case 'max':
-                aValue = parseFloat(a.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
-                bValue = parseFloat(b.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
-                break;
-            default:
-                return 0;
-        }
-        
-        // Compare values
-        if (column === 'statName') {
-            // String comparison for stat names
-            if (direction === 'asc') {
-                return aValue.localeCompare(bValue);
-            } else {
-                return bValue.localeCompare(aValue);
-            }
-        } else {
-            // Numeric comparison for stats
-            if (direction === 'asc') {
-                return aValue - bValue;
-            } else {
-                return bValue - aValue;
-            }
-        }
-    });
-    
-    // Update DOM
-    sortedRows.forEach(row => tbody.appendChild(row));
-    
-    // Update header indicators
-    updatePlayerTableSortIndicators(table, column, direction);
-    
-    console.log(`✅ Sorted player table by ${column} (${direction})`);
-}
-
-function updatePlayerTableSortIndicators(table, activeColumn, direction) {
-    // Remove existing sort indicators
-    table.querySelectorAll('th').forEach(th => {
-        th.classList.remove('sort-asc', 'sort-desc');
-        const existingIndicator = th.querySelector('.sort-indicator');
-        if (existingIndicator) {
-            existingIndicator.remove();
-        }
-    });
-    
-    // Add sort indicator to active column
-    const headers = table.querySelectorAll('th');
-    const columnIndex = {
-        'statName': 0,
-        'total': 1,
-        'average': 2,
-        'median': 3,
-        'low': 4,
-        'max': 5
-    }[activeColumn];
-    
-    if (columnIndex !== undefined && headers[columnIndex]) {
-        const activeHeader = headers[columnIndex];
-        activeHeader.classList.add(`sort-${direction}`);
-        
-        const indicator = document.createElement('span');
-        indicator.className = 'sort-indicator';
-        indicator.innerHTML = direction === 'asc' ? ' ▲' : ' ▼';
-        activeHeader.appendChild(indicator);
-    }
-}
-   // FIXED: Intelligent Year-over-Year display with proper color logic
    formatYearOverYearDisplay(yoyData, statName) {
        if (!yoyData) return '';
        
@@ -350,177 +216,161 @@ function updatePlayerTableSortIndicators(table, activeColumn, direction) {
        const percentage = yoyData.percentage;
        const sign = percentage >= 0 ? '+' : '';
        
-       // INTELLIGENT COLOR LOGIC
        let colorClass;
        const isNegativeStat = this.negativeStats.has(statName);
        
-       //console.log(`🎨 COLOR LOGIC for ${statName}: percentage=${percentage}%, isNegativeStat=${isNegativeStat}`);
-       
        if (isNegativeStat) {
-           // For negative stats (fumbles, INTs, etc.):
-           // Increase = bad (red), Decrease = good (green)
            colorClass = percentage >= 0 ? 'yoy-negative' : 'yoy-positive';
-           //console.log(`🔴 NEGATIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
        } else {
-           // For positive stats (yards, TDs, etc.):
-           // Increase = good (green), Decrease = bad (red)
            colorClass = percentage >= 0 ? 'yoy-positive' : 'yoy-negative';
-           //console.log(`🟢 POSITIVE STAT: ${statName} ${percentage}% -> ${colorClass}`);
        }
        
        return `<span class="yoy-change ${colorClass}">(${sign}${percentage}%)</span>`;
    }
 
-renderStatsTable() {
-    const container = document.getElementById('playerStatsContainer');
-    if (!container || !this.currentAnalytics) {
-        console.warn('⚠️ Cannot render stats table - missing container or analytics');
-        return;
-    }
+   renderStatsTable() {
+       const container = document.getElementById('playerStatsContainer');
+       if (!container || !this.currentAnalytics) {
+           console.warn('⚠️ Cannot render stats table - missing container or analytics');
+           return;
+       }
 
-    const { stats, summary, advancedAnalytics, yearOverYear } = this.currentAnalytics;
-    const statsEntries = Object.entries(stats);
+       const { stats, summary, advancedAnalytics, yearOverYear } = this.currentAnalytics;
+       const statsEntries = Object.entries(stats);
 
-    if (statsEntries.length === 0) {
-        container.innerHTML = `
-            <div class="no-stats-message">
-                <h3>No stats available</h3>
-                <p>No statistics found for the selected filters.</p>
-            </div>
-        `;
-        container.style.display = 'block';
-        this.hideLoading();
-        return;
-    }
+       if (statsEntries.length === 0) {
+           container.innerHTML = `
+               <div class="no-stats-message">
+                   <h3>No stats available</h3>
+                   <p>No statistics found for the selected filters.</p>
+               </div>
+           `;
+           container.style.display = 'block';
+           this.hideLoading();
+           return;
+       }
 
-    // Check if we should show YOY data
-    const showYearOverYear = this.currentFilters.year === '2024' && yearOverYear && Object.keys(yearOverYear).length > 0;
+       const showYearOverYear = this.currentFilters.year === '2024' && yearOverYear && Object.keys(yearOverYear).length > 0;
 
-    // Advanced Analytics Cards (only show in fantasy mode)
-    const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
-        <div class="advanced-analytics-section">
-            <h2 class="analytics-title">Fantasy Analytics</h2>
-            <div class="analytics-cards">
-                <div class="analytics-card consistency">
-                    <div class="card-icon">📊</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
-                        <div class="card-label">Consistency Score</div>
-                        <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
-                    </div>
-                </div>
-                
-                <div class="analytics-card volatility">
-                    <div class="card-icon">📈</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
-                        <div class="card-label">Volatility Index</div>
-                        <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
-                    </div>
-                </div>
-                
-                <div class="analytics-card boom-bust">
-                    <div class="card-icon">💥</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
-                        <div class="card-label">Boom / Bust Rate</div>
-                        <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
-                    </div>
-                </div>
-                
-                <div class="analytics-card td-dependency">
-                    <div class="card-icon">🏈</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
-                        <div class="card-label">TD Dependency</div>
-                        <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
-                    </div>
-                </div>
-                
-                <div class="analytics-card efficiency">
-                    <div class="card-icon">⚡</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
-                        <div class="card-label">Opportunity Efficiency</div>
-                        <div class="card-subtitle">Points per touch</div>
-                    </div>
-                </div>
-                
-                <div class="analytics-card floor-ceiling">
-                    <div class="card-icon">📏</div>
-                    <div class="card-content">
-                        <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
-                        <div class="card-label">Floor - Ceiling</div>
-                        <div class="card-subtitle">10th - 90th percentile</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    ` : '';
+       const advancedAnalyticsHTML = this.currentFilters.showFantasyStats && advancedAnalytics ? `
+           <div class="advanced-analytics-section">
+               <h2 class="analytics-title">Fantasy Analytics</h2>
+               <div class="analytics-cards">
+                   <div class="analytics-card consistency">
+                       <div class="card-icon">📊</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.consistencyScore || 0}%</div>
+                           <div class="card-label">Consistency Score</div>
+                           <div class="card-subtitle">${this.getConsistencyDescription(advancedAnalytics.consistencyScore)}</div>
+                       </div>
+                   </div>
+                   
+                   <div class="analytics-card volatility">
+                       <div class="card-icon">📈</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.volatilityIndex || 0}</div>
+                           <div class="card-label">Volatility Index</div>
+                           <div class="card-subtitle">${this.getVolatilityDescription(advancedAnalytics.volatilityIndex)}</div>
+                       </div>
+                   </div>
+                   
+                   <div class="analytics-card boom-bust">
+                       <div class="card-icon">💥</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.boomRate || 0}% / ${advancedAnalytics.bustRate || 0}%</div>
+                           <div class="card-label">Boom / Bust Rate</div>
+                           <div class="card-subtitle">${this.getBoomBustDescription(advancedAnalytics.boomRate, advancedAnalytics.bustRate)}</div>
+                       </div>
+                   </div>
+                   
+                   <div class="analytics-card td-dependency">
+                       <div class="card-icon">🏈</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.tdDependency || 0}%</div>
+                           <div class="card-label">TD Dependency</div>
+                           <div class="card-subtitle">${this.getTdDependencyDescription(advancedAnalytics.tdDependency)}</div>
+                       </div>
+                   </div>
+                   
+                   <div class="analytics-card efficiency">
+                       <div class="card-icon">⚡</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.opportunityEfficiency || 0}</div>
+                           <div class="card-label">Opportunity Efficiency</div>
+                           <div class="card-subtitle">Points per touch</div>
+                       </div>
+                   </div>
+                   
+                   <div class="analytics-card floor-ceiling">
+                       <div class="card-icon">📏</div>
+                       <div class="card-content">
+                           <div class="card-value">${advancedAnalytics.floorCeiling?.floor || 0} - ${advancedAnalytics.floorCeiling?.ceiling || 0}</div>
+                           <div class="card-label">Floor - Ceiling</div>
+                           <div class="card-subtitle">10th - 90th percentile</div>
+                       </div>
+                   </div>
+               </div>
+           </div>
+       ` : '';
 
-    const tableHTML = `
-        ${advancedAnalyticsHTML}
-        
-        <div class="stats-table-container">
-            <table class="player-stats-table">
-                <thead>
-                    <tr>
-                        <th class="stat-name-col">Statistic</th>
-                        <th class="stat-value-col">Total${showYearOverYear ? ' (YoY)' : ''}</th>
-                        <th class="stat-value-col">AVG. PPG</th>
-                        <th class="stat-value-col">Season Mid</th>
-                        <th class="stat-value-col">Low</th>
-                        <th class="stat-value-col">Best Game</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${statsEntries.map(([statId, statData]) => {
-                        const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
-                            statData.fantasyStats : statData.rawStats;
-                        
-                        const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
-                        
-                        // NEW: Calculate proper low value (lowest non-zero for games played)
-                        const lowValue = displayStats.lowGameValue !== undefined ? 
-                            displayStats.lowGameValue : displayStats.min;
-                        
-                        // NEW: Intelligent stat coloring
-                        const avgColorClass = this.getStatColorClass(statData.statName, displayStats.average, true);
-                        const medianColorClass = this.getStatColorClass(statData.statName, displayStats.median, true);
-                        const maxColorClass = 'stat-best-game'; // Always green for best game
-                        
-                        // Year-over-Year display with intelligent color logic
-                        const yoyDisplay = showYearOverYear && yearOverYear[statId] ? 
-                            this.formatYearOverYearDisplay(yearOverYear[statId], statData.statName) : '';
-                        
-                        return `
-                            <tr class="stat-row">
-                                <td class="stat-name">${statData.statName}</td>
-                                <td class="stat-total">
-                                    <span>${this.formatStatValue(displayStats.total)}${suffix}</span>
-                                    ${yoyDisplay}
-                                </td>
-                                <td class="stat-average ${avgColorClass}">${this.formatStatValue(displayStats.average)}${suffix}</td>
-                                <td class="stat-median ${medianColorClass}">${this.formatStatValue(displayStats.median)}${suffix}</td>
-                                <td class="stat-low">${this.formatStatValue(lowValue)}${suffix}</td>
-                                <td class="stat-max ${maxColorClass}">${this.formatStatValue(displayStats.max)}${suffix}</td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+       const tableHTML = `
+           ${advancedAnalyticsHTML}
+           
+           <div class="stats-table-container">
+               <table class="player-stats-table">
+                   <thead>
+                       <tr>
+                           <th class="stat-name-col" onclick="sortPlayerTable('statName')">Statistic</th>
+                           <th class="stat-value-col" onclick="sortPlayerTable('total')">Total${showYearOverYear ? ' (YoY)' : ''}</th>
+                           <th class="stat-value-col" onclick="sortPlayerTable('average')">AVG. PPG</th>
+                           <th class="stat-value-col" onclick="sortPlayerTable('median')">Season Mid</th>
+                           <th class="stat-value-col" onclick="sortPlayerTable('low')">Low</th>
+                           <th class="stat-value-col" onclick="sortPlayerTable('max')">Best Game</th>
+                       </tr>
+                   </thead>
+                   <tbody>
+                       ${statsEntries.map(([statId, statData]) => {
+                           const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
+                               statData.fantasyStats : statData.rawStats;
+                           
+                           const suffix = this.currentFilters.showFantasyStats && statData.fantasyStats ? ' pts' : '';
+                           
+                           const lowValue = displayStats.lowGameValue !== undefined ? 
+                               displayStats.lowGameValue : displayStats.min;
+                           
+                           const avgColorClass = this.getStatColorClass(statData.statName, displayStats.average, true);
+                           const medianColorClass = this.getStatColorClass(statData.statName, displayStats.median, true);
+                           const maxColorClass = 'stat-best-game';
+                           
+                           const yoyDisplay = showYearOverYear && yearOverYear[statId] ? 
+                               this.formatYearOverYearDisplay(yearOverYear[statId], statData.statName) : '';
+                           
+                           return `
+                               <tr class="stat-row">
+                                   <td class="stat-name">${statData.statName}</td>
+                                   <td class="stat-total">
+                                       <span>${this.formatStatValue(displayStats.total)}${suffix}</span>
+                                       ${yoyDisplay}
+                                   </td>
+                                   <td class="stat-average ${avgColorClass}">${this.formatStatValue(displayStats.average)}${suffix}</td>
+                                   <td class="stat-median ${medianColorClass}">${this.formatStatValue(displayStats.median)}${suffix}</td>
+                                   <td class="stat-low">${this.formatStatValue(lowValue)}${suffix}</td>
+                                   <td class="stat-max ${maxColorClass}">${this.formatStatValue(displayStats.max)}${suffix}</td>
+                               </tr>
+                           `;
+                       }).join('')}
+                   </tbody>
+               </table>
+           </div>
+       `;
 
-    container.innerHTML = tableHTML;
-    container.style.display = 'block';
-    this.hideLoading();
-    
-    // Update header with starts info after rendering
-    this.updatePlayerHeader();
-}
+       container.innerHTML = tableHTML;
+       container.style.display = 'block';
+       this.hideLoading();
+       
+       this.updatePlayerHeader();
+   }
 
-   // Description helpers for advanced analytics
    getConsistencyDescription(score) {
        if (score >= 90) return 'Very Reliable';
        if (score >= 80) return 'Steady Producer';
@@ -574,6 +424,114 @@ renderStatsTable() {
        document.getElementById('loadingState').style.display = 'none';
        document.getElementById('playerStatsContainer').style.display = 'none';
    }
+}
+
+// 🔥 SORTING FUNCTIONS OUTSIDE THE CLASS 🔥
+let playerTableSort = {
+    column: null,
+    direction: 'desc'
+};
+
+function sortPlayerTable(column) {
+    console.log(`🔄 Sorting player table by: ${column}`);
+    
+    const table = document.querySelector('.player-stats-table');
+    if (!table) {
+        console.error('❌ Player stats table not found');
+        return;
+    }
+    
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    let direction = 'desc';
+    if (playerTableSort.column === column) {
+        direction = playerTableSort.direction === 'desc' ? 'asc' : 'desc';
+    }
+    
+    playerTableSort = { column, direction };
+    
+    const sortedRows = rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(column) {
+            case 'statName':
+                aValue = a.cells[0].textContent.trim();
+                bValue = b.cells[0].textContent.trim();
+                break;
+            case 'total':
+                aValue = parseFloat(a.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'average':
+                aValue = parseFloat(a.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[2].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'median':
+                aValue = parseFloat(a.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[3].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'low':
+                aValue = parseFloat(a.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[4].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            case 'max':
+                aValue = parseFloat(a.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(b.cells[5].textContent.replace(/[^\d.-]/g, '')) || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (column === 'statName') {
+            if (direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        } else {
+            if (direction === 'asc') {
+                return aValue - bValue;
+            } else {
+                return bValue - aValue;
+            }
+        }
+    });
+    
+    sortedRows.forEach(row => tbody.appendChild(row));
+    updatePlayerTableSortIndicators(table, column, direction);
+    
+    console.log(`✅ Sorted player table by ${column} (${direction})`);
+}
+
+function updatePlayerTableSortIndicators(table, activeColumn, direction) {
+    table.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        const existingIndicator = th.querySelector('.sort-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+    });
+    
+    const headers = table.querySelectorAll('th');
+    const columnIndex = {
+        'statName': 0,
+        'total': 1,
+        'average': 2,
+        'median': 3,
+        'low': 4,
+        'max': 5
+    }[activeColumn];
+    
+    if (columnIndex !== undefined && headers[columnIndex]) {
+        const activeHeader = headers[columnIndex];
+        activeHeader.classList.add(`sort-${direction}`);
+        
+        const indicator = document.createElement('span');
+        indicator.className = 'sort-indicator';
+        indicator.innerHTML = direction === 'asc' ? ' ▲' : ' ▼';
+        activeHeader.appendChild(indicator);
+    }
 }
 
 // Initialize when DOM is ready
