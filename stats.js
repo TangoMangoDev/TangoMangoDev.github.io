@@ -245,6 +245,7 @@ function initializeActiveLeague() {
 }
 
 // Filter controls
+// Updated createFilterControls function in stats.js
 function createFilterControls() {
     const activeLeagueId = currentFilters.league || initializeActiveLeague();
     const activeLeague = userLeagues[activeLeagueId];
@@ -287,11 +288,7 @@ function createFilterControls() {
                     <label for="team-select">Team:</label>
                     <select id="team-select" class="filter-dropdown">
                         <option value="ALL">All Teams</option>
-                        ${activeLeague && activeLeague.teams ? activeLeague.teams.map(team => `
-                            <option value="${team.teamId}" ${team.teamId === currentFilters.team ? 'selected' : ''}>
-                                ${team.teamName}
-                            </option>
-                        `).join('') : ''}
+                        <!-- Teams will be populated from rosters data when needed -->
                     </select>
                 </div>
             ` : ''}
