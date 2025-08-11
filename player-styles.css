@@ -486,6 +486,7 @@ body {
     border: 1px solid var(--gray-200);
     width: 100%;
     overflow: hidden;
+    position: relative;
 }
 
 .player-stats-table {
@@ -550,11 +551,23 @@ body {
 }
 
 .stat-name-col {
+    position: sticky;
+    left: 0;
     background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+    z-index: 4; /* Higher than thead z-index */
+    min-width: 120px;
+    text-align: left;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 .stat-name {
+    position: sticky;
+    left: 0;
     background: white;
+    z-index: 2;
+    min-width: 120px;
+    text-align: left;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
     font-weight: 700;
     color: var(--gray-800);
     font-size: 0.85rem;
@@ -568,10 +581,11 @@ body {
 }
 
 /* TABLE DATA STYLES WITH INTELLIGENT COLORING */
+/* TABLE DATA STYLES WITH INTELLIGENT COLORING */
 .stat-total,
 .stat-average,
 .stat-median,
-.stat-range,
+.stat-low,
 .stat-max {
     text-align: center;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
@@ -607,6 +621,9 @@ body {
     font-weight: 700;
 }
 
+.stat-low {
+    color: var(--gray-700);
+}
 .stat-range {
     color: var(--gray-700);
 }
@@ -618,21 +635,16 @@ body {
     background: white;
 }
 
-.player-stats-table tbody tr:hover {
-    background: linear-gradient(90deg, rgba(49, 130, 206, 0.05), rgba(49, 130, 206, 0.02));
-    transform: scale(1.002);
-}
-
-.player-stats-table tbody tr:nth-child(even) {
+.player-stats-table tbody tr:nth-child(even) .stat-name {
     background: var(--gray-50);
 }
 
-.player-stats-table tbody tr:nth-child(even):hover {
-    background: linear-gradient(90deg, rgba(49, 130, 206, 0.08), rgba(49, 130, 206, 0.03));
+.player-stats-table tbody tr:hover .stat-name {
+    background: linear-gradient(90deg, rgba(49, 130, 206, 0.05), rgba(49, 130, 206, 0.02));
 }
 
-.player-stats-table tbody tr:last-child td {
-    border-bottom: none;
+.player-stats-table tbody tr:nth-child(even):hover .stat-name {
+    background: linear-gradient(90deg, rgba(49, 130, 206, 0.08), rgba(49, 130, 206, 0.03));
 }
 
 /* Year-over-Year styling */
@@ -801,9 +813,10 @@ body {
         max-width: 120px;
     }
 
-    .stat-value-col {
-        min-width: 80px;
-    }
+.stat-value-col {
+    min-width: 100px;
+    text-align: center;
+}
 
     .analytics-cards {
         grid-template-columns: 1fr;
@@ -955,16 +968,27 @@ body {
         display: none !important;
     }
 
+   @media (max-width: 768px) {
     .stats-table-container {
-        box-shadow: none !important;
-        border: 1px solid #000 !important;
-        width: 100% !important;
-        margin: 0 !important;
+        width: 100vw;
+        margin-left: calc(-50vw + 50%);
+        border-radius: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .player-stats-table {
+        min-width: 600px;
     }
 
     .stat-name-col,
     .stat-name {
-        position: static !important;
-        box-shadow: none !important;
+        min-width: 100px;
+        max-width: 120px;
     }
+
+    .stat-value-col {
+        min-width: 80px;
+    }
+}
 }
