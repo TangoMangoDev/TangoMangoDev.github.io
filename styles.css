@@ -377,19 +377,131 @@
     min-width: 80px;
 }
 
-        .player-name-cell {
-            font-weight: 600;
-            color: #1a1a1a;
-            min-width: 150px;
-            position: sticky;
-            left: 0;
-            background: white;
-            z-index: 5;
-        }
+/* 🔥 CRITICAL: STICKY FIRST COLUMN IMPLEMENTATION 🔥 */
+.research-table th:first-child,
+.research-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 5; /* Higher than other elements */
+    background: inherit;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    min-width: 150px;
+    max-width: 200px;
+    text-align: left;
+    font-weight: 700;
+}
 
-        .research-table tr:hover .player-name-cell {
-            background: #f8f9fa;
-        }
+/* Header first column styling */
+.research-table th:first-child {
+    background: linear-gradient(135deg, #1a365d 0%, #2d4a6b 100%);
+    z-index: 6; /* Highest z-index */
+    color: white;
+}
+
+/* Data first column styling */
+.research-table td:first-child {
+    background: white;
+    color: #2d3748;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+/* VALUE COLUMNS - Center aligned */
+.research-table th:not(:first-child),
+.research-table td:not(:first-child) {
+    text-align: center;
+    min-width: 80px;
+}
+
+/* Alternating row colors for first column */
+.research-table tbody tr:nth-child(even) td:first-child {
+    background: #f7fafc;
+}
+
+.research-table tbody tr:hover td:first-child {
+    background: rgba(49, 130, 206, 0.05);
+}
+
+.research-table tbody tr:nth-child(even):hover td:first-child {
+    background: rgba(49, 130, 206, 0.08);
+}
+
+/* SORTING STYLES */
+.sortable {
+    cursor: pointer !important;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.sort-indicator svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* RANK COLUMNS */
+.rank-cell {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #4a5568;
+}
+
+/* FANTASY STATS STYLING */
+.fantasy-stat-cell {
+    color: #3182ce !important;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.total-points {
+    background-color: #e3f2fd;
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #1976d2;
+}
+
+/* BONUS COLUMN STYLING */
+.bonus-header {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+    font-style: italic;
+    border-left: 2px solid #28a745;
+}
+
+.bonus-cell {
+    background-color: #f8fff8;
+    color: #28a745;
+    font-weight: bold;
+    text-align: center;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+/* CLICKABLE ROWS */
+.clickable-row {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clickable-row:hover {
+    background-color: #e3f2fd !important;
+    transform: scale(1.01);
+}
+
+.clickable-row:active {
+    transform: scale(0.99);
+}
 
         .fantasy-stat-cell {
             font-size: 16px;
@@ -631,4 +743,82 @@
 
 .player-card:hover::after {
     opacity: 0.6;
+}
+/* 🔥 MOBILE RESPONSIVE FIXES 🔥 */
+@media (max-width: 768px) {
+    .research-table-wrapper {
+        /* Full width minus padding */
+        width: calc(100vw - 2rem);
+        margin-left: calc(-50vw + 50% + 1rem);
+        border-radius: 0;
+        /* Enhanced scrolling */
+        overflow-x: auto;
+        overscroll-behavior-x: none;
+        -webkit-overflow-scrolling: touch;
+        /* Better scroll indicators */
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.3) transparent;
+    }
+
+    /* Webkit scrollbar styling for mobile */
+    .research-table-wrapper::-webkit-scrollbar {
+        height: 4px;
+    }
+    
+    .research-table-wrapper::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.1);
+        border-radius: 2px;
+    }
+    
+    .research-table-wrapper::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.3);
+        border-radius: 2px;
+    }
+
+    .research-table {
+        min-width: 900px; /* Wider on mobile for better spacing */
+    }
+
+    /* Mobile-optimized sticky column */
+    .research-table th:first-child,
+    .research-table td:first-child {
+        min-width: 120px;
+        max-width: 150px;
+        font-size: 0.8rem;
+        padding-left: 0.75rem;
+        padding-right: 1rem;
+    }
+
+    .research-table th:not(:first-child),
+    .research-table td:not(:first-child) {
+        min-width: 80px;
+        padding: 0.75rem 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .research-table-wrapper {
+        width: calc(100vw - 1rem);
+        margin-left: calc(-50vw + 50% + 0.5rem);
+    }
+
+    .research-table {
+        min-width: 800px;
+    }
+
+    .research-table th:first-child,
+    .research-table td:first-child {
+        min-width: 100px;
+        max-width: 120px;
+        font-size: 0.75rem;
+        padding-left: 0.5rem;
+        padding-right: 0.75rem;
+    }
+
+    .research-table th:not(:first-child),
+    .research-table td:not(:first-child) {
+        min-width: 70px;
+        padding: 0.5rem 0.25rem;
+        font-size: 0.75rem;
+    }
 }
