@@ -673,16 +673,17 @@ async loadAndRankAllPlayersForYear(year) {
         });
         
         // 🔥 FIXED RANKING - SORT BY FANTASY POINTS 🔥
-// 🔥 FIXED RANKING - OVERALL RANK IN KEY 🔥
 const rankedPlayers = playersWithFantasyPoints
     .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
     .map((player, index) => ({
         ...player,
-        rank: index + 1,           // OVERALL RANK 1, 2, 3... (THIS GOES IN KEY)
+        rank: index + 1,           
         overallRank: index + 1
     }));
 
-// Position ranks are separate
+// 🔥 ADD THIS LINE I FORGOT 🔥
+const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+
 positions.forEach(position => {
     const positionPlayers = rankedPlayers
         .filter(player => player.position === position)
