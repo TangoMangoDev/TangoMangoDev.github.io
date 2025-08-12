@@ -744,9 +744,10 @@ function renderResearchView(players) {
     const allStats = getStatsForPosition(currentFilters.position);
     const visibleStats = getVisibleStats(players, allStats);
     
-    // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥    
-const sortedPlayers = currentView === 'research' ? getSortedPlayers(players) : players;
-console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);    
+    // 🔥 SORT THE PLAYERS FIRST 🔥
+    const sortedPlayers = getSortedPlayers(players);
+    console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players. Sort: ${tableSort.column} ${tableSort.direction}`);
+    
     content.innerHTML = `
         <div class="research-container fade-in">
             <div class="research-header">
@@ -834,7 +835,6 @@ console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted pl
        });
    }
 }
-   
 function getShortStatName(statName) {
    const abbreviations = {
        "Pass Att": "ATT",
