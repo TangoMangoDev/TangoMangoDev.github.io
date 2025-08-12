@@ -1,4 +1,4 @@
-// stats.js - Enhanced Dashboard with new player-centric data retrieval
+// stats.js - FIXED Research Table Rendering
 // Global state and variables
 let currentFilters = {
     league: null,
@@ -21,7 +21,7 @@ let currentPlayers = [];
 let currentView = 'cards';
 let searchQuery = '';
 let showFantasyStats = false;
-let currentScoringRules = {}; // ONLY store the active league's rules
+let currentScoringRules = {};
 let userLeagues = {};
 let tableSort = {
     column: null,
@@ -47,28 +47,23 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-
 // Backend API functions
-// Updated loadUserLeagues function in stats.js
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
         
-        // 🔥 CHECK CACHE FIRST
         const cached = localStorage.getItem('userLeagues');
         if (cached) {
             const parsed = JSON.parse(cached);
-            if (Date.now() - parsed.timestamp < 3600000) { // 1 hour cache
+            if (Date.now() - parsed.timestamp < 3600000) {
                 userLeagues = parsed.leagues;
                 console.log(`✅ Using cached leagues - NO API CALL`);
                 
-                // Still need to set up scoring rules from IndexedDB
                 const defaultLeagueId = Object.keys(userLeagues)[0];
                 if (defaultLeagueId) {
                     currentFilters.league = defaultLeagueId;
                     localStorage.setItem('activeLeagueId', defaultLeagueId);
                     
-                    // Load from IndexedDB
                     const rulesData = await window.statsAPI.getScoringRules(defaultLeagueId);
                     if (rulesData && rulesData[defaultLeagueId]) {
                         currentScoringRules = rulesData[defaultLeagueId];
@@ -98,59 +93,43 @@ async function loadUserLeagues() {
         if (data.leagues && data.scoringRules) {
             userLeagues = data.leagues;
             
-            // 🔥 REMOVE EMPTY TEAMS ARRAYS FROM LEAGUES
             Object.keys(userLeagues).forEach(leagueId => {
                 if (userLeagues[leagueId].teams) {
                     delete userLeagues[leagueId].teams;
                 }
             });
             
-            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues (removed empty teams arrays):`, Object.keys(userLeagues));
+            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
             
-            // STORE ALL SCORING RULES IN INDEXDB
             for (const [leagueId, scoringRules] of Object.entries(data.scoringRules)) {
                 if (scoringRules && Object.keys(scoringRules).length > 0) {
-                    console.log(`💾 Storing ${Object.keys(scoringRules).length} scoring rules for league ${leagueId}`);
                     await window.statsAPI.cache.setScoringRules(leagueId, scoringRules);
                 }
             }
             
-            // 🆕 STORE ALL ROSTERS IN INDEXEDDB
             if (data.rosters) {
-                console.log(`📋 Processing rosters for ${Object.keys(data.rosters).length} leagues...`);
-                
                 for (const [leagueId, leagueRosters] of Object.entries(data.rosters)) {
                     if (leagueRosters && typeof leagueRosters === 'object') {
-                        console.log(`📋 Storing rosters for league ${leagueId} - ${Object.keys(leagueRosters).length} weeks`);
-                        
-                        // Store each week's rosters
                         for (const [week, rosterData] of Object.entries(leagueRosters)) {
                             if (rosterData && rosterData.rosters) {
                                 await window.statsAPI.cache.setRosters(leagueId, week, rosterData);
-                                console.log(`📋 Stored rosters for league ${leagueId} week ${week} - ${rosterData.totalPlayers} players`);
                             }
                         }
                     }
                 }
-                
-                console.log(`✅ Completed storing rosters in IndexedDB`);
             }
             
-            // Set default league (first one or the one specified by backend)
             const defaultLeagueId = data.defaultLeagueId || Object.keys(userLeagues)[0];
             
             if (defaultLeagueId) {
                 currentFilters.league = defaultLeagueId;
                 localStorage.setItem('activeLeagueId', defaultLeagueId);
                 
-                // Load scoring rules for default league
                 if (data.scoringRules[defaultLeagueId]) {
                     currentScoringRules = data.scoringRules[defaultLeagueId];
-                    console.log(`✅ Set default league ${defaultLeagueId} with ${Object.keys(currentScoringRules).length} scoring rules`);
                 }
             }
             
-            // Cache the leagues data (without teams arrays)
             localStorage.setItem('userLeagues', JSON.stringify({
                 leagues: userLeagues,
                 timestamp: Date.now()
@@ -183,30 +162,19 @@ function setEmptyDefaults() {
     return {};
 }
 
-// FIXED: Load scoring rules and extract the correct nested structure
 async function loadScoringRulesForActiveLeague(leagueId) {
     if (!leagueId) {
-        console.log('❌ No league ID provided for scoring rules');
         currentScoringRules = {};
         return;
     }
     
-    console.log(`🔄 Loading scoring rules for league: ${leagueId}`);
-    
     try {
-        // Get from IndexedDB via StatsAPI (which checks cache first)
         const rulesData = await window.statsAPI.getScoringRules(leagueId);
-        
-        console.log(`📊 Received rules data:`, rulesData);
         
         if (rulesData && rulesData[leagueId]) {
             currentScoringRules = rulesData[leagueId];
-            console.log(`✅ Loaded ${Object.keys(currentScoringRules).length} scoring rules from IndexedDB for league ${leagueId}`);
-            
-            // Trigger fresh data load for this league
             await loadStats(true);
         } else {
-            console.log(`⚠️ No scoring rules found for league ${leagueId}`);
             currentScoringRules = {};
         }
         
@@ -216,41 +184,8 @@ async function loadScoringRulesForActiveLeague(leagueId) {
     }
 }
 
-function getSavedWeek() {
-    const savedWeek = localStorage.getItem('selectedWeek');
-    if (savedWeek && savedWeek !== 'current') {
-        return savedWeek === 'total' ? 'total' : parseInt(savedWeek);
-    }
-    return 'total';
-}
-
-function saveWeekPreference(week) {
-    if (week) {
-        localStorage.setItem('selectedWeek', week.toString());
-    } else {
-        localStorage.setItem('selectedWeek', 'total');
-    }
-}
-
-function initializeActiveLeague() {
-    let activeLeagueId = localStorage.getItem('activeLeagueId');
-    
-    if (!activeLeagueId || !userLeagues[activeLeagueId]) {
-        const leagueIds = Object.keys(userLeagues);
-        if (leagueIds.length > 0) {
-            activeLeagueId = leagueIds[0];
-            localStorage.setItem('activeLeagueId', activeLeagueId);
-        }
-    }
-    
-    return activeLeagueId;
-}
-
-// Filter controls
-// Updated createFilterControls function in stats.js
 function createFilterControls() {
     const activeLeagueId = currentFilters.league || initializeActiveLeague();
-    const activeLeague = userLeagues[activeLeagueId];
     
     return `
         <div class="filter-controls">
@@ -285,14 +220,6 @@ function createFilterControls() {
                         `).join('')}
                     </select>
                 </div>
-                
-                <div class="filter-group">
-                    <label for="team-select">Team:</label>
-                    <select id="team-select" class="filter-dropdown">
-                        <option value="ALL">All Teams</option>
-                        <!-- Teams will be populated from rosters data when needed -->
-                    </select>
-                </div>
             ` : ''}
             
             <div class="stats-toggle">
@@ -306,10 +233,9 @@ function createFilterControls() {
         </div>
     `;
 }
-// ENHANCED: Load stats using new player-centric approach
+
 async function loadStats(resetPage = true) {
     if (apiState.loading) {
-        console.log('🚫 Already loading stats, ignoring duplicate call');
         return;
     }
 
@@ -324,11 +250,7 @@ async function loadStats(resetPage = true) {
     updateFilterControlsUI();
     
     try {
-        console.log(`🎯 Loading stats for: ${currentFilters.year}, ${currentFilters.week}, ${currentFilters.position}`);
-        
-        // Calculate how many players to load (50 per page)
         const playersToLoad = apiState.currentPage * 50;        
-        // Use new getPlayersForDisplay method
         const playersData = await window.statsAPI.getPlayersForDisplay(
             currentFilters.year,
             currentFilters.week,
@@ -340,28 +262,21 @@ async function loadStats(resetPage = true) {
             throw new Error('Failed to load players data');
         }
         
-        console.log(`📊 Received ${playersData.data.length} players from new system`);
-        
         currentPlayers = playersData.data;
         
-        // Calculate fantasy points if needed
         if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
             currentPlayers = currentPlayers.map(player => ({
                 ...player,
                 fantasyPoints: calculateTotalFantasyPoints(player)
             }));
             
-            // Sort by fantasy points for fantasy mode
             currentPlayers.sort((a, b) => (b.fantasyPoints || 0) - (a.fantasyPoints || 0));
         }
         
-        // Set pagination info
         apiState.totalRecords = Math.max(currentPlayers.length, playersToLoad);
-        apiState.hasMore = playersData.data.length >= playersToLoad; // Assume more if we got exactly what we asked for
+        apiState.hasMore = playersData.data.length >= playersToLoad;
         apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
         apiState.loading = false;
-        
-        console.log(`✅ Successfully loaded ${currentPlayers.length} players`);
         
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -374,74 +289,41 @@ async function loadStats(resetPage = true) {
     await render();
 }
 
-function sortTable(column) {
-    if (tableSort.column === column) {
-        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        tableSort.column = column;
-        tableSort.direction = 'desc'; // Start with descending for new columns
-    }
-    render(); // Re-render with the new sort
-}
-
-// COMPLETE setupEventListeners function
 function setupEventListeners() {
     if (eventListenersSetup) {
         return;
     }
 
-    // Year selector - IMPORTANT: This triggers full year reload
     const yearSelect = document.getElementById('year-select');
     if (yearSelect) {
         yearSelect.addEventListener('change', async (e) => {
             const newYear = e.target.value;
-            console.log(`🔄 Year changed to: ${newYear}`);
-            
             currentFilters.year = newYear;
-            currentFilters.week = 'total'; // Reset to season totals
-            
-            // Clear year data to force reload
+            currentFilters.week = 'total';
             window.statsAPI.yearDataLoaded.delete(newYear);
-            
             await loadStats(true);
         });
     }
     
-    // Week selector
     const weekSelect = document.getElementById('week-select');
     if (weekSelect) {
         weekSelect.addEventListener('change', async (e) => {
             currentFilters.week = e.target.value;
-            saveWeekPreference(e.target.value);
             await loadStats(true);
         });
     }
     
-    // League selector
     const leagueSelect = document.getElementById('league-select');
     if (leagueSelect) {
         leagueSelect.addEventListener('change', async (e) => {
             const newLeagueId = e.target.value;
-            console.log(`🔄 League switched to: ${newLeagueId}`);
-            
             currentFilters.league = newLeagueId;
             localStorage.setItem('activeLeagueId', newLeagueId);
-            
             await loadScoringRulesForActiveLeague(newLeagueId);
             updateFilterControlsUI();
         });
     }
     
-    // Team selector
-    const teamSelect = document.getElementById('team-select');
-    if (teamSelect) {
-        teamSelect.addEventListener('change', async (e) => {
-            currentFilters.team = e.target.value;
-            await render();
-        });
-    }
-    
-    // Stats mode toggle
     document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
@@ -451,18 +333,6 @@ function setupEventListeners() {
         });
     });
     
-    // Load more button
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', async () => {
-            if (apiState.hasMore && !apiState.loading) {
-                apiState.currentPage++;
-                await loadStats(false);
-            }
-        });
-    }
-    
-    // View toggle buttons
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -472,7 +342,6 @@ function setupEventListeners() {
         });
     });
 
-    // Search input
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.addEventListener('input', async (e) => {
@@ -481,7 +350,6 @@ function setupEventListeners() {
         });
     }
     
-    // Position filter
     const positionFilter = document.getElementById('positionFilter');
     if (positionFilter) {
         positionFilter.addEventListener('click', async (e) => {
@@ -510,7 +378,6 @@ function updateFilterControlsUI() {
     }
 }
 
-// Get filtered players for display
 function getFilteredPlayers() {
     let filteredPlayers = [...currentPlayers];
 
@@ -524,11 +391,9 @@ function getFilteredPlayers() {
     return filteredPlayers;
 }
 
-// Replace the positionStats and keyStats objects with:
 const positionStats = window.STATS_CONFIG.POSITION_STATS;
 const keyStats = window.STATS_CONFIG.POSITION_KEY_STATS;
 
-// Update the calculateFantasyPoints function:
 function calculateFantasyPoints(statName, rawStatValue) {
     if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
         return rawStatValue || 0;
@@ -538,7 +403,6 @@ function calculateFantasyPoints(statName, rawStatValue) {
         return rawStatValue || 0;
     }
     
-    // Find the stat ID for the given stat name
     const statId = Object.keys(window.STATS_CONFIG.STAT_ID_MAPPING).find(id => 
         window.STATS_CONFIG.STAT_ID_MAPPING[id].name === statName
     );
@@ -550,7 +414,6 @@ function calculateFantasyPoints(statName, rawStatValue) {
     return window.STATS_CONFIG.calculateFantasyPoints(statId, rawStatValue, currentScoringRules[statId]);
 }
 
-// Calculate total fantasy points for a player
 function calculateTotalFantasyPoints(player) {
     if (!showFantasyStats || !player.rawStats) {
         return 0;
@@ -567,10 +430,8 @@ function calculateTotalFantasyPoints(player) {
             if (currentScoringRules[statId] && statValue !== 0) {
                 const rule = currentScoringRules[statId];
                 
-                // Base points
                 let points = statValue * parseFloat(rule.points || 0);
                 
-                // Add bonuses
                 if (rule.bonuses && Array.isArray(rule.bonuses)) {
                     rule.bonuses.forEach(bonusRule => {
                         const target = parseFloat(bonusRule.bonus.target || 0);
@@ -596,7 +457,6 @@ function calculateTotalFantasyPoints(player) {
     }
 }
 
-// Get stat value for display - PROPER conversion
 function getStatValue(player, statName) {
     const rawValue = player.stats[statName] || 0;
     
@@ -604,7 +464,6 @@ function getStatValue(player, statName) {
         return rawValue;
     }
     
-    // SAFE: If no scoring rules, show raw values
     if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
         return rawValue;
     }
@@ -617,7 +476,6 @@ function getStatValue(player, statName) {
     }
 }
 
-// NEW: Function to check if a column should be hidden (all zeros)
 function shouldHideColumn(players, stat) {
     return players.every(player => {
         const value = player.stats[stat] || 0;
@@ -625,28 +483,10 @@ function shouldHideColumn(players, stat) {
     });
 }
 
-// NEW: Function to get visible stats (non-zero columns only)
 function getVisibleStats(players, allStats) {
     return allStats.filter(stat => !shouldHideColumn(players, stat));
 }
 
-// Research table functions
-function sortTable(column) {
-    if (tableSort.column === column) {
-        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        tableSort.column = column;
-        tableSort.direction = 'asc';
-    }
-    render();
-}
-
-function clearAllFilters() {
-    tableSort = { column: null, direction: 'asc' };
-    render();
-}
-
-// Update the getSortedPlayers function in stats.js
 function getSortedPlayers(players) {
     if (!tableSort.column) return players;
     
@@ -665,13 +505,7 @@ function getSortedPlayers(players) {
         } else if (tableSort.column === 'fantasyPoints') {
             aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
             bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
-        } else if (tableSort.column.endsWith('_bonus')) {
-            // Handle bonus column sorting
-            const statName = tableSort.column.replace('_bonus', '');
-            aValue = getBonusPoints(a, statName);
-            bValue = getBonusPoints(b, statName);
         } else {
-            // Handle stat columns
             aValue = getStatValue(a, tableSort.column);
             bValue = getStatValue(b, tableSort.column);
         }
@@ -690,13 +524,11 @@ function getSortedPlayers(players) {
     });
 }
 
-// Render functions
 async function render() {
     const content = document.getElementById('content');
     let filteredPlayers = getFilteredPlayers();
 
     if (!Array.isArray(filteredPlayers)) {
-        console.error('❌ filteredPlayers is not an array:', filteredPlayers);
         filteredPlayers = [];
     }
 
@@ -710,10 +542,7 @@ async function render() {
         `;
         return;
     }
-   
-    console.log(`🎯 RENDERING ${filteredPlayers.length} players`);
 
-    // Calculate fantasy points if needed
     if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
         filteredPlayers = filteredPlayers.map(player => {
             if (!player.fantasyPoints && player.rawStats) {
@@ -723,95 +552,90 @@ async function render() {
         });
     }
 
-if (currentView === 'research') {
-       filteredPlayers = getSortedPlayers(filteredPlayers);
-   }
+    if (currentView === 'research') {
+        filteredPlayers = getSortedPlayers(filteredPlayers);
+    }
 
-   switch (currentView) {
-       case 'cards':
-           renderCardsView(filteredPlayers);
-           break;
-       case 'research':
-           renderResearchView(filteredPlayers);
-           break;
-       case 'stats':
-           renderStatsView(filteredPlayers);
-           break;
-   }
+    switch (currentView) {
+        case 'cards':
+            renderCardsView(filteredPlayers);
+            break;
+        case 'research':
+            renderResearchView(filteredPlayers);
+            break;
+        case 'stats':
+            renderStatsView(filteredPlayers);
+            break;
+    }
 }
 
 function renderCardsView(players) {
-   const content = document.getElementById('content');
-   content.innerHTML = `
-       <div class="player-grid">
-           ${players.map(player => renderPlayerCard(player)).join('')}
-       </div>
-   `;
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div class="player-grid">
+            ${players.map(player => renderPlayerCard(player)).join('')}
+        </div>
+    `;
 }
 
-// Enhanced player card with rankings
 function renderPlayerCard(player) {
-   const stats = keyStats[player.position] || [];
-   const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-   
-   return `
-       <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
-           <div class="player-header">
-               <div class="player-info">
-                   <h3>${player.name}</h3>
-                   <div class="player-meta">
-                       <span class="position-badge">${player.position}</span>
-                       <span>${player.team}</span>
-                       ${showFantasyStats && totalFantasyPoints > 0 ? 
-                           `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
-                       }
-                       ${showFantasyStats && player.overallRank ? 
-                           `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
-                       }
-                       ${showFantasyStats && player.positionRank ? 
-                           `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
-                       }
-                   </div>
-               </div>
-           </div>
-           <div class="stat-grid">
-               ${stats.map(stat => {
-                   const rawValue = player.stats[stat] || 0;
-                   const displayValue = getStatValue(player, stat);
-                   const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
-                   const isBest = checkIfBestStat(player, stat);
-                   
-                   return `
-                       <div class="stat-item ${isBest ? 'stat-best' : ''}">
-                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                               ${formatStatValue(displayValue, stat, isFantasyMode)}
-                           </span>
-                           <span class="stat-label">${stat}</span>
-                       </div>
-                   `;
-               }).join('')}
-           </div>
-       </div>
-   `;
+    const stats = keyStats[player.position] || [];
+    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+    
+    return `
+        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
+            <div class="player-header">
+                <div class="player-info">
+                    <h3>${player.name}</h3>
+                    <div class="player-meta">
+                        <span class="position-badge">${player.position}</span>
+                        <span>${player.team}</span>
+                        ${showFantasyStats && totalFantasyPoints > 0 ? 
+                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
+                        }
+                        ${showFantasyStats && player.overallRank ? 
+                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
+                        }
+                        ${showFantasyStats && player.positionRank ? 
+                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="stat-grid">
+                ${stats.map(stat => {
+                    const rawValue = player.stats[stat] || 0;
+                    const displayValue = getStatValue(player, stat);
+                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
+                    
+                    return `
+                        <div class="stat-item">
+                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                                ${formatStatValue(displayValue, stat, isFantasyMode)}
+                            </span>
+                            <span class="stat-label">${stat}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
 }
 
-// Render research view with ALL fantasy stats and bonus columns
+// FIXED: Clean Research Table Rendering
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
-    
-    // Filter out columns that are all zeros
     const visibleStats = getVisibleStats(players, allStats);
-    const bonusStats = showFantasyStats ? visibleStats.filter(stat => hasBonusRule(stat)) : [];
     
     content.innerHTML = `
         <div class="research-container fade-in">
             <div class="research-header">
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">Fantasy stats with bonus targets</span>' : '<span class="stats-note">Raw statistics</span>'}
+                    ${showFantasyStats ? '<span class="bonus-note">Fantasy stats with scoring rules applied</span>' : '<span class="stats-note">Raw statistics</span>'}
                     <span class="player-count">Showing ${players.length} players</span>
-                    ${apiState.hasMore ? '<button id="load-more-btn" class="clear-filters-btn">Load More Players</button>' : ''}
+                    ${apiState.hasMore ? '<button id="load-more-btn">Load More Players</button>' : ''}
                 </div>
             </div>
             <div class="research-table-wrapper">
@@ -825,10 +649,6 @@ function renderResearchView(players) {
                             ${visibleStats.map(stat => `
                                 <th onclick="sortTable('${stat}')">${stat}</th>
                             `).join('')}
-                            ${bonusStats.map(stat => {
-                                const target = getBonusTarget(stat);
-                                return `<th class="bonus-header" onclick="sortTable('${stat}_bonus')">${stat} ${target}</th>`;
-                            }).join('')}
                         </tr>
                     </thead>
                     <tbody>
@@ -841,153 +661,48 @@ function renderResearchView(players) {
                                         <div class="player-name-with-info">
                                             <div class="player-name">${player.name}</div>
                                             <div class="player-meta-info">
-                                                <span class="position-tag">${player.position}</span>
-                                                <span class="team-tag">${player.team}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    ${showFantasyStats ? `
-                                        <td class="fantasy-stat-cell total-points">
-                                            ${player.fantasyPoints ? player.fantasyPoints + ' pts' : calculateTotalFantasyPoints(player) + ' pts'}
-                                        </td>
-                                    ` : ''}
-                                    ${visibleStats.map(stat => {
-                                        const rawValue = player.stats[stat] || 0;
-                                        const displayValue = showFantasyStats ? getStatValue(player, stat) : rawValue;
-                                        const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        
-                                        return `
-                                            <td>
-                                                <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                                    ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                                </span>
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                    ${bonusStats.map(stat => {
-                                        const bonusPoints = getBonusPoints(player, stat);
-                                        return `
-                                            <td class="bonus-cell">
-                                                ${bonusPoints}
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    
-    // Add event listener for load more button
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', async () => {
-            if (apiState.hasMore && !apiState.loading) {
-                apiState.currentPage++;
-                await loadStats(false);
-            }
-        });
-    }
-}
-    
-    // 🔥 INITIALIZE TABLE SORTING AFTER RENDERING
-    setTimeout(() => {
-        if (window.tableSorter) {
-            window.tableSorter.initializeSorting();
-        }
-    }, 100);
-
-function getStatAbbreviation(statName) {
-   const abbreviations = {
-       "Pass Yds": "PY",
-       "Pass TD": "PTD",
-       "Rush Yds": "RY", 
-       "Rush TD": "RTD",
-       "Rec Yds": "ReY",
-       "Rec TD": "ReTD",
-       "Rec": "Rec",
-       "FG": "FG",
-       "Tack Solo": "Solo",
-       "Sack": "Sack",
-       "Int": "Int"
-   };
+<span class="position-tag">${player.position}</span>
+                                               <span class="team-tag">${player.team}</span>
+                                           </div>
+                                       </div>
+                                   </td>
+                                   ${showFantasyStats ? `
+                                       <td class="fantasy-stat-cell total-points">
+                                           ${player.fantasyPoints ? player.fantasyPoints.toFixed(1) : calculateTotalFantasyPoints(player).toFixed(1)} pts
+                                       </td>
+                                   ` : ''}
+                                   ${visibleStats.map(stat => {
+                                       const rawValue = player.stats[stat] || 0;
+                                       const displayValue = showFantasyStats ? getStatValue(player, stat) : rawValue;
+                                       const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                       
+                                       return `
+                                           <td>
+                                               <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                   ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                               </span>
+                                           </td>
+                                       `;
+                                   }).join('')}
+                               </tr>
+                           `;
+                       }).join('')}
+                   </tbody>
+               </table>
+           </div>
+       </div>
+   `;
    
-   return abbreviations[statName] || statName.slice(0, 3);
-}
-
-function getBonusTarget(statName) {
-   if (!currentScoringRules) return '';
-   
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
-   
-   if (!statId || !currentScoringRules[statId]) return '';
-   
-   const rule = currentScoringRules[statId];
-   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rule.bonuses.length === 0) return '';
-   
-   return rule.bonuses[0].bonus.target || '';
-}
-
-// Function to get bonus points for a specific stat
-function getBonusPoints(player, statName) {
-   if (!showFantasyStats || !currentScoringRules || !player.rawStats) {
-       return 0;
+   // Add event listener for load more button
+   const loadMoreBtn = document.getElementById('load-more-btn');
+   if (loadMoreBtn) {
+       loadMoreBtn.addEventListener('click', async () => {
+           if (apiState.hasMore && !apiState.loading) {
+               apiState.currentPage++;
+               await loadStats(false);
+           }
+       });
    }
-   
-   // Find the stat ID that matches this stat name
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
-   
-   if (!statId || !currentScoringRules[statId]) {
-       return 0;
-   }
-   
-   const rule = currentScoringRules[statId];
-   const rawValue = player.rawStats[statId] || 0;
-   
-   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) {
-       return 0;
-   }
-   
-   let totalBonusPoints = 0;
-   
-   rule.bonuses.forEach((bonusRule, index) => {
-       const target = parseFloat(bonusRule.bonus.target || 0);
-       const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-       
-       if (target > 0 && rawValue >= target) {
-           const bonusesEarned = Math.floor(rawValue / target);
-           totalBonusPoints += bonusesEarned * bonusPoints;
-       }
-   });
-   
-   return Math.round(totalBonusPoints * 100) / 100;
-}
-
-// Get stats that have bonus rules for position
-function getBonusStatsForPosition(position) {
-   const stats = getStatsForPosition(position);
-   return stats.filter(stat => hasBonusRule(stat));
-}
-
-// Helper function to check if a stat has bonus rules
-function hasBonusRule(statName) {
-   if (!currentScoringRules) return false;
-   
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
-   
-   if (!statId || !currentScoringRules[statId]) return false;
-   
-   const rule = currentScoringRules[statId];
-   return rule.bonuses && Array.isArray(rule.bonuses) && rule.bonuses.length > 0;
 }
 
 function renderStatsView(players) {
@@ -1033,39 +748,30 @@ function getStatsForPosition(position) {
    return positionStats[position] || [];
 }
 
-// Helper function to check if a player received bonus points for a stat
-function hasBonusApplied(player, statName) {
-   if (!showFantasyStats || !currentScoringRules || !player.rawStats) return false;
+function initializeActiveLeague() {
+   let activeLeagueId = localStorage.getItem('activeLeagueId');
    
-   const statId = Object.keys(STAT_ID_MAPPING).find(id => 
-       STAT_ID_MAPPING[id] === statName
-   );
+   if (!activeLeagueId || !userLeagues[activeLeagueId]) {
+       const leagueIds = Object.keys(userLeagues);
+       if (leagueIds.length > 0) {
+           activeLeagueId = leagueIds[0];
+           localStorage.setItem('activeLeagueId', activeLeagueId);
+       }
+   }
    
-   if (!statId || !currentScoringRules[statId]) return false;
-   
-   const rule = currentScoringRules[statId];
-   const rawValue = player.rawStats[statId] || 0;
-   
-   if (!rule.bonuses || !Array.isArray(rule.bonuses) || rawValue === 0) return false;
-   
-   // Check if any bonus threshold is met
-   return rule.bonuses.some(bonusRule => {
-       const target = parseFloat(bonusRule.bonus.target || 0);
-       return rawValue >= target;
-   });
+   return activeLeagueId;
 }
 
 function categorizeStats(stats) {
    const categories = {
        "Passing": ["Pass Att", "Comp", "Inc", "Pass Yds", "Pass TD", "Int", "Sack"],
        "Rushing": ["Rush Att", "Rush Yds", "Rush TD"],
-       "Receiving": ["Rec", "Rec Yds", "Rec TD"],
-       "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "XP Made", "XP Miss"],
-       "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "Def TD", "Safe", "Blk Kick"],
-       "Special Teams": ["Ret Yds", "Ret TD", "Kick Ret TD", "Punt Ret TD"],
+       "Receiving": ["Rec", "Rec Yds", "Rec TD", "Targets"],
+       "Kicking": ["FG 0-19", "FG 20-29", "FG 30-39", "FG 40-49", "FG 50+", "PAT Made", "PAT Miss"],
+       "Defense": ["Tack Solo", "Tack Ast", "Pass Def", "Sack", "Int", "Fum Rec", "Fum Force", "TD", "Safe", "Blk Kick"],
+       "Special Teams": ["Ret Yds", "Ret TD"],
        "Team Defense": ["Pts Allow 0", "Pts Allow 1-6", "Pts Allow 7-13", "Pts Allow 14-20", "Pts Allow 21-27", "Pts Allow 28-34", "Pts Allow 35+"],
-       "Turnovers": ["Fum", "Fum Rec", "Off Fum Ret TD"],
-       "Scoring": ["2-PT"]
+       "Turnovers": ["Fum", "Fum Lost"]
    };
 
    const result = {};
@@ -1093,27 +799,12 @@ function getStatLeaders(players, stat, limit = 3) {
            const aValue = showFantasyStats ? getStatValue({stats: {[stat]: a.value}}, stat) : a.value;
            const bValue = showFantasyStats ? getStatValue({stats: {[stat]: b.value}}, stat) : b.value;
            
-           // For negative stats, sort ascending (lower is better)
            if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
                return aValue - bValue;
            }
            return bValue - aValue;
        })
        .slice(0, limit);
-}
-
-function checkIfBestStat(player, stat) {
-   const players = getFilteredPlayers().filter(p => p.position === player.position);
-   const playerValue = getStatValue(player, stat);
-   const values = players.map(p => getStatValue(p, stat)).filter(v => v > 0);
-   
-   if (values.length === 0) return false;
-   
-   // For negative stats, best is lowest
-   if (stat.includes('Miss') || stat.includes('Allow') || stat === 'Int' || stat === 'Fum') {
-       return playerValue === Math.min(...values) && playerValue > 0;
-   }
-   return playerValue === Math.max(...values) && playerValue > 0;
 }
 
 function formatStatValue(value, stat, isFantasyMode = false) {
@@ -1130,17 +821,26 @@ function formatStatValue(value, stat, isFantasyMode = false) {
    return value.toString();
 }
 
-// Navigation function to player detail page
 function navigateToPlayer(playerId) {
    const url = `player.html?id=${encodeURIComponent(playerId)}`;
    window.location.href = url;
 }
 
+// Global sortTable function for onclick handlers
+window.sortTable = function(column) {
+   if (tableSort.column === column) {
+       tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+   } else {
+       tableSort.column = column;
+       tableSort.direction = 'desc';
+   }
+   render();
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-   console.log('🚀 Initializing Fantasy Football Dashboard with new player-centric system...');
+   console.log('🚀 Initializing Fantasy Football Dashboard...');
    
-   // Clear old cache data
    localStorage.removeItem('allScoringRules');
    
    const header = document.querySelector('.header');
@@ -1154,18 +854,13 @@ document.addEventListener('DOMContentLoaded', async () => {
    
    setupEventListeners();
    
-   console.log('🔄 Loading leagues and scoring rules first...');
    try {
        await loadUserLeagues();
-       console.log('✅ Leagues and scoring rules loaded');
-       
        updateFilterControlsUI();
    } catch (error) {
        console.warn('⚠️ Leagues failed to load, continuing with raw stats only');
    }
    
-   console.log('📊 Loading initial stats data with new system...');
    await loadStats(true);
-   
-   console.log('🎉 Dashboard initialization complete with new player-centric IndexedDB schema!');
+   console.log('🎉 Dashboard initialization complete!');
 });
