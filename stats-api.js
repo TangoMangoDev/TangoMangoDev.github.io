@@ -673,26 +673,25 @@ async loadAndRankAllPlayersForYear(year) {
         });
         
         // 🔥 FIXED RANKING - SORT BY FANTASY POINTS 🔥
-        const rankedPlayers = playersWithFantasyPoints
-            .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-            .map((player, index) => ({
-                ...player,
-                rank: index + 1,           // ACTUAL RANK 1, 2, 3...
-                overallRank: index + 1
-            }));
-        
-        // 🔥 FIXED POSITION RANKS 🔥
-        const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
-        
-        positions.forEach(position => {
-            const positionPlayers = rankedPlayers
-                .filter(player => player.position === position)
-                .sort((a, b) => b.fantasyPoints - a.fantasyPoints);
-            
-            positionPlayers.forEach((player, index) => {
-                player.positionRank = index + 1;  // ACTUAL POSITION RANK 1, 2, 3...
-            });
-        });
+// 🔥 FIXED RANKING - OVERALL RANK IN KEY 🔥
+const rankedPlayers = playersWithFantasyPoints
+    .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+    .map((player, index) => ({
+        ...player,
+        rank: index + 1,           // OVERALL RANK 1, 2, 3... (THIS GOES IN KEY)
+        overallRank: index + 1
+    }));
+
+// Position ranks are separate
+positions.forEach(position => {
+    const positionPlayers = rankedPlayers
+        .filter(player => player.position === position)
+        .sort((a, b) => b.fantasyPoints - a.fantasyPoints);
+    
+    positionPlayers.forEach((player, index) => {
+        player.positionRank = index + 1;
+    });
+});
         
         console.log(`🏆 Ranked ${rankedPlayers.length} players by fantasy points`);
         console.log(`🥇 Top 5:`, rankedPlayers.slice(0, 5).map(p => 
