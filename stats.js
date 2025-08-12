@@ -799,9 +799,7 @@ function renderResearchView(players) {
     const allStats = getStatsForPosition(currentFilters.position);
     const visibleStats = getVisibleStats(players, allStats);
     
-    // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥
-    const sortedPlayers = getSortedPlayers(players);
-    
+    // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥    
 const sortedPlayers = getSortedPlayers(players);
 console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);    
     content.innerHTML = `
