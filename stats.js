@@ -1,4 +1,4 @@
-// stats.js - FIXED SORTING IMPLEMENTATION
+// stats.js - COPIED FROM WORKING PLAYER PAGE APPROACH
 let currentFilters = {
     league: null,
     team: 'ALL',
@@ -22,13 +22,16 @@ let searchQuery = '';
 let showFantasyStats = false;
 let currentScoringRules = {};
 let userLeagues = {};
+
+// 🔥 COPIED FROM PLAYER.JS - SIMPLE WORKING SORT 🔥
 let tableSort = {
     column: null,
     direction: 'desc'
 };
+
 let eventListenersSetup = false;
 
-// ENHANCED MOBILE SCROLL HANDLER
+// Enhanced mobile scroll handler (keep existing)
 let lastScrollY = 0;
 let scrollTimeout;
 let isScrollingDown = false;
@@ -87,87 +90,127 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-// 🔥 COMPLETELY FIXED SORT FUNCTION 🔥
+// 🔥 COPIED EXACT SORT FUNCTION FROM PLAYER.JS 🔥
 function sortTable(column) {
     console.log(`🔄 Sorting table by: ${column}`);
     
-    // Toggle direction if same column, otherwise start with descending
-    if (tableSort.column === column) {
-        tableSort.direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
-    } else {
-        tableSort.column = column;
-        tableSort.direction = 'desc';
+    const table = document.querySelector('.research-table');
+    if (!table) {
+        console.error('❌ Research table not found');
+        return;
     }
     
-    console.log(`📊 Sort state: ${tableSort.column} (${tableSort.direction})`);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
     
-    // Force immediate re-render
-    render();
+    let direction = 'desc';
+    if (tableSort.column === column) {
+        direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
+    }
+    
+    tableSort = { column, direction };
+    
+    const sortedRows = rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(column) {
+            case 'overallRank':
+                aValue = parseFloat(a.cells[0].textContent.replace(/[^\d.-]/g, '')) || 999999;
+                bValue = parseFloat(b.cells[0].textContent.replace(/[^\d.-]/g, '')) || 999999;
+                break;
+            case 'positionRank':
+                aValue = parseFloat(a.cells[1].textContent.replace(/[^\d.-]/g, '')) || 999999;
+                bValue = parseFloat(b.cells[1].textContent.replace(/[^\d.-]/g, '')) || 999999;
+                break;
+            case 'name':
+                aValue = a.cells[2].textContent.trim();
+                bValue = b.cells[2].textContent.trim();
+                break;
+            case 'fantasyPoints':
+                // Fantasy points column is at index 3 when showing fantasy stats
+                const fantasyIndex = showFantasyStats ? 3 : -1;
+                if (fantasyIndex > -1) {
+                    aValue = parseFloat(a.cells[fantasyIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
+                    bValue = parseFloat(b.cells[fantasyIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
+                } else {
+                    return 0;
+                }
+                break;
+            default:
+                // For stat columns, find the right cell index
+                const headers = Array.from(table.querySelectorAll('th'));
+                const columnIndex = headers.findIndex(th => th.textContent.includes(getShortStatName(column)) || th.onclick?.toString().includes(column));
+                
+                if (columnIndex > -1 && a.cells[columnIndex] && b.cells[columnIndex]) {
+                    aValue = parseFloat(a.cells[columnIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
+                    bValue = parseFloat(b.cells[columnIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
+                } else {
+                    return 0;
+                }
+                break;
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            aValue = aValue.toString().toLowerCase();
+            bValue = bValue.toString().toLowerCase();
+            if (direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
+    
+    sortedRows.forEach(row => tbody.appendChild(row));
+    updateTableSortIndicators(table, column, direction);
+    
+    console.log(`✅ Sorted table by ${column} (${direction})`);
+}
+
+// 🔥 COPIED FROM PLAYER.JS 🔥
+function updateTableSortIndicators(table, activeColumn, direction) {
+    table.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        const existingIndicator = th.querySelector('.sort-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+    });
+    
+    // Find the header that matches the active column
+    const headers = Array.from(table.querySelectorAll('th'));
+    let activeHeader = null;
+    
+    headers.forEach((th, index) => {
+        const thText = th.textContent.toLowerCase();
+        const columnLower = activeColumn.toLowerCase();
+        
+        if (thText.includes(columnLower) || 
+            th.onclick?.toString().includes(activeColumn) ||
+            (activeColumn === 'overallRank' && index === 0) ||
+            (activeColumn === 'positionRank' && index === 1) ||
+            (activeColumn === 'name' && index === 2) ||
+            (activeColumn === 'fantasyPoints' && thText.includes('fantasy'))) {
+            activeHeader = th;
+        }
+    });
+    
+    if (activeHeader) {
+        activeHeader.classList.add(`sort-${direction}`);
+        
+        const indicator = document.createElement('span');
+        indicator.className = 'sort-indicator';
+        indicator.innerHTML = direction === 'asc' ? ' ▲' : ' ▼';
+        activeHeader.appendChild(indicator);
+    }
 }
 
 // Make sortTable globally available
 window.sortTable = sortTable;
 
-// 🔥 FIXED getSortedPlayers FUNCTION 🔥
-function getSortedPlayers(players) {
-    if (!tableSort.column || !Array.isArray(players) || players.length === 0) {
-        return players;
-    }
-    
-    console.log(`🔍 Sorting ${players.length} players by "${tableSort.column}" (${tableSort.direction})`);
-    
-    return [...players].sort((a, b) => {
-        let aValue, bValue;
-        
-        // Handle different column types
-        switch(tableSort.column) {
-            case 'overallRank':
-                aValue = parseInt(a.overallRank) || 999999;
-                bValue = parseInt(b.overallRank) || 999999;
-                break;
-                
-            case 'positionRank':
-                aValue = parseInt(a.positionRank) || 999999;
-                bValue = parseInt(b.positionRank) || 999999;
-                break;
-                
-            case 'name':
-                aValue = (a.name || '').toLowerCase();
-                bValue = (b.name || '').toLowerCase();
-                break;
-                
-            case 'fantasyPoints':
-                aValue = parseFloat(a.fantasyPoints) || parseFloat(calculateTotalFantasyPoints(a)) || 0;
-                bValue = parseFloat(b.fantasyPoints) || parseFloat(calculateTotalFantasyPoints(b)) || 0;
-                break;
-                
-            default:
-                // Handle stat columns
-                if (showFantasyStats) {
-                    aValue = parseFloat(getStatValue(a, tableSort.column)) || 0;
-                    bValue = parseFloat(getStatValue(b, tableSort.column)) || 0;
-                } else {
-                    aValue = parseFloat(a.stats[tableSort.column]) || 0;
-                    bValue = parseFloat(b.stats[tableSort.column]) || 0;
-                }
-                break;
-        }
-        
-        // Perform comparison
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-            const result = tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
-            return result;
-        } else {
-            // String comparison
-            const aStr = aValue.toString().toLowerCase();
-            const bStr = bValue.toString().toLowerCase();
-            const result = tableSort.direction === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-            return result;
-        }
-    });
-}
-
-// Keep all existing backend functions
+// All existing backend functions (keep unchanged)
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading user leagues...');
@@ -592,7 +635,6 @@ function getVisibleStats(players, allStats) {
     return allStats.filter(stat => !shouldHideColumn(players, stat));
 }
 
-// 🔥 MAIN RENDER FUNCTION WITH WORKING SORT 🔥
 async function render() {
     const content = document.getElementById('content');
     let filteredPlayers = getFilteredPlayers();
@@ -621,7 +663,6 @@ async function render() {
         });
     }
 
-    // Create mobile stats toggle if needed
     let mobileStatsToggle = document.querySelector('.mobile-stats-toggle');
     if (window.innerWidth <= 768 && !mobileStatsToggle) {
         createMobileStatsToggle();
@@ -632,9 +673,7 @@ async function render() {
             renderCardsView(filteredPlayers);
             break;
         case 'research':
-            // 🔥 APPLY SORTING HERE 🔥
-            const sortedPlayers = getSortedPlayers(filteredPlayers);
-            renderResearchView(sortedPlayers);
+            renderResearchView(filteredPlayers);
             break;
         case 'stats':
             renderStatsView(filteredPlayers);
@@ -725,13 +764,12 @@ function renderPlayerCard(player) {
     `;
 }
 
-// 🔥 FIXED RESEARCH VIEW WITH WORKING SORT INDICATORS 🔥
 function renderResearchView(players) {
     const content = document.getElementById('content');
     const allStats = getStatsForPosition(currentFilters.position);
     const visibleStats = getVisibleStats(players, allStats);
     
-    console.log(`🎯 Rendering research view with ${players.length} players, sorted by: ${tableSort.column} (${tableSort.direction})`);
+    console.log(`🎯 Rendering research view with ${players.length} players`);
     
     content.innerHTML = `
         <div class="research-container fade-in">
@@ -747,23 +785,23 @@ function renderResearchView(players) {
                 <table class="research-table">
                     <thead>
                         <tr>
-                            <th onclick="sortTable('overallRank')" class="sortable ${tableSort.column === 'overallRank' ? 'sorted-' + tableSort.direction : ''}">
-                                Overall Rank ${getSortIndicator('overallRank')}
+                            <th onclick="sortTable('overallRank')" class="sortable">
+                                Overall Rank
                             </th>
-                            <th onclick="sortTable('positionRank')" class="sortable ${tableSort.column === 'positionRank' ? 'sorted-' + tableSort.direction : ''}">
-                                Pos Rank ${getSortIndicator('positionRank')}
+                            <th onclick="sortTable('positionRank')" class="sortable">
+                                Pos Rank
                             </th>
-                            <th onclick="sortTable('name')" class="sortable ${tableSort.column === 'name' ? 'sorted-' + tableSort.direction : ''}">
-                                Player ${getSortIndicator('name')}
+                            <th onclick="sortTable('name')" class="sortable">
+                                Player
                             </th>
                             ${showFantasyStats ? `
-                                <th onclick="sortTable('fantasyPoints')" class="sortable ${tableSort.column === 'fantasyPoints' ? 'sorted-' + tableSort.direction : ''}">
-                                    Total Fantasy Pts ${getSortIndicator('fantasyPoints')}
+                                <th onclick="sortTable('fantasyPoints')" class="sortable">
+                                    Total Fantasy Pts
                                 </th>
                             ` : ''}
                             ${visibleStats.map(stat => `
-                                <th onclick="sortTable('${stat}')" class="sortable ${tableSort.column === stat ? 'sorted-' + tableSort.direction : ''}">
-                                    ${getShortStatName(stat)} ${getSortIndicator(stat)}
+                                <th onclick="sortTable('${stat}')" class="sortable">
+                                    ${getShortStatName(stat)}
                                 </th>
                             `).join('')}
                         </tr>
@@ -780,32 +818,32 @@ function renderResearchView(players) {
                                             <div class="player-meta-info">
                                                 <span class="position-tag">${player.position}</span>
                                                 <span class="team-tag">${player.team}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    ${showFantasyStats ? `
-                                        <td class="fantasy-stat-cell total-points">
-                                            ${player.fantasyPoints ? player.fantasyPoints.toFixed(1) : calculateTotalFantasyPoints(player).toFixed(1)} pts
-                                        </td>
-                                    ` : ''}
-                                    ${visibleStats.map(stat => {
-                                        const rawValue = player.stats[stat] || 0;
-                                        const displayValue = showFantasyStats ? getStatValue(player, stat) : rawValue;
-                                        const isFantasyMode = showFantasyStats && displayValue !== rawValue;
-                                        
-                                        return `
-                                            <td>
-                                                <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
-                                                    ${formatStatValue(displayValue, stat, isFantasyMode)}
-                                                </span>
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-</table>
+                                           </div>
+                                       </div>
+                                   </td>
+                                   ${showFantasyStats ? `
+                                       <td class="fantasy-stat-cell total-points">
+                                           ${player.fantasyPoints ? player.fantasyPoints.toFixed(1) : calculateTotalFantasyPoints(player).toFixed(1)} pts
+                                       </td>
+                                   ` : ''}
+                                   ${visibleStats.map(stat => {
+                                       const rawValue = player.stats[stat] || 0;
+                                       const displayValue = showFantasyStats ? getStatValue(player, stat) : rawValue;
+                                       const isFantasyMode = showFantasyStats && displayValue !== rawValue;
+                                       
+                                       return `
+                                           <td>
+                                               <span class="${isFantasyMode ? 'fantasy-stat-cell' : ''}">
+                                                   ${formatStatValue(displayValue, stat, isFantasyMode)}
+                                               </span>
+                                           </td>
+                                       `;
+                                   }).join('')}
+                               </tr>
+                           `;
+                       }).join('')}
+                   </tbody>
+               </table>
            </div>
        </div>
    `;
@@ -819,16 +857,6 @@ function renderResearchView(players) {
            }
        });
    }
-}
-
-// 🔥 WORKING SORT INDICATORS 🔥
-function getSortIndicator(column) {
-   if (tableSort.column !== column) {
-       return '<span class="sort-indicator">⇅</span>';
-   }
-   return tableSort.direction === 'asc' ? 
-          '<span class="sort-indicator active">↑</span>' : 
-          '<span class="sort-indicator active">↓</span>';
 }
 
 function getShortStatName(statName) {
