@@ -838,7 +838,7 @@ console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted pl
                         </tr>
                     </thead>
                     <tbody>
-                        ${sortedsortedPlayers.map(player => {
+                        ${sortedPlayers.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
                                     <td class="rank-cell">#${player.overallRank || '-'}</td>
