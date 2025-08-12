@@ -267,7 +267,7 @@ body {
 }
 
 /* ========================================
-   RESEARCH TABLE STYLES
+   RESEARCH TABLE STYLES - COMPLETELY REBUILT
 ======================================== */
 .research-container {
     background: white;
@@ -328,7 +328,7 @@ body {
 }
 
 /* ========================================
-   TABLE WRAPPER AND STRUCTURE
+   FIXED TABLE WRAPPER AND STRUCTURE
 ======================================== */
 .research-table-wrapper {
     overflow-x: auto;
@@ -341,8 +341,9 @@ body {
 .research-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 16px; /* ENLARGED */
-    min-width: 800px; /* REDUCED from 1000px */
+    font-size: 15px; /* GOOD READABLE SIZE */
+    table-layout: fixed; /* FORCE FIXED LAYOUT */
+    min-width: 1200px; /* MINIMUM WIDTH TO PREVENT CRAMPING */
 }
 
 .research-table thead {
@@ -354,71 +355,82 @@ body {
 
 .research-table th {
     color: white;
-    padding: 14px 8px; /* REDUCED padding */
-    text-align: left;
-    font-weight: 600;
-    font-size: 13px;
+    padding: 16px 8px; /* PROPER PADDING */
+    text-align: center; /* CENTER ALL HEADERS */
+    font-weight: 700;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-right: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid rgba(255,255,255,0.2);
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
     transition: background-color 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .research-table th:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255,255,255,0.15);
 }
 
 /* ========================================
-   TABLE COLUMN WIDTHS - TIGHT LAYOUT
+   FIXED COLUMN WIDTHS - PRECISE SIZING
 ======================================== */
-.research-table th:first-child,
-.research-table td:first-child {
+.research-table th:nth-child(1),
+.research-table td:nth-child(1) {
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
     text-align: center;
-    width: 80px;
-    max-width: 80px;
 }
 
 .research-table th:nth-child(2),
 .research-table td:nth-child(2) {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
     text-align: center;
-    width: 70px;
-    max-width: 70px;
 }
 
 .research-table th:nth-child(3),
 .research-table td:nth-child(3) {
-    width: 160px;
-    max-width: 160px;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+    text-align: left;
+    padding-left: 12px;
 }
 
 .research-table th:nth-child(4),
 .research-table td:nth-child(4) {
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
     text-align: center;
-    width: 100px;
-    max-width: 100px;
 }
 
 .research-table th:nth-child(n+5),
 .research-table td:nth-child(n+5) {
+    width: 85px;
+    min-width: 85px;
+    max-width: 85px;
     text-align: center;
-    width: 70px;
-    max-width: 70px;
 }
 
 /* ========================================
    TABLE DATA CELLS
 ======================================== */
 .research-table td {
-    padding: 12px 6px;
+    padding: 14px 8px;
     border-bottom: 1px solid #f3f4f6;
     border-right: 1px solid #f3f4f6;
     vertical-align: middle;
     white-space: nowrap;
-    font-size: 16px; /* ENLARGED */
+    font-size: 15px; /* PROPER READABLE SIZE */
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .research-table tbody tr {
@@ -500,7 +512,7 @@ body {
 }
 
 .total-points {
-    font-size: 18px; /* ENLARGED */
+    font-size: 16px; /* SLIGHTLY LARGER */
     font-weight: 700;
     color: #1e3c72 !important;
 }
@@ -516,6 +528,23 @@ body {
     background-color: #f0fdf4 !important;
     color: #166534;
     font-weight: 600;
+}
+
+/* ========================================
+   SORT INDICATORS
+======================================== */
+.research-table th {
+    position: relative;
+}
+
+.sort-indicator {
+    margin-left: 4px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.research-table th:hover .sort-indicator {
+    opacity: 1;
 }
 
 /* ========================================
@@ -742,45 +771,50 @@ body {
     }
     
     .research-table {
-        min-width: 600px; /* REDUCED for mobile */
-        font-size: 14px; /* Smaller on mobile */
+        min-width: 800px; /* REDUCED for mobile */
+        font-size: 13px; /* Smaller on mobile */
     }
     
     .research-table th,
     .research-table td {
-        padding: 8px 4px; /* REDUCED mobile padding */
-        font-size: 14px;
+        padding: 10px 6px; /* REDUCED mobile padding */
+        font-size: 13px;
     }
     
     /* MOBILE COLUMN WIDTHS */
-    .research-table th:first-child,
-    .research-table td:first-child {
-        width: 60px;
-        max-width: 60px;
+    .research-table th:nth-child(1),
+    .research-table td:nth-child(1) {
+        width: 70px;
+        min-width: 70px;
+        max-width: 70px;
     }
     
     .research-table th:nth-child(2),
     .research-table td:nth-child(2) {
-        width: 50px;
-        max-width: 50px;
+        width: 60px;
+        min-width: 60px;
+        max-width: 60px;
     }
     
     .research-table th:nth-child(3),
     .research-table td:nth-child(3) {
-        width: 120px;
-        max-width: 120px;
+        width: 140px;
+        min-width: 140px;
+        max-width: 140px;
     }
     
     .research-table th:nth-child(4),
     .research-table td:nth-child(4) {
-        width: 80px;
-        max-width: 80px;
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
     }
     
     .research-table th:nth-child(n+5),
     .research-table td:nth-child(n+5) {
-        width: 60px;
-        max-width: 60px;
+        width: 70px;
+        min-width: 70px;
+        max-width: 70px;
     }
     
     .player-card {
@@ -824,7 +858,14 @@ body {
     }
     
     .research-table {
-        min-width: 500px;
+        min-width: 600px;
+        font-size: 12px;
+    }
+    
+    .research-table th,
+    .research-table td {
+        padding: 8px 4px;
+        font-size: 12px;
     }
     
     .player-meta {
