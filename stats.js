@@ -144,6 +144,9 @@ function sortTable(column) {
     render();
 }
 
+window.sortTable = sortTable;
+
+
 // 🔥 COPIED FROM PLAYER.JS 🔥
 function updateTableSortIndicators(table, activeColumn, direction) {
     table.querySelectorAll('th').forEach(th => {
