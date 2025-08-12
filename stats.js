@@ -90,20 +90,6 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-function sortTable(column) {
-    console.log(`🔄 Sorting by column: ${column}`);
-    
-    if (tableSort.column === column) {
-        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        tableSort.column = column;
-        tableSort.direction = 'desc'; // Start with descending as requested
-    }
-    
-    console.log(`📊 Sort state: ${column} ${tableSort.direction}`);
-    render(); // Re-render with the new sort
-}
-
 function getSortedPlayers(players) {
     if (!tableSort.column || !Array.isArray(players)) return players;
     
@@ -123,7 +109,6 @@ function getSortedPlayers(players) {
             aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
             bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
         } else {
-            // Handle stat columns
             aValue = getStatValue(a, tableSort.column);
             bValue = getStatValue(b, tableSort.column);
         }
