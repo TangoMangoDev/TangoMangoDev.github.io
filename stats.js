@@ -745,7 +745,7 @@ function renderResearchView(players) {
     const visibleStats = getVisibleStats(players, allStats);
     
     // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥    
-const sortedPlayers = getSortedPlayers(players);
+const sortedPlayers = currentView === 'research' ? getSortedPlayers(players) : players;
 console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);    
     content.innerHTML = `
         <div class="research-container fade-in">
