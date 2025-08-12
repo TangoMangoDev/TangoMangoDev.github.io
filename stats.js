@@ -444,7 +444,7 @@ async function loadStats(resetPage = true) {
         currentPlayers = playersData.data;
         
         if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-            currentPlayers = currentsortedPlayers.map(player => ({
+            currentPlayers = currentPlayers.map(player => ({
                 ...player,
                 fantasyPoints: calculateTotalFantasyPoints(player)
             }));
@@ -685,7 +685,7 @@ async function render() {
     }
 
     if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-        filteredPlayers = filteredsortedPlayers.map(player => {
+        filteredPlayers = filteredPlayers.map(player => {
             if (!player.fantasyPoints && player.rawStats) {
                 player.fantasyPoints = calculateTotalFantasyPoints(player);
             }
@@ -745,7 +745,7 @@ function renderCardsView(players) {
     const content = document.getElementById('content');
     content.innerHTML = `
         <div class="player-grid">
-            ${sortedPlayers.map(player => renderPlayerCard(player)).join('')}
+            ${players.map(player => renderPlayerCard(player)).join('')}
         </div>
     `;
 }
