@@ -444,7 +444,7 @@ async function loadStats(resetPage = true) {
         currentPlayers = playersData.data;
         
         if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-            currentPlayers = currentPlayers.map(player => ({
+            currentPlayers = currentsortedPlayers.map(player => ({
                 ...player,
                 fantasyPoints: calculateTotalFantasyPoints(player)
             }));
@@ -685,7 +685,7 @@ async function render() {
     }
 
     if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-        filteredPlayers = filteredPlayers.map(player => {
+        filteredPlayers = filteredsortedPlayers.map(player => {
             if (!player.fantasyPoints && player.rawStats) {
                 player.fantasyPoints = calculateTotalFantasyPoints(player);
             }
@@ -745,7 +745,7 @@ function renderCardsView(players) {
     const content = document.getElementById('content');
     content.innerHTML = `
         <div class="player-grid">
-            ${players.map(player => renderPlayerCard(player)).join('')}
+            ${sortedPlayers.map(player => renderPlayerCard(player)).join('')}
         </div>
     `;
 }
@@ -840,7 +840,7 @@ console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted pl
                         </tr>
                     </thead>
                     <tbody>
-                        ${sortedPlayers.map(player => {
+                        ${sortedsortedPlayers.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
                                     <td class="rank-cell">#${player.overallRank || '-'}</td>
