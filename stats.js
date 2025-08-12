@@ -90,15 +90,53 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-// 🔥 COPIED EXACT SORT FUNCTION FROM PLAYER.JS 🔥
 function sortTable(column) {
-    console.log(`🔄 Sorting table by: ${column}`);
+    console.log(`🔄 Sorting by column: ${column}`);
     
-    const table = document.querySelector('.research-table');
-    if (!table) {
-        console.error('❌ Research table not found');
-        return;
+    if (tableSort.column === column) {
+        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'desc'; // Start with descending as requested
     }
+    
+    console.log(`📊 Sort state: ${column} ${tableSort.direction}`);
+    render(); // Re-render with the new sort
+}
+
+function getSortedPlayers(players) {
+    if (!tableSort.column || !Array.isArray(players)) return players;
+    
+    return [...players].sort((a, b) => {
+        let aValue, bValue;
+        
+        if (tableSort.column === 'overallRank') {
+            aValue = a.overallRank || 999999;
+            bValue = b.overallRank || 999999;
+        } else if (tableSort.column === 'positionRank') {
+            aValue = a.positionRank || 999999;
+            bValue = b.positionRank || 999999;
+        } else if (tableSort.column === 'name') {
+            aValue = a.name || '';
+            bValue = b.name || '';
+        } else if (tableSort.column === 'fantasyPoints') {
+            aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
+            bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
+        } else {
+            // Handle stat columns
+            aValue = getStatValue(a, tableSort.column);
+            bValue = getStatValue(b, tableSort.column);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            const aStr = aValue.toString().toLowerCase();
+            const bStr = bValue.toString().toLowerCase();
+            return tableSort.direction === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+        }
+    });
+}
     
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
