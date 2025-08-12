@@ -1,4 +1,4 @@
-// stats.js - FIXED Mobile Scroll & Working Sort
+// stats.js - ENHANCED Mobile Scroll Behavior
 let currentFilters = {
     league: null,
     team: 'ALL',
@@ -28,9 +28,10 @@ let tableSort = {
 };
 let eventListenersSetup = false;
 
-// MOBILE SCROLL HANDLER
+// ENHANCED MOBILE SCROLL HANDLER
 let lastScrollY = 0;
 let scrollTimeout;
+let isScrollingDown = false;
 
 function handleMobileScroll() {
     if (window.innerWidth > 768) return; // Only on mobile
@@ -41,17 +42,25 @@ function handleMobileScroll() {
         const header = document.querySelector('.header');
         const filterContainer = document.querySelector('.filter-controls-container');
         
-        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        if (currentScrollY > lastScrollY && currentScrollY > 50) {
             // Scrolling down - hide header elements
-            header.classList.add('scroll-hidden');
-            if (filterContainer) {
-                filterContainer.classList.add('scroll-hidden');
+            if (!isScrollingDown) {
+                isScrollingDown = true;
+                header.classList.add('scroll-hidden');
+                if (filterContainer) {
+                    filterContainer.classList.add('scroll-hidden');
+                }
+                document.body.classList.add('header-hidden');
             }
-        } else {
+        } else if (currentScrollY < lastScrollY - 10) {
             // Scrolling up - show header elements
-            header.classList.remove('scroll-hidden');
-            if (filterContainer) {
-                filterContainer.classList.remove('scroll-hidden');
+            if (isScrollingDown) {
+                isScrollingDown = false;
+                header.classList.remove('scroll-hidden');
+                if (filterContainer) {
+                    filterContainer.classList.remove('scroll-hidden');
+                }
+                document.body.classList.remove('header-hidden');
             }
         }
         
@@ -89,16 +98,13 @@ function sortTable(column) {
         tableSort.direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
     } else {
         tableSort.column = column;
-        tableSort.direction = 'desc'; // Start with descending for new columns
+        tableSort.direction = 'desc';
     }
     
     console.log(`📊 Sort direction: ${tableSort.direction}`);
-    
-    // Re-render with new sort
     render();
 }
 
-// Make sortTable globally available
 window.sortTable = sortTable;
 
 function getSortedPlayers(players) {
@@ -127,7 +133,6 @@ function getSortedPlayers(players) {
                 bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
                 break;
             default:
-                // Handle stat columns
                 aValue = getStatValue(a, tableSort.column);
                 bValue = getStatValue(b, tableSort.column);
                 break;
@@ -147,7 +152,7 @@ function getSortedPlayers(players) {
     });
 }
 
-// Backend API functions - keeping existing loadUserLeagues, etc.
+// Keep all existing backend functions (loadUserLeagues, etc.)
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
@@ -207,407 +212,413 @@ async function loadUserLeagues() {
                 }
             }
             
-            if (data.rosters) {
-                for (const [leagueId, leagueRosters] of Object.entries(data.rosters)) {
-                    if (leagueRosters && typeof leagueRosters === 'object') {
-                        for (const [week, rosterData] of Object.entries(leagueRosters)) {
-                            if (rosterData && rosterData.rosters) {
-                                await window.statsAPI.cache.setRosters(leagueId, week, rosterData);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            const defaultLeagueId = data.defaultLeagueId || Object.keys(userLeagues)[0];
-            
-            if (defaultLeagueId) {
-                currentFilters.league = defaultLeagueId;
-                localStorage.setItem('activeLeagueId', defaultLeagueId);
-                
-                if (data.scoringRules[defaultLeagueId]) {
-                    currentScoringRules = data.scoringRules[defaultLeagueId];
-                }
-            }
-            
-            localStorage.setItem('userLeagues', JSON.stringify({
-                leagues: userLeagues,
-                timestamp: Date.now()
-            }));
-            
-            return userLeagues;
-        }
-        
-        return setEmptyDefaults();
-        
-    } catch (error) {
-        console.error('❌ Error loading leagues:', error);
-        return setEmptyDefaults();
-    }
+if (data.rosters) {
+               for (const [leagueId, leagueRosters] of Object.entries(data.rosters)) {
+                   if (leagueRosters && typeof leagueRosters === 'object') {
+                       for (const [week, rosterData] of Object.entries(leagueRosters)) {
+                           if (rosterData && rosterData.rosters) {
+                               await window.statsAPI.cache.setRosters(leagueId, week, rosterData);
+                           }
+                       }
+                   }
+               }
+           }
+           
+           const defaultLeagueId = data.defaultLeagueId || Object.keys(userLeagues)[0];
+           
+           if (defaultLeagueId) {
+               currentFilters.league = defaultLeagueId;
+               localStorage.setItem('activeLeagueId', defaultLeagueId);
+               
+               if (data.scoringRules[defaultLeagueId]) {
+                   currentScoringRules = data.scoringRules[defaultLeagueId];
+               }
+           }
+           
+           localStorage.setItem('userLeagues', JSON.stringify({
+               leagues: userLeagues,
+               timestamp: Date.now()
+           }));
+           
+           return userLeagues;
+       }
+       
+       return setEmptyDefaults();
+       
+   } catch (error) {
+       console.error('❌ Error loading leagues:', error);
+       return setEmptyDefaults();
+   }
 }
 
 function setEmptyDefaults() {
-    userLeagues = {};
-    currentScoringRules = {};
-    currentFilters.league = null;
-    
-    const cached = localStorage.getItem('userLeagues');
-    if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < 3600000) {
-            userLeagues = parsed.leagues;
-            return userLeagues;
-        }
-    }
-    return {};
+   userLeagues = {};
+   currentScoringRules = {};
+   currentFilters.league = null;
+   
+   const cached = localStorage.getItem('userLeagues');
+   if (cached) {
+       const parsed = JSON.parse(cached);
+       if (Date.now() - parsed.timestamp < 3600000) {
+           userLeagues = parsed.leagues;
+           return userLeagues;
+       }
+   }
+   return {};
 }
 
 async function loadScoringRulesForActiveLeague(leagueId) {
-    if (!leagueId) {
-        currentScoringRules = {};
-        return;
-    }
-    
-    try {
-        const rulesData = await window.statsAPI.getScoringRules(leagueId);
-        
-        if (rulesData && rulesData[leagueId]) {
-            currentScoringRules = rulesData[leagueId];
-            await loadStats(true);
-        } else {
-            currentScoringRules = {};
-        }
-        
-    } catch (error) {
-        console.error(`❌ Error loading scoring rules for league ${leagueId}:`, error);
-        currentScoringRules = {};
-    }
+   if (!leagueId) {
+       currentScoringRules = {};
+       return;
+   }
+   
+   try {
+       const rulesData = await window.statsAPI.getScoringRules(leagueId);
+       
+       if (rulesData && rulesData[leagueId]) {
+           currentScoringRules = rulesData[leagueId];
+           await loadStats(true);
+       } else {
+           currentScoringRules = {};
+       }
+       
+   } catch (error) {
+       console.error(`❌ Error loading scoring rules for league ${leagueId}:`, error);
+       currentScoringRules = {};
+   }
 }
 
 function createFilterControls() {
-    const activeLeagueId = currentFilters.league || initializeActiveLeague();
-    
-    return `
-        <div class="filter-controls">
-            <div class="filter-group">
-                <label for="year-select">Year:</label>
-                <select id="year-select" class="filter-dropdown">
-                    <option value="2024" ${currentFilters.year === '2024' ? 'selected' : ''}>2024</option>
-                    <option value="2023" ${currentFilters.year === '2023' ? 'selected' : ''}>2023</option>
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="week-select">Week:</label>
-                <select id="week-select" class="filter-dropdown">
-                    <option value="total" ${currentFilters.week === 'total' ? 'selected' : ''}>Season Total</option>
-                    ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
-                        <option value="${week}" ${currentFilters.week === week.toString() ? 'selected' : ''}>
-                            Week ${week}
-                        </option>
-                    `).join('')}
-                </select>
-            </div>
-            
-            ${Object.keys(userLeagues).length > 0 ? `
-                <div class="filter-group">
-                    <label for="league-select">League:</label>
-                    <select id="league-select" class="filter-dropdown">
-                        ${Object.entries(userLeagues).map(([leagueId, league]) => `
-                            <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
-                                ${league.leagueName || `League ${leagueId}`}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            ` : ''}
-            
-            <div class="stats-toggle">
-                <button class="stats-toggle-btn ${!showFantasyStats ? 'active' : ''}" data-mode="raw">
-                    Raw Stats
-                </button>
-                <button class="stats-toggle-btn ${showFantasyStats ? 'active' : ''}" data-mode="fantasy">
-                    Fantasy Stats
-                </button>
-            </div>
-        </div>
-    `;
+   const activeLeagueId = currentFilters.league || initializeActiveLeague();
+   
+   return `
+       <div class="filter-controls">
+           <div class="filter-group">
+               <label for="year-select">Year:</label>
+               <select id="year-select" class="filter-dropdown">
+                   <option value="2024" ${currentFilters.year === '2024' ? 'selected' : ''}>2024</option>
+                   <option value="2023" ${currentFilters.year === '2023' ? 'selected' : ''}>2023</option>
+               </select>
+           </div>
+           
+           <div class="filter-group">
+               <label for="week-select">Week:</label>
+               <select id="week-select" class="filter-dropdown">
+                   <option value="total" ${currentFilters.week === 'total' ? 'selected' : ''}>Season Total</option>
+                   ${Array.from({length: 18}, (_, i) => i + 1).map(week => `
+                       <option value="${week}" ${currentFilters.week === week.toString() ? 'selected' : ''}>
+                           Week ${week}
+                       </option>
+                   `).join('')}
+               </select>
+           </div>
+           
+           ${Object.keys(userLeagues).length > 0 ? `
+               <div class="filter-group">
+                   <label for="league-select">League:</label>
+                   <select id="league-select" class="filter-dropdown">
+                       ${Object.entries(userLeagues).map(([leagueId, league]) => `
+                           <option value="${leagueId}" ${leagueId === activeLeagueId ? 'selected' : ''}>
+                               ${league.leagueName || `League ${leagueId}`}
+                           </option>
+                       `).join('')}
+                   </select>
+               </div>
+           ` : ''}
+           
+           <div class="stats-toggle">
+               <button class="stats-toggle-btn ${!showFantasyStats ? 'active' : ''}" data-mode="raw">
+                   Raw Stats
+               </button>
+               <button class="stats-toggle-btn ${showFantasyStats ? 'active' : ''}" data-mode="fantasy">
+                   Fantasy Stats
+               </button>
+           </div>
+       </div>
+   `;
 }
 
 async function loadStats(resetPage = true) {
-    if (apiState.loading) {
-        return;
-    }
+   if (apiState.loading) {
+       return;
+   }
 
-    if (resetPage) {
-        apiState.currentPage = 1;
-        currentPlayers = [];
-    }
+   if (resetPage) {
+       apiState.currentPage = 1;
+       currentPlayers = [];
+   }
 
-    apiState.loading = true;
-    apiState.error = null;
-    
-    updateFilterControlsUI();
-    
-    try {
-        const playersToLoad = apiState.currentPage * 50;        
-        const playersData = await window.statsAPI.getPlayersForDisplay(
-            currentFilters.year,
-            currentFilters.week,
-            currentFilters.position,
-            playersToLoad
-        );
-        
-        if (!playersData.success || !playersData.data) {
-            throw new Error('Failed to load players data');
-        }
-        
-        currentPlayers = playersData.data;
-        
-        if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-            currentPlayers = currentPlayers.map(player => ({
-                ...player,
-                fantasyPoints: calculateTotalFantasyPoints(player)
-            }));
-            
-            currentPlayers.sort((a, b) => (b.fantasyPoints || 0) - (a.fantasyPoints || 0));
-        }
-        
-        apiState.totalRecords = Math.max(currentPlayers.length, playersToLoad);
-        apiState.hasMore = playersData.data.length >= playersToLoad;
-        apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
-        apiState.loading = false;
-        
-    } catch (error) {
-        console.error('Failed to load stats:', error);
-        apiState.error = error.message;
-        apiState.loading = false;
-        currentPlayers = [];
-    }
-    
-    updateFilterControlsUI();
-    await render();
+   apiState.loading = true;
+   apiState.error = null;
+   
+   updateFilterControlsUI();
+   
+   try {
+       const playersToLoad = apiState.currentPage * 50;        
+       const playersData = await window.statsAPI.getPlayersForDisplay(
+           currentFilters.year,
+           currentFilters.week,
+           currentFilters.position,
+           playersToLoad
+       );
+       
+       if (!playersData.success || !playersData.data) {
+           throw new Error('Failed to load players data');
+       }
+       
+       currentPlayers = playersData.data;
+       
+       if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+           currentPlayers = currentPlayers.map(player => ({
+               ...player,
+               fantasyPoints: calculateTotalFantasyPoints(player)
+           }));
+           
+           currentPlayers.sort((a, b) => (b.fantasyPoints || 0) - (a.fantasyPoints || 0));
+       }
+       
+       apiState.totalRecords = Math.max(currentPlayers.length, playersToLoad);
+       apiState.hasMore = playersData.data.length >= playersToLoad;
+       apiState.totalPages = Math.ceil(apiState.totalRecords / 50);
+       apiState.loading = false;
+       
+   } catch (error) {
+       console.error('Failed to load stats:', error);
+       apiState.error = error.message;
+       apiState.loading = false;
+       currentPlayers = [];
+   }
+   
+   updateFilterControlsUI();
+   await render();
 }
 
 function setupEventListeners() {
-    if (eventListenersSetup) {
-        return;
-    }
+   if (eventListenersSetup) {
+       return;
+   }
 
-    const yearSelect = document.getElementById('year-select');
-    if (yearSelect) {
-        yearSelect.addEventListener('change', async (e) => {
-            const newYear = e.target.value;
-            currentFilters.year = newYear;
-            currentFilters.week = 'total';
-            window.statsAPI.yearDataLoaded.delete(newYear);
-            await loadStats(true);
-        });
-    }
-    
-    const weekSelect = document.getElementById('week-select');
-    if (weekSelect) {
-        weekSelect.addEventListener('change', async (e) => {
-            currentFilters.week = e.target.value;
-            await loadStats(true);
-        });
-    }
-    
-    const leagueSelect = document.getElementById('league-select');
-    if (leagueSelect) {
-        leagueSelect.addEventListener('change', async (e) => {
-            const newLeagueId = e.target.value;
-            currentFilters.league = newLeagueId;
-            localStorage.setItem('activeLeagueId', newLeagueId);
-            await loadScoringRulesForActiveLeague(newLeagueId);
-            updateFilterControlsUI();
-        });
-    }
-    
-    document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            showFantasyStats = e.target.dataset.mode === 'fantasy';
-            await render();
-        });
-    });
-    
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentView = e.target.dataset.view;
-            await render();
-        });
-    });
+   const yearSelect = document.getElementById('year-select');
+   if (yearSelect) {
+       yearSelect.addEventListener('change', async (e) => {
+           const newYear = e.target.value;
+           currentFilters.year = newYear;
+           currentFilters.week = 'total';
+           window.statsAPI.yearDataLoaded.delete(newYear);
+           await loadStats(true);
+       });
+   }
+   
+   const weekSelect = document.getElementById('week-select');
+   if (weekSelect) {
+       weekSelect.addEventListener('change', async (e) => {
+           currentFilters.week = e.target.value;
+           await loadStats(true);
+       });
+   }
+   
+   const leagueSelect = document.getElementById('league-select');
+   if (leagueSelect) {
+       leagueSelect.addEventListener('change', async (e) => {
+           const newLeagueId = e.target.value;
+           currentFilters.league = newLeagueId;
+           localStorage.setItem('activeLeagueId', newLeagueId);
+           await loadScoringRulesForActiveLeague(newLeagueId);
+           updateFilterControlsUI();
+       });
+   }
+   
+   // Handle both header and mobile stats toggle
+   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+       btn.addEventListener('click', async (e) => {
+           // Update both header and mobile toggles
+           document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+           
+           // Find all matching buttons and set them active
+           const mode = e.target.dataset.mode;
+           document.querySelectorAll(`[data-mode="${mode}"]`).forEach(b => b.classList.add('active'));
+           
+           showFantasyStats = mode === 'fantasy';
+           await render();
+       });
+   });
+   
+   document.querySelectorAll('.view-btn').forEach(btn => {
+       btn.addEventListener('click', async (e) => {
+           document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+           e.target.classList.add('active');
+           currentView = e.target.dataset.view;
+           await render();
+       });
+   });
 
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', async (e) => {
-            searchQuery = e.target.value.toLowerCase();
-            await render();
-        });
-    }
-    
-    const positionFilter = document.getElementById('positionFilter');
-    if (positionFilter) {
-        positionFilter.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('position-btn')) {
-                if (e.target.classList.contains('active')) {
-                    return;
-                }
-                
-                document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentFilters.position = e.target.dataset.position;
-                await loadStats(true);
-            }
-        });
-    }
+   const searchInput = document.getElementById('searchInput');
+   if (searchInput) {
+       searchInput.addEventListener('input', async (e) => {
+           searchQuery = e.target.value.toLowerCase();
+           await render();
+       });
+   }
+   
+   const positionFilter = document.getElementById('positionFilter');
+   if (positionFilter) {
+       positionFilter.addEventListener('click', async (e) => {
+           if (e.target.classList.contains('position-btn')) {
+               if (e.target.classList.contains('active')) {
+                   return;
+               }
+               
+               document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+               e.target.classList.add('active');
+               currentFilters.position = e.target.dataset.position;
+               await loadStats(true);
+           }
+       });
+   }
 
-    eventListenersSetup = true;
+   eventListenersSetup = true;
 }
 
 function updateFilterControlsUI() {
-    const filterContainer = document.querySelector('.filter-controls-container');
-    if (filterContainer) {
-        filterContainer.innerHTML = createFilterControls();
-        eventListenersSetup = false;
-        setupEventListeners();
-    }
+   const filterContainer = document.querySelector('.filter-controls-container');
+   if (filterContainer) {
+       filterContainer.innerHTML = createFilterControls();
+       eventListenersSetup = false;
+       setupEventListeners();
+   }
 }
 
 function getFilteredPlayers() {
-    let filteredPlayers = [...currentPlayers];
+   let filteredPlayers = [...currentPlayers];
 
-    if (searchQuery) {
-        filteredPlayers = filteredPlayers.filter(player => {
-            return player.name.toLowerCase().includes(searchQuery) ||
-                   player.team.toLowerCase().includes(searchQuery);
-        });
-    }
-    
-    return filteredPlayers;
+   if (searchQuery) {
+       filteredPlayers = filteredPlayers.filter(player => {
+           return player.name.toLowerCase().includes(searchQuery) ||
+                  player.team.toLowerCase().includes(searchQuery);
+       });
+   }
+   
+   return filteredPlayers;
 }
 
 const positionStats = window.STATS_CONFIG.POSITION_STATS;
 const keyStats = window.STATS_CONFIG.POSITION_KEY_STATS;
 
 function calculateFantasyPoints(statName, rawStatValue) {
-    if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
-        return rawStatValue || 0;
-    }
-    
-    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
-        return rawStatValue || 0;
-    }
-    
-    const statId = Object.keys(window.STATS_CONFIG.STAT_ID_MAPPING).find(id => 
-        window.STATS_CONFIG.STAT_ID_MAPPING[id].name === statName
-    );
-    
-    if (!statId || !currentScoringRules[statId]) {
-        return rawStatValue || 0;
-    }
-    
-    return window.STATS_CONFIG.calculateFantasyPoints(statId, rawStatValue, currentScoringRules[statId]);
+   if (!showFantasyStats || !rawStatValue || rawStatValue === 0) {
+       return rawStatValue || 0;
+   }
+   
+   if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+       return rawStatValue || 0;
+   }
+   
+   const statId = Object.keys(window.STATS_CONFIG.STAT_ID_MAPPING).find(id => 
+       window.STATS_CONFIG.STAT_ID_MAPPING[id].name === statName
+   );
+   
+   if (!statId || !currentScoringRules[statId]) {
+       return rawStatValue || 0;
+   }
+   
+   return window.STATS_CONFIG.calculateFantasyPoints(statId, rawStatValue, currentScoringRules[statId]);
 }
 
 function calculateTotalFantasyPoints(player) {
-    if (!showFantasyStats || !player.rawStats) {
-        return 0;
-    }
-    
-    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
-        return 0;
-    }
-    
-    let totalPoints = 0;
-    
-    try {
-        Object.entries(player.rawStats).forEach(([statId, statValue]) => {
-            if (currentScoringRules[statId] && statValue !== 0) {
-                const rule = currentScoringRules[statId];
-                
-                let points = statValue * parseFloat(rule.points || 0);
-                
-                if (rule.bonuses && Array.isArray(rule.bonuses)) {
-                    rule.bonuses.forEach(bonusRule => {
-                        const target = parseFloat(bonusRule.bonus.target || 0);
-                        const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
-                        
-                        if (statValue >= target && target > 0) {
-                            const bonusesEarned = Math.floor(statValue / target);
-                            points += bonusesEarned * bonusPoints;
-                        }
-                    });
-                }
-                
-                if (points !== 0) {
-                    totalPoints += points;
-                }
-            }
-        });
-        
-        return Math.round(totalPoints * 100) / 100;
-    } catch (error) {
-        console.error(`Error calculating total fantasy points for ${player.name}:`, error);
-        return 0;
-    }
+   if (!showFantasyStats || !player.rawStats) {
+       return 0;
+   }
+   
+   if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+       return 0;
+   }
+   
+   let totalPoints = 0;
+   
+   try {
+       Object.entries(player.rawStats).forEach(([statId, statValue]) => {
+           if (currentScoringRules[statId] && statValue !== 0) {
+               const rule = currentScoringRules[statId];
+               
+               let points = statValue * parseFloat(rule.points || 0);
+               
+               if (rule.bonuses && Array.isArray(rule.bonuses)) {
+                   rule.bonuses.forEach(bonusRule => {
+                       const target = parseFloat(bonusRule.bonus.target || 0);
+                       const bonusPoints = parseFloat(bonusRule.bonus.points || 0);
+                       
+                       if (statValue >= target && target > 0) {
+                           const bonusesEarned = Math.floor(statValue / target);
+                           points += bonusesEarned * bonusPoints;
+                       }
+                   });
+               }
+               
+               if (points !== 0) {
+                   totalPoints += points;
+               }
+           }
+       });
+       
+       return Math.round(totalPoints * 100) / 100;
+   } catch (error) {
+       console.error(`Error calculating total fantasy points for ${player.name}:`, error);
+       return 0;
+   }
 }
 
 function getStatValue(player, statName) {
-    const rawValue = player.stats[statName] || 0;
-    
-    if (!showFantasyStats) {
-        return rawValue;
-    }
-    
-    if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
-        return rawValue;
-    }
-    
-    try {
-        return calculateFantasyPoints(statName, rawValue);
-    } catch (error) {
-        console.error(`Error calculating fantasy points for ${statName}:`, error);
-        return rawValue;
-    }
+   const rawValue = player.stats[statName] || 0;
+   
+   if (!showFantasyStats) {
+       return rawValue;
+   }
+   
+   if (!currentScoringRules || Object.keys(currentScoringRules).length === 0) {
+       return rawValue;
+   }
+   
+   try {
+       return calculateFantasyPoints(statName, rawValue);
+   } catch (error) {
+       console.error(`Error calculating fantasy points for ${statName}:`, error);
+       return rawValue;
+   }
 }
 
 function shouldHideColumn(players, stat) {
-    return players.every(player => {
-        const value = player.stats[stat] || 0;
-        return value === 0;
-    });
+   return players.every(player => {
+       const value = player.stats[stat] || 0;
+       return value === 0;
+   });
 }
 
 function getVisibleStats(players, allStats) {
-    return allStats.filter(stat => !shouldHideColumn(players, stat));
+   return allStats.filter(stat => !shouldHideColumn(players, stat));
 }
 
 async function render() {
-    const content = document.getElementById('content');
-    let filteredPlayers = getFilteredPlayers();
+   const content = document.getElementById('content');
+   let filteredPlayers = getFilteredPlayers();
 
-    if (!Array.isArray(filteredPlayers)) {
-        filteredPlayers = [];
-    }
+   if (!Array.isArray(filteredPlayers)) {
+       filteredPlayers = [];
+   }
 
-    if (filteredPlayers.length === 0) {
-        content.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">🏈</div>
-                <h3>No players found</h3>
-                <p>Try adjusting your filters or search terms</p>
-            </div>
-        `;
-        return;
-    }
+   if (filteredPlayers.length === 0) {
+       content.innerHTML = `
+           <div class="empty-state">
+               <div class="empty-state-icon">🏈</div>
+               <h3>No players found</h3>
+               <p>Try adjusting your filters or search terms</p>
+           </div>
+       `;
+       return;
+   }
 
-    if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-filteredPlayers = filteredPlayers.map(player => {
+   if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
+       filteredPlayers = filteredPlayers.map(player => {
            if (!player.fantasyPoints && player.rawStats) {
                player.fantasyPoints = calculateTotalFantasyPoints(player);
            }
@@ -617,6 +628,12 @@ filteredPlayers = filteredPlayers.map(player => {
 
    if (currentView === 'research') {
        filteredPlayers = getSortedPlayers(filteredPlayers);
+   }
+
+   // CREATE MOBILE STATS TOGGLE IF IT DOESN'T EXIST
+   let mobileStatsToggle = document.querySelector('.mobile-stats-toggle');
+   if (window.innerWidth <= 768 && !mobileStatsToggle) {
+       createMobileStatsToggle();
    }
 
    switch (currentView) {
@@ -629,6 +646,38 @@ filteredPlayers = filteredPlayers.map(player => {
        case 'stats':
            renderStatsView(filteredPlayers);
            break;
+   }
+}
+
+// NEW: Create mobile stats toggle
+function createMobileStatsToggle() {
+   const viewToggle = document.querySelector('.view-toggle');
+   if (viewToggle && !document.querySelector('.mobile-stats-toggle')) {
+       const mobileToggle = document.createElement('div');
+       mobileToggle.className = 'mobile-stats-toggle';
+       mobileToggle.innerHTML = `
+           <div class="stats-toggle">
+               <button class="stats-toggle-btn ${!showFantasyStats ? 'active' : ''}" data-mode="raw">
+                   Raw Stats
+               </button>
+               <button class="stats-toggle-btn ${showFantasyStats ? 'active' : ''}" data-mode="fantasy">
+                   Fantasy Stats
+               </button>
+           </div>
+       `;
+       
+       viewToggle.parentNode.insertBefore(mobileToggle, viewToggle.nextSibling);
+       
+       // Add event listeners to mobile toggle
+       mobileToggle.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+           btn.addEventListener('click', async (e) => {
+               document.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.remove('active'));
+               const mode = e.target.dataset.mode;
+               document.querySelectorAll(`[data-mode="${mode}"]`).forEach(b => b.classList.add('active'));
+               showFantasyStats = mode === 'fantasy';
+               await render();
+           });
+       });
    }
 }
 
@@ -685,7 +734,6 @@ function renderPlayerCard(player) {
    `;
 }
 
-// FIXED: Research Table with Working Sort and Sort Indicators
 function renderResearchView(players) {
    const content = document.getElementById('content');
    const allStats = getStatsForPosition(currentFilters.position);
@@ -768,7 +816,6 @@ function renderResearchView(players) {
        </div>
    `;
    
-   // Add event listener for load more button
    const loadMoreBtn = document.getElementById('load-more-btn');
    if (loadMoreBtn) {
        loadMoreBtn.addEventListener('click', async () => {
@@ -780,7 +827,6 @@ function renderResearchView(players) {
    }
 }
 
-// NEW: Sort indicator function
 function getSortIndicator(column) {
    if (tableSort.column !== column) {
        return '<span style="opacity: 0.3;">↕</span>';
