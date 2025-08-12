@@ -1,5 +1,4 @@
-// stats.js - FIXED Research Table Rendering
-// Global state and variables
+// stats.js - FIXED Mobile Scroll & Working Sort
 let currentFilters = {
     league: null,
     team: 'ALL',
@@ -25,11 +24,46 @@ let currentScoringRules = {};
 let userLeagues = {};
 let tableSort = {
     column: null,
-    direction: 'asc'
+    direction: 'desc'
 };
 let eventListenersSetup = false;
 
-// Updated stats conversion function
+// MOBILE SCROLL HANDLER
+let lastScrollY = 0;
+let scrollTimeout;
+
+function handleMobileScroll() {
+    if (window.innerWidth > 768) return; // Only on mobile
+    
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        const currentScrollY = window.scrollY;
+        const header = document.querySelector('.header');
+        const filterContainer = document.querySelector('.filter-controls-container');
+        
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            // Scrolling down - hide header elements
+            header.classList.add('scroll-hidden');
+            if (filterContainer) {
+                filterContainer.classList.add('scroll-hidden');
+            }
+        } else {
+            // Scrolling up - show header elements
+            header.classList.remove('scroll-hidden');
+            if (filterContainer) {
+                filterContainer.classList.remove('scroll-hidden');
+            }
+        }
+        
+        lastScrollY = currentScrollY;
+    }, 10);
+}
+
+// Add scroll listener
+if (typeof window !== 'undefined') {
+    window.addEventListener('scroll', handleMobileScroll, { passive: true });
+}
+
 window.convertStatsForDisplay = function(rawStats) {
     if (!rawStats || typeof rawStats !== 'object') {
         return {};
@@ -47,7 +81,73 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-// Backend API functions
+// WORKING SORT FUNCTION
+function sortTable(column) {
+    console.log(`🔄 Sorting by: ${column}`);
+    
+    if (tableSort.column === column) {
+        tableSort.direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'desc'; // Start with descending for new columns
+    }
+    
+    console.log(`📊 Sort direction: ${tableSort.direction}`);
+    
+    // Re-render with new sort
+    render();
+}
+
+// Make sortTable globally available
+window.sortTable = sortTable;
+
+function getSortedPlayers(players) {
+    if (!tableSort.column) return players;
+    
+    console.log(`🔍 Sorting ${players.length} players by ${tableSort.column} (${tableSort.direction})`);
+    
+    return [...players].sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(tableSort.column) {
+            case 'overallRank':
+                aValue = a.overallRank || 999999;
+                bValue = b.overallRank || 999999;
+                break;
+            case 'positionRank':
+                aValue = a.positionRank || 999999;
+                bValue = b.positionRank || 999999;
+                break;
+            case 'name':
+                aValue = a.name || '';
+                bValue = b.name || '';
+                break;
+            case 'fantasyPoints':
+                aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
+                bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
+                break;
+            default:
+                // Handle stat columns
+                aValue = getStatValue(a, tableSort.column);
+                bValue = getStatValue(b, tableSort.column);
+                break;
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            aValue = aValue.toString().toLowerCase();
+            bValue = bValue.toString().toLowerCase();
+            if (tableSort.direction === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
+}
+
+// Backend API functions - keeping existing loadUserLeagues, etc.
 async function loadUserLeagues() {
     try {
         console.log('🔄 Loading ALL user leagues...');
@@ -487,43 +587,6 @@ function getVisibleStats(players, allStats) {
     return allStats.filter(stat => !shouldHideColumn(players, stat));
 }
 
-function getSortedPlayers(players) {
-    if (!tableSort.column) return players;
-    
-    return [...players].sort((a, b) => {
-        let aValue, bValue;
-        
-        if (tableSort.column === 'overallRank') {
-            aValue = a.overallRank || 999999;
-            bValue = b.overallRank || 999999;
-        } else if (tableSort.column === 'positionRank') {
-            aValue = a.positionRank || 999999;
-            bValue = b.positionRank || 999999;
-        } else if (tableSort.column === 'name') {
-            aValue = a.name;
-            bValue = b.name;
-        } else if (tableSort.column === 'fantasyPoints') {
-            aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
-            bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
-        } else {
-            aValue = getStatValue(a, tableSort.column);
-            bValue = getStatValue(b, tableSort.column);
-        }
-        
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-            return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
-        } else {
-            aValue = aValue.toString().toLowerCase();
-            bValue = bValue.toString().toLowerCase();
-            if (tableSort.direction === 'asc') {
-                return aValue.localeCompare(bValue);
-            } else {
-                return bValue.localeCompare(aValue);
-            }
-        }
-    });
-}
-
 async function render() {
     const content = document.getElementById('content');
     let filteredPlayers = getFilteredPlayers();
@@ -544,124 +607,136 @@ async function render() {
     }
 
     if (showFantasyStats && currentScoringRules && Object.keys(currentScoringRules).length > 0) {
-        filteredPlayers = filteredPlayers.map(player => {
-            if (!player.fantasyPoints && player.rawStats) {
-                player.fantasyPoints = calculateTotalFantasyPoints(player);
-            }
-            return player;
-        });
-    }
+filteredPlayers = filteredPlayers.map(player => {
+           if (!player.fantasyPoints && player.rawStats) {
+               player.fantasyPoints = calculateTotalFantasyPoints(player);
+           }
+           return player;
+       });
+   }
 
-    if (currentView === 'research') {
-        filteredPlayers = getSortedPlayers(filteredPlayers);
-    }
+   if (currentView === 'research') {
+       filteredPlayers = getSortedPlayers(filteredPlayers);
+   }
 
-    switch (currentView) {
-        case 'cards':
-            renderCardsView(filteredPlayers);
-            break;
-        case 'research':
-            renderResearchView(filteredPlayers);
-            break;
-        case 'stats':
-            renderStatsView(filteredPlayers);
-            break;
-    }
+   switch (currentView) {
+       case 'cards':
+           renderCardsView(filteredPlayers);
+           break;
+       case 'research':
+           renderResearchView(filteredPlayers);
+           break;
+       case 'stats':
+           renderStatsView(filteredPlayers);
+           break;
+   }
 }
 
 function renderCardsView(players) {
-    const content = document.getElementById('content');
-    content.innerHTML = `
-        <div class="player-grid">
-            ${players.map(player => renderPlayerCard(player)).join('')}
-        </div>
-    `;
+   const content = document.getElementById('content');
+   content.innerHTML = `
+       <div class="player-grid">
+           ${players.map(player => renderPlayerCard(player)).join('')}
+       </div>
+   `;
 }
 
 function renderPlayerCard(player) {
-    const stats = keyStats[player.position] || [];
-    const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
-    
-    return `
-        <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
-            <div class="player-header">
-                <div class="player-info">
-                    <h3>${player.name}</h3>
-                    <div class="player-meta">
-                        <span class="position-badge">${player.position}</span>
-                        <span>${player.team}</span>
-                        ${showFantasyStats && totalFantasyPoints > 0 ? 
-                            `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
-                        }
-                        ${showFantasyStats && player.overallRank ? 
-                            `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
-                        }
-                        ${showFantasyStats && player.positionRank ? 
-                            `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
-                        }
-                    </div>
-                </div>
-            </div>
-            <div class="stat-grid">
-                ${stats.map(stat => {
-                    const rawValue = player.stats[stat] || 0;
-                    const displayValue = getStatValue(player, stat);
-                    const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
-                    
-                    return `
-                        <div class="stat-item">
-                            <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
-                                ${formatStatValue(displayValue, stat, isFantasyMode)}
-                            </span>
-                            <span class="stat-label">${stat}</span>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
+   const stats = keyStats[player.position] || [];
+   const totalFantasyPoints = player.fantasyPoints || calculateTotalFantasyPoints(player);
+   
+   return `
+       <div class="player-card fade-in" onclick="navigateToPlayer('${player.id}')">
+           <div class="player-header">
+               <div class="player-info">
+                   <h3>${player.name}</h3>
+                   <div class="player-meta">
+                       <span class="position-badge">${player.position}</span>
+                       <span>${player.team}</span>
+                       ${showFantasyStats && totalFantasyPoints > 0 ? 
+                           `<span class="fantasy-total">${totalFantasyPoints} pts</span>` : ''
+                       }
+                       ${showFantasyStats && player.overallRank ? 
+                           `<span class="rank-badge">Overall: #${player.overallRank}</span>` : ''
+                       }
+                       ${showFantasyStats && player.positionRank ? 
+                           `<span class="position-rank-badge">${player.position}: #${player.positionRank}</span>` : ''
+                       }
+                   </div>
+               </div>
+           </div>
+           <div class="stat-grid">
+               ${stats.map(stat => {
+                   const rawValue = player.stats[stat] || 0;
+                   const displayValue = getStatValue(player, stat);
+                   const isFantasyMode = showFantasyStats && displayValue !== rawValue && displayValue > 0;
+                   
+                   return `
+                       <div class="stat-item">
+                           <span class="stat-value ${isFantasyMode ? 'fantasy-points' : ''}">
+                               ${formatStatValue(displayValue, stat, isFantasyMode)}
+                           </span>
+                           <span class="stat-label">${stat}</span>
+                       </div>
+                   `;
+               }).join('')}
+           </div>
+       </div>
+   `;
 }
 
-// FIXED: Clean Research Table Rendering
+// FIXED: Research Table with Working Sort and Sort Indicators
 function renderResearchView(players) {
-    const content = document.getElementById('content');
-    const allStats = getStatsForPosition(currentFilters.position);
-    const visibleStats = getVisibleStats(players, allStats);
-    
-    content.innerHTML = `
-        <div class="research-container fade-in">
-            <div class="research-header">
-                <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
-                <div class="research-controls">
-                    ${showFantasyStats ? '<span class="bonus-note">Fantasy stats with scoring rules applied</span>' : '<span class="stats-note">Raw statistics</span>'}
-                    <span class="player-count">Showing ${players.length} players</span>
-                    ${apiState.hasMore ? '<button id="load-more-btn">Load More Players</button>' : ''}
-                </div>
-            </div>
-            <div class="research-table-wrapper">
-                <table class="research-table">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('overallRank')">Overall Rank</th>
-                            <th onclick="sortTable('positionRank')">Pos Rank</th>
-                            <th onclick="sortTable('name')">Player</th>
-                            ${showFantasyStats ? '<th onclick="sortTable(\'fantasyPoints\')">Total Fantasy Pts</th>' : ''}
-                            ${visibleStats.map(stat => `
-                                <th onclick="sortTable('${stat}')">${stat}</th>
-                            `).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${players.map(player => {
-                            return `
-                                <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
-                                    <td class="rank-cell">#${player.overallRank || '-'}</td>
-                                    <td class="rank-cell">#${player.positionRank || '-'}</td>
-                                    <td class="player-name-cell">
-                                        <div class="player-name-with-info">
-                                            <div class="player-name">${player.name}</div>
-                                            <div class="player-meta-info">
-<span class="position-tag">${player.position}</span>
+   const content = document.getElementById('content');
+   const allStats = getStatsForPosition(currentFilters.position);
+   const visibleStats = getVisibleStats(players, allStats);
+   
+   content.innerHTML = `
+       <div class="research-container fade-in">
+           <div class="research-header">
+               <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
+               <div class="research-controls">
+                   ${showFantasyStats ? '<span class="bonus-note">Fantasy stats with scoring rules applied</span>' : '<span class="stats-note">Raw statistics</span>'}
+                   <span class="player-count">Showing ${players.length} players</span>
+                   ${apiState.hasMore ? '<button id="load-more-btn">Load More Players</button>' : ''}
+               </div>
+           </div>
+           <div class="research-table-wrapper">
+               <table class="research-table">
+                   <thead>
+                       <tr>
+                           <th onclick="sortTable('overallRank')" class="${tableSort.column === 'overallRank' ? 'sort-' + tableSort.direction : ''}">
+                               Overall Rank ${getSortIndicator('overallRank')}
+                           </th>
+                           <th onclick="sortTable('positionRank')" class="${tableSort.column === 'positionRank' ? 'sort-' + tableSort.direction : ''}">
+                               Pos Rank ${getSortIndicator('positionRank')}
+                           </th>
+                           <th onclick="sortTable('name')" class="${tableSort.column === 'name' ? 'sort-' + tableSort.direction : ''}">
+                               Player ${getSortIndicator('name')}
+                           </th>
+                           ${showFantasyStats ? `
+                               <th onclick="sortTable('fantasyPoints')" class="${tableSort.column === 'fantasyPoints' ? 'sort-' + tableSort.direction : ''}">
+                                   Total Fantasy Pts ${getSortIndicator('fantasyPoints')}
+                               </th>
+                           ` : ''}
+                           ${visibleStats.map(stat => `
+                               <th onclick="sortTable('${stat}')" class="${tableSort.column === stat ? 'sort-' + tableSort.direction : ''}">
+                                   ${stat} ${getSortIndicator(stat)}
+                               </th>
+                           `).join('')}
+                       </tr>
+                   </thead>
+                   <tbody>
+                       ${players.map(player => {
+                           return `
+                               <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
+                                   <td class="rank-cell">#${player.overallRank || '-'}</td>
+                                   <td class="rank-cell">#${player.positionRank || '-'}</td>
+                                   <td class="player-name-cell">
+                                       <div class="player-name-with-info">
+                                           <div class="player-name">${player.name}</div>
+                                           <div class="player-meta-info">
+                                               <span class="position-tag">${player.position}</span>
                                                <span class="team-tag">${player.team}</span>
                                            </div>
                                        </div>
@@ -703,6 +778,14 @@ function renderResearchView(players) {
            }
        });
    }
+}
+
+// NEW: Sort indicator function
+function getSortIndicator(column) {
+   if (tableSort.column !== column) {
+       return '<span style="opacity: 0.3;">↕</span>';
+   }
+   return tableSort.direction === 'asc' ? '<span style="color: #fff;">↑</span>' : '<span style="color: #fff;">↓</span>';
 }
 
 function renderStatsView(players) {
@@ -825,17 +908,6 @@ function navigateToPlayer(playerId) {
    const url = `player.html?id=${encodeURIComponent(playerId)}`;
    window.location.href = url;
 }
-
-// Global sortTable function for onclick handlers
-window.sortTable = function(column) {
-   if (tableSort.column === column) {
-       tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
-   } else {
-       tableSort.column = column;
-       tableSort.direction = 'desc';
-   }
-   render();
-};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
