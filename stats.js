@@ -185,9 +185,6 @@ function updateTableSortIndicators(table, activeColumn, direction) {
     }
 }
 
-// Make sortTable globally available
-window.sortTable = sortTable;
-
 // All existing backend functions (keep unchanged)
 async function loadUserLeagues() {
     try {
