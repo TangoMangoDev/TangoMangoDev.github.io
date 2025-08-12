@@ -129,74 +129,19 @@ function getSortIndicator(columnName) {
     }
     return '';
 }
+
+function sortTable(column) {
+    console.log(`🔄 Sorting by column: ${column}`);
     
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    let direction = 'desc';
     if (tableSort.column === column) {
-        direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
+        tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        tableSort.column = column;
+        tableSort.direction = 'desc';
     }
     
-    tableSort = { column, direction };
-    
-    const sortedRows = rows.sort((a, b) => {
-        let aValue, bValue;
-        
-        switch(column) {
-            case 'overallRank':
-                aValue = parseFloat(a.cells[0].textContent.replace(/[^\d.-]/g, '')) || 999999;
-                bValue = parseFloat(b.cells[0].textContent.replace(/[^\d.-]/g, '')) || 999999;
-                break;
-            case 'positionRank':
-                aValue = parseFloat(a.cells[1].textContent.replace(/[^\d.-]/g, '')) || 999999;
-                bValue = parseFloat(b.cells[1].textContent.replace(/[^\d.-]/g, '')) || 999999;
-                break;
-            case 'name':
-                aValue = a.cells[2].textContent.trim();
-                bValue = b.cells[2].textContent.trim();
-                break;
-            case 'fantasyPoints':
-                // Fantasy points column is at index 3 when showing fantasy stats
-                const fantasyIndex = showFantasyStats ? 3 : -1;
-                if (fantasyIndex > -1) {
-                    aValue = parseFloat(a.cells[fantasyIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
-                    bValue = parseFloat(b.cells[fantasyIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
-                } else {
-                    return 0;
-                }
-                break;
-            default:
-                // For stat columns, find the right cell index
-                const headers = Array.from(table.querySelectorAll('th'));
-                const columnIndex = headers.findIndex(th => th.textContent.includes(getShortStatName(column)) || th.onclick?.toString().includes(column));
-                
-                if (columnIndex > -1 && a.cells[columnIndex] && b.cells[columnIndex]) {
-                    aValue = parseFloat(a.cells[columnIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
-                    bValue = parseFloat(b.cells[columnIndex].textContent.replace(/[^\d.-]/g, '')) || 0;
-                } else {
-                    return 0;
-                }
-                break;
-        }
-        
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-            return direction === 'asc' ? aValue - bValue : bValue - aValue;
-        } else {
-            aValue = aValue.toString().toLowerCase();
-            bValue = bValue.toString().toLowerCase();
-            if (direction === 'asc') {
-                return aValue.localeCompare(bValue);
-            } else {
-                return bValue.localeCompare(aValue);
-            }
-        }
-    });
-    
-    sortedRows.forEach(row => tbody.appendChild(row));
-    updateTableSortIndicators(table, column, direction);
-    
-    console.log(`✅ Sorted table by ${column} (${direction})`);
+    console.log(`📊 Sort state: ${column} ${tableSort.direction}`);
+    render();
 }
 
 // 🔥 COPIED FROM PLAYER.JS 🔥
