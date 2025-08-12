@@ -802,8 +802,8 @@ function renderResearchView(players) {
     // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥
     const sortedPlayers = getSortedPlayers(players);
     
-    console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);
-    
+const sortedPlayers = getSortedPlayers(players);
+console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);    
     content.innerHTML = `
         <div class="research-container fade-in">
             <div class="research-header">
