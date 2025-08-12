@@ -317,17 +317,17 @@ class PlayerDetailPage {
            ${advancedAnalyticsHTML}
            
            <div class="stats-table-container">
-               <table class="player-stats-table">
-                   <thead>
-                       <tr>
-                           <th class="stat-name-col" onclick="sortPlayerTable('statName')">Statistic</th>
-                           <th class="stat-value-col" onclick="sortPlayerTable('total')">Total${showYearOverYear ? ' (YoY)' : ''}</th>
-                           <th class="stat-value-col" onclick="sortPlayerTable('average')">AVG. PPG</th>
-                           <th class="stat-value-col" onclick="sortPlayerTable('median')">Season Mid</th>
-                           <th class="stat-value-col" onclick="sortPlayerTable('low')">Low</th>
-                           <th class="stat-value-col" onclick="sortPlayerTable('max')">Best Game</th>
-                       </tr>
-                   </thead>
+<table class="player-stats-table">
+    <thead>
+        <tr>
+            <th class="stat-name-col">Statistic</th>
+            <th class="stat-value-col">Total${showYearOverYear ? ' (YoY)' : ''}</th>
+            <th class="stat-value-col">AVG. PPG</th>
+            <th class="stat-value-col">Season Mid</th>
+            <th class="stat-value-col">Low</th>
+            <th class="stat-value-col">Best Game</th>
+        </tr>
+    </thead>
                    <tbody>
                        ${statsEntries.map(([statId, statData]) => {
                            const displayStats = this.currentFilters.showFantasyStats && statData.fantasyStats ? 
