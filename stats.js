@@ -1,4 +1,4 @@
-// stats.js - ENHANCED Mobile Scroll Behavior
+// stats.js - COMPLETELY FIXED SORTING
 let currentFilters = {
     league: null,
     team: 'ALL',
@@ -90,7 +90,7 @@ window.convertStatsForDisplay = function(rawStats) {
     return displayStats;
 };
 
-// WORKING SORT FUNCTION
+// COMPLETELY FIXED SORT FUNCTION
 function sortTable(column) {
     console.log(`🔄 Sorting by: ${column}`);
     
@@ -98,17 +98,22 @@ function sortTable(column) {
         tableSort.direction = tableSort.direction === 'desc' ? 'asc' : 'desc';
     } else {
         tableSort.column = column;
-        tableSort.direction = 'desc';
+        tableSort.direction = 'desc'; // Start with descending for new columns
     }
     
-    console.log(`📊 Sort direction: ${tableSort.direction}`);
+    console.log(`📊 Sort: ${column} (${tableSort.direction})`);
+    
+    // Force re-render with new sort
     render();
 }
 
+// Make sortTable globally available
 window.sortTable = sortTable;
 
 function getSortedPlayers(players) {
-    if (!tableSort.column) return players;
+    if (!tableSort.column || !Array.isArray(players)) {
+        return players;
+    }
     
     console.log(`🔍 Sorting ${players.length} players by ${tableSort.column} (${tableSort.direction})`);
     
@@ -125,14 +130,15 @@ function getSortedPlayers(players) {
                 bValue = b.positionRank || 999999;
                 break;
             case 'name':
-                aValue = a.name || '';
-                bValue = b.name || '';
+                aValue = (a.name || '').toLowerCase();
+                bValue = (b.name || '').toLowerCase();
                 break;
             case 'fantasyPoints':
                 aValue = a.fantasyPoints || calculateTotalFantasyPoints(a);
                 bValue = b.fantasyPoints || calculateTotalFantasyPoints(b);
                 break;
             default:
+                // Handle stat columns
                 aValue = getStatValue(a, tableSort.column);
                 bValue = getStatValue(b, tableSort.column);
                 break;
@@ -141,12 +147,12 @@ function getSortedPlayers(players) {
         if (typeof aValue === 'number' && typeof bValue === 'number') {
             return tableSort.direction === 'asc' ? aValue - bValue : bValue - aValue;
         } else {
-            aValue = aValue.toString().toLowerCase();
-            bValue = bValue.toString().toLowerCase();
+            const aStr = aValue.toString().toLowerCase();
+            const bStr = bValue.toString().toLowerCase();
             if (tableSort.direction === 'asc') {
-                return aValue.localeCompare(bValue);
+                return aStr.localeCompare(bStr);
             } else {
-                return bValue.localeCompare(aValue);
+                return bStr.localeCompare(aStr);
             }
         }
     });
@@ -172,47 +178,47 @@ async function loadUserLeagues() {
                     const rulesData = await window.statsAPI.getScoringRules(defaultLeagueId);
                     if (rulesData && rulesData[defaultLeagueId]) {
                         currentScoringRules = rulesData[defaultLeagueId];
-                        console.log(`✅ Loaded cached scoring rules for ${defaultLeagueId}`);
-                    }
-                }
-                
-                return userLeagues;
-            }
-        }
-        
-        const response = await fetch('/data/stats/rules');
-        
-        if (!response.ok) {
-            console.warn('⚠️ Failed to load leagues, using empty defaults');
-            return setEmptyDefaults();
-        }
-        
-        const data = await response.json();
-        console.log('📊 Backend response received:', data);
-        
-        if (data.needsImport) {
-            console.log('⚠️ User needs to import leagues first');
-            return setEmptyDefaults();
-        }
-        
-        if (data.leagues && data.scoringRules) {
-            userLeagues = data.leagues;
-            
-            Object.keys(userLeagues).forEach(leagueId => {
-                if (userLeagues[leagueId].teams) {
-                    delete userLeagues[leagueId].teams;
-                }
-            });
-            
-            console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
-            
-            for (const [leagueId, scoringRules] of Object.entries(data.scoringRules)) {
-                if (scoringRules && Object.keys(scoringRules).length > 0) {
-                    await window.statsAPI.cache.setScoringRules(leagueId, scoringRules);
-                }
-            }
-            
-if (data.rosters) {
+                       console.log(`✅ Loaded cached scoring rules for ${defaultLeagueId}`);
+                   }
+               }
+               
+               return userLeagues;
+           }
+       }
+       
+       const response = await fetch('/data/stats/rules');
+       
+       if (!response.ok) {
+           console.warn('⚠️ Failed to load leagues, using empty defaults');
+           return setEmptyDefaults();
+       }
+       
+       const data = await response.json();
+       console.log('📊 Backend response received:', data);
+       
+       if (data.needsImport) {
+           console.log('⚠️ User needs to import leagues first');
+           return setEmptyDefaults();
+       }
+       
+       if (data.leagues && data.scoringRules) {
+           userLeagues = data.leagues;
+           
+           Object.keys(userLeagues).forEach(leagueId => {
+               if (userLeagues[leagueId].teams) {
+                   delete userLeagues[leagueId].teams;
+               }
+           });
+           
+           console.log(`✅ Loaded ${Object.keys(userLeagues).length} leagues`);
+           
+           for (const [leagueId, scoringRules] of Object.entries(data.scoringRules)) {
+               if (scoringRules && Object.keys(scoringRules).length > 0) {
+                   await window.statsAPI.cache.setScoringRules(leagueId, scoringRules);
+               }
+           }
+           
+           if (data.rosters) {
                for (const [leagueId, leagueRosters] of Object.entries(data.rosters)) {
                    if (leagueRosters && typeof leagueRosters === 'object') {
                        for (const [week, rosterData] of Object.entries(leagueRosters)) {
@@ -626,6 +632,7 @@ async function render() {
        });
    }
 
+   // APPLY SORTING ONLY TO RESEARCH VIEW
    if (currentView === 'research') {
        filteredPlayers = getSortedPlayers(filteredPlayers);
    }
@@ -734,6 +741,7 @@ function renderPlayerCard(player) {
    `;
 }
 
+// COMPLETELY FIXED RESEARCH VIEW
 function renderResearchView(players) {
    const content = document.getElementById('content');
    const allStats = getStatsForPosition(currentFilters.position);
@@ -753,23 +761,23 @@ function renderResearchView(players) {
                <table class="research-table">
                    <thead>
                        <tr>
-                           <th onclick="sortTable('overallRank')" class="${tableSort.column === 'overallRank' ? 'sort-' + tableSort.direction : ''}">
+                           <th onclick="sortTable('overallRank')">
                                Overall Rank ${getSortIndicator('overallRank')}
                            </th>
-                           <th onclick="sortTable('positionRank')" class="${tableSort.column === 'positionRank' ? 'sort-' + tableSort.direction : ''}">
+                           <th onclick="sortTable('positionRank')">
                                Pos Rank ${getSortIndicator('positionRank')}
                            </th>
-                           <th onclick="sortTable('name')" class="${tableSort.column === 'name' ? 'sort-' + tableSort.direction : ''}">
+                           <th onclick="sortTable('name')">
                                Player ${getSortIndicator('name')}
                            </th>
                            ${showFantasyStats ? `
-                               <th onclick="sortTable('fantasyPoints')" class="${tableSort.column === 'fantasyPoints' ? 'sort-' + tableSort.direction : ''}">
+                               <th onclick="sortTable('fantasyPoints')">
                                    Total Fantasy Pts ${getSortIndicator('fantasyPoints')}
                                </th>
                            ` : ''}
                            ${visibleStats.map(stat => `
-                               <th onclick="sortTable('${stat}')" class="${tableSort.column === stat ? 'sort-' + tableSort.direction : ''}">
-                                   ${stat} ${getSortIndicator(stat)}
+                               <th onclick="sortTable('${stat}')">
+                                   ${getShortStatName(stat)} ${getSortIndicator(stat)}
                                </th>
                            `).join('')}
                        </tr>
@@ -829,9 +837,36 @@ function renderResearchView(players) {
 
 function getSortIndicator(column) {
    if (tableSort.column !== column) {
-       return '<span style="opacity: 0.3;">↕</span>';
+       return '<span class="sort-indicator">⇅</span>';
    }
-   return tableSort.direction === 'asc' ? '<span style="color: #fff;">↑</span>' : '<span style="color: #fff;">↓</span>';
+   return tableSort.direction === 'asc' ? 
+          '<span class="sort-indicator">↑</span>' : 
+          '<span class="sort-indicator">↓</span>';
+}
+
+function getShortStatName(statName) {
+   const abbreviations = {
+       "Pass Att": "ATT",
+       "Pass Yds": "YDS", 
+       "Pass TD": "TD",
+       "Rush Att": "ATT",
+       "Rush Yds": "YDS",
+       "Rush TD": "TD",
+       "Rec Yds": "YDS",
+       "Rec TD": "TD",
+       "FG 0-19": "0-19",
+       "FG 20-29": "20-29",
+       "FG 30-39": "30-39",
+       "FG 40-49": "40-49",
+       "FG 50+": "50+",
+       "Tack Solo": "SOLO",
+       "Tack Ast": "AST",
+       "Pass Def": "PD",
+       "Fum Force": "FF",
+       "Fum Rec": "FR"
+   };
+   
+   return abbreviations[statName] || statName;
 }
 
 function renderStatsView(players) {
