@@ -137,6 +137,13 @@ function getSortedPlayers(players) {
         }
     });
 }
+
+function getSortIndicator(columnName) {
+    if (tableSort.column === columnName) {
+        return tableSort.direction === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+}
     
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -807,7 +814,10 @@ function renderResearchView(players) {
     const allStats = getStatsForPosition(currentFilters.position);
     const visibleStats = getVisibleStats(players, allStats);
     
-    console.log(`🎯 Rendering research view with ${players.length} players`);
+    // 🔥 ACTUALLY SORT THE PLAYERS HERE 🔥
+    const sortedPlayers = getSortedPlayers(players);
+    
+    console.log(`🎯 Rendering research view with ${sortedPlayers.length} sorted players`);
     
     content.innerHTML = `
         <div class="research-container fade-in">
@@ -815,7 +825,7 @@ function renderResearchView(players) {
                 <h2>Research Table - ${showFantasyStats ? 'Fantasy Points' : 'Raw Stats'}</h2>
                 <div class="research-controls">
                     ${showFantasyStats ? '<span class="bonus-note">Fantasy stats with scoring rules applied</span>' : '<span class="stats-note">Raw statistics</span>'}
-                    <span class="player-count">Showing ${players.length} players</span>
+                    <span class="player-count">Showing ${sortedPlayers.length} players</span>
                     ${apiState.hasMore ? '<button id="load-more-btn">Load More Players</button>' : ''}
                 </div>
             </div>
@@ -824,28 +834,28 @@ function renderResearchView(players) {
                     <thead>
                         <tr>
                             <th onclick="sortTable('overallRank')" class="sortable">
-                                Overall Rank
+                                Overall Rank ${getSortIndicator('overallRank')}
                             </th>
                             <th onclick="sortTable('positionRank')" class="sortable">
-                                Pos Rank
+                                Pos Rank ${getSortIndicator('positionRank')}
                             </th>
                             <th onclick="sortTable('name')" class="sortable">
-                                Player
+                                Player ${getSortIndicator('name')}
                             </th>
                             ${showFantasyStats ? `
                                 <th onclick="sortTable('fantasyPoints')" class="sortable">
-                                    Total Fantasy Pts
+                                    Total Fantasy Pts ${getSortIndicator('fantasyPoints')}
                                 </th>
                             ` : ''}
                             ${visibleStats.map(stat => `
                                 <th onclick="sortTable('${stat}')" class="sortable">
-                                    ${getShortStatName(stat)}
+                                    ${getShortStatName(stat)} ${getSortIndicator(stat)}
                                 </th>
                             `).join('')}
                         </tr>
                     </thead>
                     <tbody>
-                        ${players.map(player => {
+                        ${sortedPlayers.map(player => {
                             return `
                                 <tr class="clickable-row" onclick="navigateToPlayer('${player.id}')">
                                     <td class="rank-cell">#${player.overallRank || '-'}</td>
@@ -896,7 +906,7 @@ function renderResearchView(players) {
        });
    }
 }
-
+   
 function getShortStatName(statName) {
    const abbreviations = {
        "Pass Att": "ATT",
