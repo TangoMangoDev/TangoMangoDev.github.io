@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Football Roster</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="team-info">
+                    <h1 class="team-name">Loading...</h1>
+                    <div class="team-record">--</div>
+                </div>
+                <div class="week-navigator">
+                    <button class="nav-btn prev-week" aria-label="Previous week">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                        </svg>
+                    </button>
+                    <div class="current-week">Week <span id="weekNumber">1</span></div>
+                    <button class="nav-btn next-week" aria-label="Next week">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="matchup-score">
+                    <div class="score-display">
+                        <span class="my-score">--</span>
+                        <span class="score-separator">vs</span>
+                        <span class="opp-score">--</span>
+                    </div>
+                    <div class="opponent-name">Loading...</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input type="text" class="search-input" placeholder="Search players...">
+            </div>
+            <div class="view-toggles">
+                <button class="view-btn active" data-view="roster">Roster</button>
+                <button class="view-btn" data-view="matchup">Matchup</button>
+                <button class="view-btn" data-view="stats">Stats</button>
+            </div>
+            <div class="filter-options">
+                <select class="position-filter">
+                    <option value="all">All Positions</option>
+                    <option value="QB">QB</option>
+                    <option value="RB">RB</option>
+                    <option value="WR">WR</option>
+                    <option value="TE">TE</option>
+                    <option value="K">K</option>
+                    <option value="DEF">DEF</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Roster View -->
+            <div id="rosterView" class="view-container active">
+                <div class="roster-grid">
+                    <!-- Players will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Matchup View -->
+            <div id="matchupView" class="view-container">
+                <div class="matchup-comparison">
+                    <div class="team-column my-team">
+                        <h2 class="column-header">My Team</h2>
+                        <div class="matchup-roster"></div>
+                    </div>
+                    <div class="position-comparison">
+                        <!-- Position matchup comparisons -->
+                    </div>
+                    <div class="team-column opponent-team">
+                        <h2 class="column-header">Opponent</h2>
+                        <div class="matchup-roster"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats View -->
+            <div id="statsView" class="view-container">
+                <div class="stats-table-container">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col">Player</th>
+                                <th class="sortable" data-sort="points">Points</th>
+                                <th class="sortable" data-sort="projection">Proj</th>
+                                <th class="sortable" data-sort="difference">+/-</th>
+                                <th class="sortable" data-sort="consistency">Consistency</th>
+                                <th class="sortable" data-sort="trend">Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Stats rows will be dynamically inserted -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Player Detail Modal -->
+        <div id="playerModal" class="modal">
+            <div class="modal-content">
+                <button class="modal-close">&times;</button>
+                <div class="player-detail-header">
+                    <img class="player-detail-image" src="" alt="">
+                    <div class="player-detail-info">
+                        <h2 class="player-detail-name"></h2>
+                        <div class="player-detail-meta"></div>
+                    </div>
+                </div>
+                <div class="detail-tabs">
+                    <button class="tab-btn active" data-tab="season">Season Stats</button>
+                    <button class="tab-btn" data-tab="weekly">Weekly Logs</button>
+                    <button class="tab-btn" data-tab="metrics">Custom Metrics</button>
+                </div>
+                <div class="tab-content">
+                    <!-- Tab content will be dynamically inserted -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates -->
+    <template id="playerCardTemplate">
+        <div class="player-card" data-player-id="">
+            <div class="player-main">
+                <img class="player-image" src="" alt="">
+                <div class="player-info">
+                    <div class="player-name"></div>
+                    <div class="player-meta">
+                        <span class="player-position"></span>
+                        <span class="player-team"></span>
+                        <span class="player-opponent"></span>
+                    </div>
+                </div>
+                <div class="player-stats">
+                    <div class="stat-item">
+                        <div class="stat-value projection"></div>
+                        <div class="stat-label">Proj</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value actual"></div>
+                        <div class="stat-label">Actual</div>
+                    </div>
+                </div>
+                <div class="player-badges">
+                    <!-- Badges will be inserted here -->
+                </div>
+                <button class="expand-btn" aria-label="Expand stats">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="player-expanded">
+                <!-- Expanded stats will be inserted here -->
+            </div>
+        </div>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+</html>
